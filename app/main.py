@@ -344,12 +344,14 @@ async def recommend_recipe(user_prompt: str, user_id: str, save_history: bool = 
         return {"status": "error", "message": f"处理失败: {str(e)}"}
 
 @app.post("/api/consume-ingredients")
-async def consume_ingredients(used_items: List[str]):
+async def consume_ingredients(used_items: List[str], user_id: str):
     """从库存中扣除已使用的食材"""
-    if not os.path.exists(INVENTORY_FILE):
+    path = get_user_path(user_id, "inventory.json")
+
+    if not os.path.exists(path):
         return {"status": "error", "message": "库存文件不存在"}
 
-    with open(INVENTORY_FILE, "r", encoding="utf-8") as f:
+    with open(path, "r", encoding="utf-8") as f:
         inventory_data = json.load(f)
 
     # 执行扣减逻辑
@@ -369,7 +371,7 @@ async def consume_ingredients(used_items: List[str]):
             new_inventory.append(item)
 
     # 保存更新后的库存
-    with open(INVENTORY_FILE, "w", encoding="utf-8") as f:
+    with open(path, "w", encoding="utf-8") as f:
         json.dump(new_inventory, f, ensure_ascii=False, indent=4)
 
     return {"status": "success", "remaining_count": len(new_inventory)}
@@ -472,7 +474,6 @@ async def get_tts(text: str = Query(..., min_length=1)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/chat-history")
-@app.get("/api/chat-history")
 async def get_chat_history_api(user_id: str): # ✅ 必须接收 user_id
     path = get_user_path(user_id, "chat_history.json")
     if os.path.exists(path):
@@ -510,23 +511,6 @@ def save_chat_message(user_id: str, role: str, content: str, recipe: dict = None
     # 仅保留最近 20 条，写入该用户文件夹
     with open(path, "w", encoding="utf-8") as f:
         json.dump(history[-20:], f, ensure_ascii=False, indent=4)
-
-
-@app.get("/api/chat-history")
-async def get_chat_history_api(user_id: str): # ✅ 接收 user_id
-    path = get_user_path(user_id, "chat_history.json")
-    if os.path.exists(path):
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except:
-            return []
-    return []
-
-@app.get("/api/chat-history")
-async def fetch_history():
-    """让前端刷新后重新加载对话"""
-    return get_chat_history_api()
 
 @app.post("/api/clear-chat")
 async def clear_chat():

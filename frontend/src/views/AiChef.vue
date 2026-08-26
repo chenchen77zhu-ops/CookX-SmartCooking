@@ -361,7 +361,16 @@ const nextStep = async () => {
   } else {
     try {
       const used = activeRecipe.value.used_ingredients || []
-      if (used.length > 0) await axios.post('/api/consume-ingredients', used)
+      if (used.length > 0) {
+        if (!userId) {
+          ElMessage.error('登录状态已失效，请重新登录')
+          navigationVisible.value = false
+          return
+        }
+        await axios.post('/api/consume-ingredients', used, {
+          params: { user_id: userId }
+        })
+      }
       ElMessage.success("烹饪完成，库存已更新！")
     } catch (e) { console.error(e) }
     navigationVisible.value = false

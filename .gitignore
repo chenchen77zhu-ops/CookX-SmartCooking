@@ -44,3 +44,6 @@ app/data/users/
 
 # Runtime uploads
 app/static/uploads/
+
+# Runtime generated audio
+app/static/audio/
