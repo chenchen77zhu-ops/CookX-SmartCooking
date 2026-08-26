@@ -1,0 +1,34 @@
+[
+    {
+        "id": "af172512",
+        "name": "大白菜",
+        "quantity": 1,
+        "add_time": "2026-05-05T19:12:03.717380",
+        "storage_type": "冷藏",
+        "shelf_life": 7
+    },
+    {
+        "id": "aa92901a",
+        "name": "土豆",
+        "quantity": 2,
+        "add_time": "2026-05-05T22:36:48.308876",
+        "storage_type": "冷藏",
+        "shelf_life": 7
+    },
+    {
+        "id": "81bcee53",
+        "name": "carrot",
+        "quantity": 2,
+        "add_time": "2026-05-05T22:36:48.308876",
+        "storage_type": "冷藏",
+        "shelf_life": 6
+    },
+    {
+        "id": "15525b06",
+        "name": "牛排",
+        "quantity": 1,
+        "add_time": "2026-05-05T22:36:48.308876",
+        "storage_type": "冷藏",
+        "shelf_life": 7
+    }
+]

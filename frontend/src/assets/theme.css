@@ -1,0 +1,189 @@
+/* ========================================
+   SmartCooking 健康绿色主题视觉规范
+   ======================================== */
+
+:root {
+  /* 主色体系 - 健康绿色 */
+  --primary-green: #2E7D32;
+  --light-green: #66BB6A;
+  --super-light-green: #E8F5E9;
+  
+  /* 功能色 */
+  --fresh-blue: #42A5F5;
+  --warning-orange: #FFA726;
+  --danger-red: #EF5350;
+  --voice-purple: #7C4DFF;
+  --camera-blue: #1976D2;
+  
+  /* 中性色 */
+  --text-title: #1F2937;
+  --text-body: #4B5563;
+  --text-secondary: #9CA3AF;
+  --bg-page: #F9FAFB;
+  --bg-card: #FFFFFF;
+  --border-light: #E5E7EB;
+  
+  /* 圆角规范 */
+  --radius-card: 16px;
+  --radius-button: 12px;
+  --radius-input: 12px;
+  
+  /* 间距规范 */
+  --spacing-xs: 8px;
+  --spacing-sm: 16px;
+  --spacing-md: 24px;
+  --spacing-lg: 32px;
+  
+  /* 阴影规范 */
+  --shadow-light: 0 2px 8px rgba(46, 125, 50, 0.08);
+  --shadow-medium: 0 4px 16px rgba(46, 125, 50, 0.12);
+  --shadow-heavy: 0 8px 32px rgba(46, 125, 50, 0.16);
+}
+
+/* 全局基础样式 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'PingFang SC', 'Noto Sans SC', 'Roboto', 'Inter', sans-serif;
+  background-color: var(--bg-page);
+  color: var(--text-body);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 字体大小规范 */
+.text-xs { font-size: 12px; }
+.text-sm { font-size: 14px; }
+.text-base { font-size: 16px; }
+.text-lg { font-size: 18px; }
+.text-xl { font-size: 20px; }
+.text-2xl { font-size: 24px; }
+
+/* 字重规范 */
+.font-normal { font-weight: 400; }
+.font-medium { font-weight: 500; }
+.font-semibold { font-weight: 600; }
+
+/* 通用卡片样式 */
+.card {
+  background: var(--bg-card);
+  border-radius: var(--radius-card);
+  padding: var(--spacing-md);
+  box-shadow: var(--shadow-light);
+  transition: all 0.3s ease;
+}
+
+.card:hover {
+  box-shadow: var(--shadow-medium);
+  transform: translateY(-2px);
+}
+
+/* 按钮点击动画 */
+.el-button, .button {
+  transition: all 0.2s ease;
+}
+
+.el-button:active, .button:active {
+  transform: scale(0.96);
+}
+
+/* 输入框样式统一 */
+.el-input__wrapper {
+  border-radius: var(--radius-input) !important;
+  box-shadow: 0 0 0 1px var(--border-light) inset !important;
+  transition: all 0.3s ease;
+}
+
+.el-input__wrapper:hover {
+  box-shadow: 0 0 0 1px var(--light-green) inset !important;
+}
+
+.el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 1px var(--primary-green) inset !important;
+}
+
+/* 主题色按钮 */
+.el-button--primary {
+  --el-button-bg-color: var(--primary-green);
+  --el-button-border-color: var(--primary-green);
+  --el-button-hover-bg-color: #1B5E20;
+  --el-button-hover-border-color: #1B5E20;
+}
+
+/* 加载动画 - 绿色旋转叶子 */
+@keyframes leaf-rotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-leaf {
+  width: 40px;
+  height: 40px;
+  position: relative;
+  animation: leaf-rotate 1.5s linear infinite;
+}
+
+.loading-leaf::before {
+  content: '🌿';
+  font-size: 40px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* 状态标签样式 */
+.status-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-tag.fresh {
+  background: var(--super-light-green);
+  color: var(--primary-green);
+}
+
+.status-tag.warning {
+  background: #FFF3E0;
+  color: var(--warning-orange);
+}
+
+.status-tag.danger {
+  background: #FFEBEE;
+  color: var(--danger-red);
+}
+
+/* 渐变背景 */
+.gradient-green {
+  background: linear-gradient(135deg, var(--super-light-green) 0%, var(--bg-page) 100%);
+}
+
+.gradient-green-header {
+  background: linear-gradient(135deg, var(--primary-green) 0%, var(--light-green) 100%);
+}
+
+/* 安全边距 */
+.safe-area {
+  padding-left: var(--spacing-sm);
+  padding-right: var(--spacing-sm);
+}
+
+/* 页面容器 */
+.page-container {
+  min-height: 100vh;
+  background: var(--bg-page);
+  padding-bottom: env(safe-area-inset-bottom);
+}

@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+python-multipart
+ultralytics
+Pillow
+opencv-python
+openai
+dashscope
+python-dotenv
+edge-tts
+aiohttp
+aiofiles

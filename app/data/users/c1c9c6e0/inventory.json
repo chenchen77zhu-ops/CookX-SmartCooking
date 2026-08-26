@@ -1,0 +1,34 @@
+[
+    {
+        "id": "6d527a84",
+        "name": "potato",
+        "quantity": 2,
+        "add_time": "2026-04-14T15:09:54.531211",
+        "storage_type": "冷藏",
+        "shelf_life": 7
+    },
+    {
+        "id": "987fc8a4",
+        "name": "beef",
+        "quantity": 1,
+        "add_time": "2026-04-14T15:09:54.532213",
+        "storage_type": "冷藏",
+        "shelf_life": 7
+    },
+    {
+        "id": "4750aa00",
+        "name": "carrot",
+        "quantity": 1,
+        "add_time": "2026-04-14T15:09:54.532213",
+        "storage_type": "冷藏",
+        "shelf_life": 7
+    },
+    {
+        "id": "d4e33a2e",
+        "name": "鸡肉",
+        "quantity": 1,
+        "add_time": "2026-04-14T15:10:19.133359",
+        "storage_type": "冷冻",
+        "shelf_life": 7
+    }
+]

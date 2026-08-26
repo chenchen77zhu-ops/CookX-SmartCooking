@@ -1,0 +1,26 @@
+[
+    {
+        "id": "d3c8a54a",
+        "name": "potato",
+        "quantity": 2,
+        "add_time": "2026-04-13T20:27:19.175183",
+        "storage_type": "冷藏",
+        "shelf_life": 7
+    },
+    {
+        "id": "bfed6505",
+        "name": "beef",
+        "quantity": 1,
+        "add_time": "2026-04-13T20:27:19.175183",
+        "storage_type": "冷藏",
+        "shelf_life": 7
+    },
+    {
+        "id": "a7bb5973",
+        "name": "carrot",
+        "quantity": 2,
+        "add_time": "2026-04-13T20:27:19.175183",
+        "storage_type": "冷藏",
+        "shelf_life": 7
+    }
+]

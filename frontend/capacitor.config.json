@@ -1,0 +1,15 @@
+{
+  "appId": "com.smartcooking.app",
+  "appName": "SmartCooking",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https",
+    "allowNavigation": [
+      "thermal-armful-surfer.ngrok-free.dev",
+      "*.amap.com",
+      "*.meituan.com",
+      "*.ngrok-free.dev",
+      "*.ngrok-free.app"
+    ]
+  }
+}
