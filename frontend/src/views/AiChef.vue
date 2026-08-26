@@ -129,7 +129,6 @@ import { Promotion, Microphone, Location, AlarmClock, Timer, Bicycle } from '@el
 import { ElMessage, ElNotification, ElMessageBox } from 'element-plus'
 
 // --- 基础定义 ---
-const BASE_URL = 'https://thermal-armful-surfer.ngrok-free.dev';
 const props = defineProps(['pendingDish'])
 const emit = defineEmits(['clear-pending'])
 const userInput = ref('')
@@ -176,9 +175,8 @@ const fetchHistory = async () => {
   if (!user.id) return;
 
   try {
-    const res = await axios.get(`${BASE_URL}/api/chat-history`, {
-      params: { user_id: user.id },
-      headers: { "ngrok-skip-browser-warning": "true" }
+    const res = await axios.get('/api/chat-history', {
+      params: { user_id: user.id }
     });
     if (res.data && res.data.length > 0) {
       messages.value = res.data;
@@ -198,14 +196,6 @@ onMounted(async () => {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   if (!user.id) return;
 
-  try {
-    await axios.get(BASE_URL, { headers: { "ngrok-skip-browser-warning": "true" } });
-    console.log("ngrok 预验证成功");
-  } catch (e) {
-    console.warn("ngrok 预验证跳过");
-  }
-
-  // 2. 调用上面定义好的函数
   await fetchHistory();
 });
 
@@ -236,13 +226,12 @@ const sendMessage = async (val = null) => {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
 
     // 4. 发起标准的 Axios 请求 (不再使用 fetch 流)
-    const res = await axios.get('https://thermal-armful-surfer.ngrok-free.dev/api/recommend-recipe', {
+    const res = await axios.get('/api/recommend-recipe', {
       params: {
         user_prompt: text,
         user_id: user.id,
         save_history: true
-      },
-      headers: { "ngrok-skip-browser-warning": "true" }
+      }
     });
 
     if (res.data.status === 'success') {
@@ -302,20 +291,16 @@ const runStep = async () => {
     const text = `第${currentStepIdx.value + 1}步：${step.text}`;
 
     // 1. 获取音频文件路径
-    const res = await axios.get(`${BASE_URL}/api/tts`, {
-      params: { text },
-      headers: { "ngrok-skip-browser-warning": "true" }
+    const res = await axios.get('/api/tts', {
+      params: { text }
     });
 
     if (res.data && res.data.audio_url) {
-      const audioUrl = `${BASE_URL}${res.data.audio_url}`;
+      const audioUrl = res.data.audio_url;
 
       // ✅ 核心修复：不直接用 new Audio(url)
       // 使用 axios 以 blob 形式下载音频，强制带上跳过头
-      const audioRes = await axios.get(audioUrl, {
-        responseType: 'blob', // 关键：获取二进制数据
-        headers: { "ngrok-skip-browser-warning": "true" }
-      });
+      const audioRes = await axios.get(audioUrl, { responseType: 'blob' });
 
       // 2. 将下载的 Blob 转换为本地临时 URL
       const blobUrl = window.URL.createObjectURL(audioRes.data);
@@ -376,7 +361,7 @@ const nextStep = async () => {
   } else {
     try {
       const used = activeRecipe.value.used_ingredients || []
-      if (used.length > 0) await axios.post('https://thermal-armful-surfer.ngrok-free.dev/api/consume-ingredients', used)
+      if (used.length > 0) await axios.post('/api/consume-ingredients', used)
       ElMessage.success("烹饪完成，库存已更新！")
     } catch (e) { console.error(e) }
     navigationVisible.value = false
@@ -392,19 +377,32 @@ const prevStep = () => {
 
 // --- 功能性跳转 ---
 const goToMarket = () => {
+  const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  const openAmapWeb = (longitude, latitude) => {
+    const center = longitude != null && latitude != null
+      ? `&center=${longitude},${latitude}`
+      : '';
+    window.location.href = `https://uri.amap.com/search?keyword=${encodeURIComponent('菜市场')}${center}&view=map&src=smart_cooking&coordinate=gaode`;
+  };
+
   navigator.geolocation.getCurrentPosition((pos) => {
     const { longitude, latitude } = pos.coords;
-    const amapScheme = `androidamap://poi?poiname=菜市场&lat=${latitude}&lon=${longitude}&dev=0`;
+    if (!isMobile) {
+      openAmapWeb(longitude, latitude);
+      return;
+    }
 
+    const scheme = /iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'iosamap' : 'androidamap';
+    const amapScheme = `${scheme}://arroundpoi?sourceApplication=smart_cooking&keywords=${encodeURIComponent('菜市场')}&lat=${latitude}&lon=${longitude}&dev=0`;
+    const fallbackTimer = window.setTimeout(() => {
+      if (!document.hidden) openAmapWeb(longitude, latitude);
+    }, 1500);
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) window.clearTimeout(fallbackTimer);
+    }, { once: true });
     window.location.href = amapScheme;
-
-    setTimeout(() => {
-      const h5Url = `https://uri.amap.com/search?keyword=菜市场&center=${longitude},${latitude}&view=map&src=smart_cooking&coordinate=gaode&callnative=1`;
-      window.open(h5Url, '_blank');
-    }, 500);
-
   }, () => {
-    window.open('https://uri.amap.com/search?keyword=菜市场', '_blank');
+    openAmapWeb();
   });
 };
 
@@ -417,25 +415,32 @@ const orderDelivery = (dishName) => {
     type: 'info',
     center: true
   }).then(() => {
-    // 1. 美团外卖原生 Scheme
-    const meituanScheme = `imeituan://www.meituan.com/s/${encodeURIComponent(dishName)}`;
-
-    // 尝试唤起
-    window.location.href = meituanScheme;
-
-    // 2. 兜底逻辑：打开美团 H5 搜索页
-    setTimeout(() => {
-      const h5Url = `https://v.meituan.com/s/${encodeURIComponent(dishName)}`;
+    const encodedDishName = encodeURIComponent(dishName);
+    const h5Url = 'https://h5.waimai.meituan.com/waimai/mindex/home';
+    const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+    const openMeituanH5 = () => {
+      navigator.clipboard?.writeText(dishName).catch(() => {});
+      ElMessage.info(`请在美团外卖中搜索“${dishName}”`);
       window.location.href = h5Url;
-    }, 500);
+    };
+
+    if (!isMobile) {
+      openMeituanH5();
+      return;
+    }
+
+    const fallbackTimer = window.setTimeout(() => {
+      if (!document.hidden) openMeituanH5();
+    }, 1500);
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) window.clearTimeout(fallbackTimer);
+    }, { once: true });
+    window.location.href = `imeituan://www.meituan.com/s/${encodedDishName}`;
   }).catch(() => {});
 };
 
 const playVoice = async (url) => {
-  const fullUrl = `${NGROK_URL}${url}`; // 使用上面导出的域名
-
-  // ✅ 核心技巧：用 axios 强制带 header 下载
-  const res = await api.get(fullUrl, { responseType: 'blob' });
+  const res = await axios.get(url, { responseType: 'blob' });
 
   const blobUrl = window.URL.createObjectURL(res.data);
   const audio = new Audio(blobUrl);

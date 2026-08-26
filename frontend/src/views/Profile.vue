@@ -208,12 +208,11 @@ const systemMessages = computed(() => {
 
 const markAsRead = async (messageId) => {
   try {
-    const res = await axios.post('https://thermal-armful-surfer.ngrok-free.dev/api/notifications/read', null, {
+    const res = await axios.post('/api/notifications/read', null, {
       params: {
         user_id: user.value.id,
         msg_id: messageId
-      },
-      headers: { "ngrok-skip-browser-warning": "true" }
+      }
     })
     if (res.data.status === 'success') {
       const msg = messages.value.find(m => m.id === messageId)
@@ -249,8 +248,7 @@ const editRules = {
 const getFullAvatarUrl = (path) => {
   if (!path) return 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
   if (path.startsWith('http')) return path
-  const PUBLIC_URL = 'https://thermal-armful-surfer.ngrok-free.dev'
-  return `${PUBLIC_URL}${path}`
+  return path
 }
 
 onMounted(async () => {
@@ -261,9 +259,8 @@ onMounted(async () => {
 const fetchNotifications = async () => {
   if (!user.value?.id) return
   try {
-    const res = await axios.get('https://thermal-armful-surfer.ngrok-free.dev/api/notifications', {
-      params: { user_id: user.value.id },
-      headers: { "ngrok-skip-browser-warning": "true" }
+    const res = await axios.get('/api/notifications', {
+      params: { user_id: user.value.id }
     })
     messages.value = res.data
   } catch (e) {

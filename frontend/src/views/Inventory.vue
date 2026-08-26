@@ -19,14 +19,17 @@ import { ref, onMounted } from 'vue'
 import axios from 'axios'
 
 const inventory = ref([])
+const userId = JSON.parse(localStorage.getItem('user') || '{}').id
 
 const fetchInventory = async () => {
-  const res = await axios.get('https://thermal-armful-surfer.ngrok-free.dev/api/inventory')
+  if (!userId) return
+  const res = await axios.get('/api/inventory', { params: { user_id: userId } })
   inventory.value = res.data
 }
 
 const removeItem = async (id) => {
-  await axios.delete(`https://thermal-armful-surfer.ngrok-free.dev/api/inventory/${id}`)
+  if (!userId) return
+  await axios.delete(`/api/inventory/${id}`, { params: { user_id: userId } })
   fetchInventory() // 刷新列表
 }
 

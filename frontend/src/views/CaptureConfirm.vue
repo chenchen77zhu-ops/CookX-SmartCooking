@@ -188,11 +188,10 @@ const confirmSave = async () => {
     // 参数2: Body 数据 (itemsToSave)
     // 参数3: 配置对象，其中 params 会被转化为 URL 后的 ?user_id=xxx
     const response = await axios.post(
-      'https://thermal-armful-surfer.ngrok-free.dev/api/add-to-inventory',
+      '/api/add-to-inventory',
       itemsToSave,
       {
-        params: { user_id: userId },
-        headers: { "ngrok-skip-browser-warning": "true" }
+        params: { user_id: userId }
       }
     )
 

@@ -4,7 +4,7 @@
     <el-upload
       class="upload-demo"
       drag
-      action="https://thermal-armful-surfer.ngrok-free.dev/api/analyze-fridge"
+      action="/api/analyze-fridge"
       :on-success="handleSuccess"
       :show-file-list="false"
     >

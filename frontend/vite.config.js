@@ -24,13 +24,11 @@ export default defineConfig({
     // 这里保留 proxy 仅用于你在电脑浏览器上进行本地调试
     proxy: {
       '/api': {
-        // ✅ 核心修改 2：调试时可以指向你的 ngrok 地址
-        target: 'https://xxxx-xxx.ngrok-free.app',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '')
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true
       },
       '/static': {
-        target: 'https://xxxx-xxx.ngrok-free.app',
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true,
       }
     }
