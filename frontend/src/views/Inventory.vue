@@ -17,19 +17,20 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
+import { API_BASE_URL } from '@/config/backend'
 
 const inventory = ref([])
 const userId = JSON.parse(localStorage.getItem('user') || '{}').id
 
 const fetchInventory = async () => {
   if (!userId) return
-  const res = await axios.get('/api/inventory', { params: { user_id: userId } })
+  const res = await axios.get(`${API_BASE_URL}/inventory`, { params: { user_id: userId } })
   inventory.value = res.data
 }
 
 const removeItem = async (id) => {
   if (!userId) return
-  await axios.delete(`/api/inventory/${id}`, { params: { user_id: userId } })
+  await axios.delete(`${API_BASE_URL}/inventory/${id}`, { params: { user_id: userId } })
   fetchInventory() // 刷新列表
 }
 

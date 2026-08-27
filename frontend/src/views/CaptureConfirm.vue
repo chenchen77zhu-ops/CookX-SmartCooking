@@ -119,6 +119,7 @@ import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { ArrowLeft, CircleCheckFilled, Delete } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import { API_BASE_URL } from '@/config/backend'
 
 const router = useRouter()
 const identifiedItems = ref([])
@@ -188,7 +189,7 @@ const confirmSave = async () => {
     // 参数2: Body 数据 (itemsToSave)
     // 参数3: 配置对象，其中 params 会被转化为 URL 后的 ?user_id=xxx
     const response = await axios.post(
-      '/api/add-to-inventory',
+      `${API_BASE_URL}/add-to-inventory`,
       itemsToSave,
       {
         params: { user_id: userId }

@@ -8,6 +8,45 @@
       </div>
     </div>
 
+    <section :class="['temperature-card', temperatureLevel.className]">
+      <div class="temperature-header">
+        <div>
+          <span class="temperature-eyebrow">实时油温</span>
+          <div class="temperature-reading">
+            {{ currentTemperature === null ? '--' : currentTemperature.toFixed(1) }}<small>°C</small>
+          </div>
+        </div>
+        <el-tag :type="temperatureLevel.tagType" effect="dark" round>
+          {{ temperatureLevel.status }}
+        </el-tag>
+      </div>
+
+      <div class="temperature-meta">
+        <span>设备：{{ temperatureConnectionText }}</span>
+        <span>更新：{{ lastTemperatureTime }}</span>
+      </div>
+
+      <div class="temperature-tip">
+        <span class="temperature-alert-icon">{{ temperatureLevel.icon }}</span>
+        <span>{{ temperatureLevel.tip }}</span>
+      </div>
+
+      <div class="temperature-actions">
+        <el-button
+          v-if="!temperatureConnected"
+          type="primary"
+          size="small"
+          :loading="temperatureConnecting"
+          @click="temperatureDialogVisible = true"
+        >
+          连接测温设备
+        </el-button>
+        <el-button v-else type="danger" plain size="small" @click="disconnectTemperature">
+          断开设备
+        </el-button>
+      </div>
+    </section>
+
     <!-- 1. 聊天消息区 -->
     <div class="chat-messages" ref="chatBox">
       <div v-for="(msg, index) in messages" :key="index" :class="['message-wrapper', msg.role]">
@@ -119,6 +158,21 @@
         </div>
       </div>
     </el-dialog>
+
+    <el-dialog v-model="temperatureDialogVisible" title="连接 JDY-31 测温设备" width="90%">
+      <el-input
+        v-model="temperatureDeviceAddress"
+        placeholder="请输入已配对设备 MAC，例如 00:11:22:33:44:55"
+        maxlength="17"
+        clearable
+        @keyup.enter="connectTemperature"
+      />
+      <p class="temperature-dialog-help">请先在 Android 系统蓝牙设置中完成 JDY-31 配对。</p>
+      <template #footer>
+        <el-button @click="temperatureDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="temperatureConnecting" @click="connectTemperature">连接</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -127,6 +181,13 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import axios from 'axios'
 import { Promotion, Microphone, Location, AlarmClock, Timer, Bicycle } from '@element-plus/icons-vue'
 import { ElMessage, ElNotification, ElMessageBox } from 'element-plus'
+import {
+  connectTemperatureDevice,
+  disconnectTemperatureDevice,
+  onTemperatureData,
+  handleTemperatureUpdate
+} from '@/services/temperatureDevice'
+import { API_BASE_URL, resolveBackendUrl } from '@/config/backend'
 
 // --- 基础定义 ---
 const props = defineProps(['pendingDish'])
@@ -147,6 +208,224 @@ const activeReminders = ref([])
 let timer = null
 let recognition = null
 let currentAudio = null // 当前正在播放的音频对象
+let currentAudioBlobUrl = null
+let voiceRequestVersion = 0
+let preloadedVoice = null
+let preloadGeneration = 0
+let temperatureListener = null
+
+const releaseAudioResource = (audio, blobUrl) => {
+  if (audio) {
+    audio.onended = null
+    audio.onerror = null
+    try { audio.pause() } catch (e) {}
+    try { audio.currentTime = 0 } catch (e) {}
+    audio.removeAttribute('src')
+    try { audio.load() } catch (e) {}
+  }
+
+  if (blobUrl) window.URL.revokeObjectURL(blobUrl)
+}
+
+const stopCurrentAudio = () => {
+  if (!currentAudio && !currentAudioBlobUrl) return
+
+  console.log('[Voice] stop current audio')
+  const audio = currentAudio
+  const blobUrl = currentAudioBlobUrl
+  currentAudio = null
+  currentAudioBlobUrl = null
+  releaseAudioResource(audio, blobUrl)
+}
+
+const discardStaleVoiceRequest = (requestVersion) => {
+  if (requestVersion === voiceRequestVersion) return false
+  console.log(`[Voice] discard stale version=${requestVersion}`)
+  return true
+}
+
+const discardStepAudio = (audio, blobUrl) => {
+  if (currentAudio === audio) {
+    currentAudio = null
+    currentAudioBlobUrl = null
+  }
+  releaseAudioResource(audio, blobUrl)
+}
+
+const clearPreloadedVoice = () => {
+  preloadGeneration++
+  if (preloadedVoice?.blobUrl) window.URL.revokeObjectURL(preloadedVoice.blobUrl)
+  preloadedVoice = null
+}
+
+const preloadNextStep = async (currentStepIndex) => {
+  clearPreloadedVoice()
+
+  const nextStepIndex = currentStepIndex + 1
+  const nextStep = activeRecipe.value.steps[nextStepIndex]
+  if (!nextStep || !navigationVisible.value) return
+
+  const generation = preloadGeneration
+  const stepNumber = nextStepIndex + 1
+  const text = `第${stepNumber}步：${nextStep.text}`
+  console.log(`[Voice] preload step=${stepNumber}`)
+
+  try {
+    const res = await axios.get(`${API_BASE_URL}/tts`, { params: { text } })
+    if (generation !== preloadGeneration || !navigationVisible.value) return
+    if (!res.data?.audio_url) return
+
+    const audioUrl = resolveBackendUrl(res.data.audio_url)
+    const audioRes = await axios.get(audioUrl, { responseType: 'blob' })
+    if (generation !== preloadGeneration || !navigationVisible.value) return
+
+    const blobUrl = window.URL.createObjectURL(audioRes.data)
+    const currentTarget = activeRecipe.value.steps[nextStepIndex]
+    if (
+      generation !== preloadGeneration ||
+      !currentTarget ||
+      `第${stepNumber}步：${currentTarget.text}` !== text
+    ) {
+      window.URL.revokeObjectURL(blobUrl)
+      return
+    }
+
+    preloadedVoice = { stepIndex: nextStepIndex, text, blobUrl }
+    console.log(`[Voice] preload ready step=${stepNumber}`)
+  } catch (e) {
+    if (generation === preloadGeneration) console.warn('[Voice] preload failed', e)
+  }
+}
+
+const takePreloadedVoice = (stepIndex, text) => {
+  if (preloadedVoice?.stepIndex !== stepIndex || preloadedVoice?.text !== text) {
+    clearPreloadedVoice()
+    return null
+  }
+
+  const cached = preloadedVoice
+  preloadedVoice = null
+  preloadGeneration++
+  console.log(`[Voice] use preload step=${stepIndex + 1}`)
+  return cached
+}
+
+const currentTemperature = ref(null)
+const lastTemperatureTimestamp = ref(null)
+const temperatureConnected = ref(false)
+const temperatureConnecting = ref(false)
+const temperatureAcceptingData = ref(false)
+const temperatureDialogVisible = ref(false)
+const temperatureDeviceAddress = ref(localStorage.getItem('temperatureDeviceAddress') || '')
+
+const temperatureConnectionText = computed(() => {
+  if (temperatureConnecting.value) return '连接中'
+  return temperatureConnected.value ? '已连接' : '未连接'
+})
+
+const lastTemperatureTime = computed(() => {
+  if (!lastTemperatureTimestamp.value) return '--'
+  return new Date(lastTemperatureTimestamp.value).toLocaleTimeString('zh-CN', { hour12: false })
+})
+
+const temperatureLevel = computed(() => {
+  const temp = currentTemperature.value
+  if (temp === null) {
+    return {
+      status: '等待数据',
+      tip: '连接测温设备后，这里会显示实时油温。',
+      tagType: 'info',
+      className: 'temperature-idle',
+      icon: '🌡️'
+    }
+  }
+  if (temp < 140) {
+    return { status: '油温偏低', tip: '油温较低，请继续加热。', tagType: 'info', className: 'temperature-low', icon: '🌡️' }
+  }
+  if (temp < 170) {
+    return { status: '正在升温', tip: '正在接近合适的下锅温度。', tagType: 'warning', className: 'temperature-rising', icon: '♨️' }
+  }
+  if (temp <= 185) {
+    return { status: '适合下锅', tip: '当前油温合适，可以准备下入食材。', tagType: 'success', className: 'temperature-ready', icon: '✅' }
+  }
+  if (temp <= 205) {
+    return { status: '油温偏高', tip: '油温偏高，建议调小火。', tagType: 'warning', className: 'temperature-high', icon: '⚠️' }
+  }
+  return { status: '危险', tip: '油温过高，请暂缓下锅并降低火力。', tagType: 'danger', className: 'temperature-danger', icon: '🔥' }
+})
+
+const connectTemperature = async () => {
+  if (temperatureConnecting.value) return
+  temperatureConnecting.value = true
+  try {
+    const result = await connectTemperatureDevice(temperatureDeviceAddress.value)
+    if (result.status === 'unsupported') {
+      ElMessage.warning('当前环境不支持 Bluetooth Classic 测温，请使用 Android App。')
+      return
+    }
+
+    temperatureConnected.value = true
+    temperatureAcceptingData.value = true
+    temperatureDialogVisible.value = false
+    localStorage.setItem('temperatureDeviceAddress', temperatureDeviceAddress.value.trim().toUpperCase())
+    ElMessage.success(`测温设备已连接${result.mode === 'insecure' ? '（兼容模式）' : ''}`)
+  } catch (error) {
+    temperatureConnected.value = false
+    temperatureAcceptingData.value = false
+    ElMessage.error(error?.message || '测温设备连接失败，请检查配对状态和 MAC 地址')
+  } finally {
+    temperatureConnecting.value = false
+  }
+}
+
+const disconnectTemperature = async () => {
+  temperatureAcceptingData.value = false
+  try {
+    const result = await disconnectTemperatureDevice()
+    if (result.status === 'unsupported') {
+      ElMessage.warning('当前环境不支持 Bluetooth Classic 测温，请使用 Android App。')
+      return
+    }
+    ElMessage.success('测温设备已断开')
+  } catch (error) {
+    ElMessage.error(error?.message || '断开测温设备失败')
+  } finally {
+    temperatureConnected.value = false
+  }
+}
+
+const registerTemperatureListener = async () => {
+  try {
+    temperatureListener = await onTemperatureData((data) => {
+      if (!temperatureAcceptingData.value) return
+      const update = handleTemperatureUpdate(data.temperature, data.timestamp)
+      if (!update) return
+      currentTemperature.value = update.temperature
+      lastTemperatureTimestamp.value = update.timestamp
+    })
+  } catch (error) {
+    console.error('注册温度监听失败:', error)
+    ElMessage.error('无法监听测温设备数据')
+  }
+}
+
+const cleanupTemperatureDevice = async () => {
+  temperatureAcceptingData.value = false
+  if (temperatureListener) {
+    try {
+      await temperatureListener.remove()
+    } catch (error) {
+      console.warn('移除温度监听失败:', error)
+    }
+    temperatureListener = null
+  }
+  try {
+    await disconnectTemperatureDevice()
+  } catch (error) {
+    console.warn('清理测温设备连接失败:', error)
+  }
+  temperatureConnected.value = false
+}
 
 // --- 工具函数 ---
 const scrollToBottom = async () => {
@@ -175,7 +454,7 @@ const fetchHistory = async () => {
   if (!user.id) return;
 
   try {
-    const res = await axios.get('/api/chat-history', {
+    const res = await axios.get(`${API_BASE_URL}/chat-history`, {
       params: { user_id: user.id }
     });
     if (res.data && res.data.length > 0) {
@@ -198,6 +477,8 @@ onMounted(async () => {
 
   await fetchHistory();
 });
+
+onMounted(registerTemperatureListener)
 
 watch(() => props.pendingDish, (newDish) => {
   if (newDish && newDish.trim() !== '') {
@@ -226,7 +507,7 @@ const sendMessage = async (val = null) => {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
 
     // 4. 发起标准的 Axios 请求 (不再使用 fetch 流)
-    const res = await axios.get('/api/recommend-recipe', {
+    const res = await axios.get(`${API_BASE_URL}/recommend-recipe`, {
       params: {
         user_prompt: text,
         user_id: user.id,
@@ -258,6 +539,7 @@ const sendMessage = async (val = null) => {
 
 // --- 导航与消耗逻辑 ---
 const startNavigation = (recipe) => {
+  clearPreloadedVoice()
   activeRecipe.value = recipe
   currentStepIdx.value = 0
   navigationVisible.value = true
@@ -267,11 +549,17 @@ const startNavigation = (recipe) => {
 
 // 修改 runStep 函数
 const runStep = async () => {
+  const requestVersion = ++voiceRequestVersion
+  stopCurrentAudio()
+
   // 1. 物理级清理计时器
   if (timer) { clearInterval(timer); timer = null; }
 
   const step = activeRecipe.value.steps[currentStepIdx.value];
   if (!step) return;
+  const stepIndex = currentStepIdx.value;
+  const stepNumber = stepIndex + 1;
+  console.log(`[Voice] runStep version=${requestVersion} step=${stepNumber}`);
 
   timeLeft.value = Number(step.time_estimate) || 60;
 
@@ -287,39 +575,82 @@ const runStep = async () => {
   }
 
   // 2. 请求并播放语音
+  let blobUrl = null;
+  let audio = null;
   try {
-    const text = `第${currentStepIdx.value + 1}步：${step.text}`;
+    const text = `第${stepNumber}步：${step.text}`;
+    const cachedVoice = takePreloadedVoice(stepIndex, text);
 
-    // 1. 获取音频文件路径
-    const res = await axios.get('/api/tts', {
-      params: { text }
-    });
+    if (cachedVoice) {
+      blobUrl = cachedVoice.blobUrl;
+    } else {
+      // 1. 获取音频文件路径
+      const res = await axios.get(`${API_BASE_URL}/tts`, {
+        params: { text }
+      });
 
-    if (res.data && res.data.audio_url) {
-      const audioUrl = res.data.audio_url;
+      if (discardStaleVoiceRequest(requestVersion)) return;
+
+      if (!res.data?.audio_url) return;
+      const audioUrl = resolveBackendUrl(res.data.audio_url);
 
       // ✅ 核心修复：不直接用 new Audio(url)
       // 使用 axios 以 blob 形式下载音频，强制带上跳过头
       const audioRes = await axios.get(audioUrl, { responseType: 'blob' });
 
+      if (discardStaleVoiceRequest(requestVersion)) return;
+
       // 2. 将下载的 Blob 转换为本地临时 URL
-      const blobUrl = window.URL.createObjectURL(audioRes.data);
-      const audio = new Audio(blobUrl);
-
-      audio.onended = () => {
-        window.URL.revokeObjectURL(blobUrl); // 播放完释放内存
-        initVoiceRecognition();
-      };
-
-      await audio.play();
-
-      // 3. 启动计时器
-      timer = setInterval(() => {
-        if (timeLeft.value > 0) timeLeft.value--;
-      }, 1000);
-
+      blobUrl = window.URL.createObjectURL(audioRes.data);
     }
+
+    if (discardStaleVoiceRequest(requestVersion)) {
+      releaseAudioResource(null, blobUrl);
+      return;
+    }
+
+    console.log(`[Voice] create audio version=${requestVersion} step=${stepNumber}`);
+    audio = new Audio(blobUrl);
+    if (discardStaleVoiceRequest(requestVersion)) {
+      discardStepAudio(audio, blobUrl);
+      return;
+    }
+
+    currentAudioBlobUrl = blobUrl;
+    currentAudio = audio;
+
+    audio.onended = () => {
+      if (currentAudio === audio) {
+        stopCurrentAudio();
+        if (requestVersion === voiceRequestVersion) initVoiceRecognition();
+      }
+    };
+
+    if (discardStaleVoiceRequest(requestVersion)) {
+      discardStepAudio(audio, blobUrl);
+      return;
+    }
+
+    console.log(`[Voice] play version=${requestVersion} step=${stepNumber}`);
+    await audio.play();
+
+    if (discardStaleVoiceRequest(requestVersion)) {
+      discardStepAudio(audio, blobUrl);
+      return;
+    }
+
+    // 3. 启动计时器
+    timer = setInterval(() => {
+      if (timeLeft.value > 0) timeLeft.value--;
+    }, 1000);
+
+    void preloadNextStep(stepIndex);
   } catch (e) {
+    if (discardStaleVoiceRequest(requestVersion)) {
+      if (audio || blobUrl) discardStepAudio(audio, blobUrl);
+      return;
+    }
+    stopCurrentAudio();
     console.error("语音播报全链路失败:", e);
     initVoiceRecognition();
   }
@@ -355,6 +686,10 @@ const setLongTimeReminder = (step, dishName) => {
 }
 
 const nextStep = async () => {
+  voiceRequestVersion++
+  stopCurrentAudio()
+  if (timer) { clearInterval(timer); timer = null; }
+
   if (currentStepIdx.value < activeRecipe.value.steps.length - 1) {
     currentStepIdx.value++
     runStep()
@@ -367,7 +702,7 @@ const nextStep = async () => {
           navigationVisible.value = false
           return
         }
-        await axios.post('/api/consume-ingredients', used, {
+        await axios.post(`${API_BASE_URL}/consume-ingredients`, used, {
           params: { user_id: userId }
         })
       }
@@ -379,6 +714,9 @@ const nextStep = async () => {
 
 const prevStep = () => {
   if (currentStepIdx.value > 0) {
+    voiceRequestVersion++
+    stopCurrentAudio()
+    if (timer) { clearInterval(timer); timer = null; }
     currentStepIdx.value--
     runStep()
   }
@@ -448,16 +786,6 @@ const orderDelivery = (dishName) => {
   }).catch(() => {});
 };
 
-const playVoice = async (url) => {
-  const res = await axios.get(url, { responseType: 'blob' });
-
-  const blobUrl = window.URL.createObjectURL(res.data);
-  const audio = new Audio(blobUrl);
-  audio.play();
-
-  audio.onended = () => window.URL.revokeObjectURL(blobUrl);
-}
-
 // --- 语音识别与定时器 ---
 const initVoiceRecognition = () => {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -511,6 +839,10 @@ const initVoiceRecognition = () => {
 };
 
 const stopNavigation = () => {
+  voiceRequestVersion++
+  stopCurrentAudio()
+  clearPreloadedVoice()
+
   if (timer) { clearInterval(timer); timer = null; }
 
   if (recognition) {
@@ -545,6 +877,7 @@ const triggerAlarm = (reminder) => {
 }
 
 onUnmounted(stopNavigation)
+onUnmounted(cleanupTemperatureDevice)
 </script>
 
 <style scoped>
@@ -554,6 +887,100 @@ onUnmounted(stopNavigation)
   flex-direction: column;
   background: #f1f4f3;
   overflow: hidden;
+}
+
+.temperature-card {
+  margin: 10px 10px 0;
+  padding: 14px;
+  border: 1px solid #dfe9e3;
+  border-left: 5px solid #8aa89a;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 3px 12px rgba(32, 82, 57, 0.08);
+  transition: border-color 0.25s, background 0.25s, box-shadow 0.25s;
+}
+
+.temperature-header,
+.temperature-meta,
+.temperature-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.temperature-eyebrow {
+  color: #64746c;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.temperature-reading {
+  margin-top: 2px;
+  color: #263b31;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.temperature-reading small {
+  margin-left: 2px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.temperature-meta {
+  margin-top: 12px;
+  color: #7a8881;
+  font-size: 11px;
+}
+
+.temperature-tip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: #f5f8f6;
+  color: #526159;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.temperature-alert-icon {
+  flex-shrink: 0;
+  font-size: 16px;
+}
+
+.temperature-actions {
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.temperature-ready { border-left-color: #43a047; }
+.temperature-rising { border-left-color: #e6a23c; }
+.temperature-high {
+  border-color: #efb35b;
+  border-left-color: #e67e22;
+  background: #fff9ef;
+  box-shadow: 0 3px 14px rgba(230, 126, 34, 0.18);
+}
+.temperature-danger {
+  border-color: #e76b65;
+  border-left-color: #d9363e;
+  background: #fff1f0;
+  box-shadow: 0 3px 16px rgba(217, 54, 62, 0.24);
+}
+.temperature-danger .temperature-reading { color: #c62828; }
+.temperature-high .temperature-tip { background: #fff0d9; color: #9a5a00; }
+.temperature-danger .temperature-tip { background: #ffe0dd; color: #b42318; font-weight: 600; }
+
+.temperature-dialog-help {
+  margin: 10px 2px 0;
+  color: #849087;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .chat-messages {

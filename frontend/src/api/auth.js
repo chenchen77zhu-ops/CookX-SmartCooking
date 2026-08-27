@@ -1,10 +1,10 @@
 import axios from 'axios'
+import { API_BASE_URL, BACKEND_BASE_URL } from '@/config/backend'
 
-// ?? axios ??
-export const BASE_URL = ''
+export const BASE_URL = BACKEND_BASE_URL
 
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: API_BASE_URL,
   timeout: 30000,
   headers: { "Content-Type": "application/json" }
 })

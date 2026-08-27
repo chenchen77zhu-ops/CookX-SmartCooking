@@ -2,6 +2,9 @@
   "appId": "com.smartcooking.app",
   "appName": "SmartCooking",
   "webDir": "dist",
+  "android": {
+    "allowMixedContent": true
+  },
   "server": {
     "androidScheme": "https",
     "allowNavigation": [

@@ -4,7 +4,7 @@
     <el-upload
       class="upload-demo"
       drag
-      action="/api/analyze-fridge"
+      :action="`${API_BASE_URL}/analyze-fridge`"
       :on-success="handleSuccess"
       :show-file-list="false"
     >
@@ -22,6 +22,7 @@
 <script setup>
 import { ref } from 'vue'
 import { UploadFilled } from '@element-plus/icons-vue'
+import { API_BASE_URL } from '@/config/backend'
 
 const detectedItems = ref([])
 

@@ -15,7 +15,7 @@
 
         <!-- 拍照识别按钮 -->
         <el-upload
-          action="/api/analyze-fridge"
+          :action="`${API_BASE_URL}/analyze-fridge`"
           :on-success="handleUploadSuccess"
           :show-file-list="false"
           accept="image/*"
@@ -140,6 +140,7 @@ import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { CameraFilled, CircleCloseFilled, Delete, KnifeFork, ArrowRight, EditPen, WarningFilled, Search, Plus, CloseBold } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { API_BASE_URL } from '@/config/backend'
 
 const router = useRouter()
 const inventory = ref([])
@@ -382,7 +383,7 @@ const formatDate = (dateStr) => {
 const fetchInventory = async () => {
   if (!userId) return;
   try {
-    const res = await axios.get('/api/inventory',
+    const res = await axios.get(`${API_BASE_URL}/inventory`,
     {
       params: { user_id: userId }
     });
@@ -411,7 +412,7 @@ const confirmEdit = async () => {
   try {
     // 调用后端更新接口
     const res = await axios.put(
-      `/api/inventory/${editingItem.value.id}`,
+      `${API_BASE_URL}/inventory/${editingItem.value.id}`,
       editingItem.value, // 发送修改后的对象
       {
         params: { user_id: userId }
@@ -442,7 +443,7 @@ const saveToInventory = async () => {
   if (!userId || tempItems.value.length === 0) return
 
   try {
-    await axios.post('/api/add-to-inventory', tempItems.value, {
+    await axios.post(`${API_BASE_URL}/add-to-inventory`, tempItems.value, {
       params: { user_id: userId }
     })
 
@@ -459,7 +460,7 @@ const fetchQuickRecipes = async () => {
   recLoading.value = true;
 
   try {
-    const res = await axios.get('/api/recommend-recipe', {
+    const res = await axios.get(`${API_BASE_URL}/recommend-recipe`, {
       params: {
         user_id: userId,
         user_prompt: "根据库存推荐1个中文菜名。只需JSON格式: {\"dish_name\":\"菜名\",\"used_main\":\"主要食材\"}",
@@ -494,7 +495,7 @@ const saveEdit = async () => {
     };
 
     const res = await axios.put(
-      `/api/inventory/${editingItem.value.id}`,
+      `${API_BASE_URL}/inventory/${editingItem.value.id}`,
       submitData,
       {
         params: { user_id: userId }
@@ -526,7 +527,7 @@ const removeItem = async (id) => {
 
     // 2. 发送请求
     // 注意：Axios DELETE 的参数放在第二个参数的 params 里
-    const res = await axios.delete(`/api/inventory/${id}`, {
+    const res = await axios.delete(`${API_BASE_URL}/inventory/${id}`, {
       params: { user_id: userId }
     });
 
@@ -554,7 +555,7 @@ const saveNewItem = async () => {
   if (!newItem.value.name || !userId) return ElMessage.warning('请填写名称');
   try {
     // ✅ 修正 3：发送 Body 必须是列表，参数放在 params
-    await axios.post('/api/add-to-inventory', [newItem.value], {
+    await axios.post(`${API_BASE_URL}/add-to-inventory`, [newItem.value], {
       params: { user_id: userId }
     });
     ElMessage.success('已加入私人冰箱');

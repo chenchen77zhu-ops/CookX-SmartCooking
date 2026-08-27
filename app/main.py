@@ -243,15 +243,19 @@ async def analyze_fridge(file: UploadFile = File(...)):
         )
         yolo_names = [model.names[int(c)] for r in results for c in r.boxes.cls]
 
-        if len(yolo_names) < 1:
+        if len(yolo_names) == 0:
+            # 彻底认不出来（yolo_names 为空）才请千问专家
+            print("YOLO 未识别到任何食材，正在启动千问视觉引擎...")
             qwen_res = await get_ingredients_from_qwen(temp_path)
             # qwen_res 已经是 [{"name": "大白菜", ...}] 这种中文格式了
             detected_items = qwen_res.get("detected", [])
         else:
-            # 彻底认不出来（yolo_names 为空）才请千问专家
-            print("YOLO 未识别到任何食材，正在启动千问视觉引擎...")
-            qwen_res = await get_ingredients_from_qwen(temp_path)
-            detected_items = qwen_res.get("detected", [])
+            print(f"YOLO 原始识别结果: {yolo_names}")
+            detected_items = [
+                {"name": NAME_MAP.get(name, name), "quantity": quantity}
+                for name, quantity in Counter(yolo_names).items()
+            ]
+            print(f"YOLO 聚合结果: {detected_items}")
         # -------------------------------------------------------
 
         # 3. 第三步：统一为识别出的食材添加新鲜度评估（逻辑保持不变）

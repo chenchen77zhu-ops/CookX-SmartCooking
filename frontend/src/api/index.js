@@ -1,5 +1,7 @@
 import axios from 'axios'
-const request = axios.create({ baseURL: '/api' })
+import { API_BASE_URL } from '@/config/backend'
+
+const request = axios.create({ baseURL: API_BASE_URL })
 
 export const uploadImg = (file) => {
     const fd = new FormData(); fd.append('file', file);
