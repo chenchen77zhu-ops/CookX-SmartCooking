@@ -1,40 +1,69 @@
 <template>
-  <div class="profile-container" v-if="user">
-    <!-- 用户信息头部 -->
-    <div class="user-header" @click="openEdit">
-      <div class="avatar-section">
-        <el-avatar :size="80" :src="getFullAvatarUrl(user.avatar)" />
-        <div class="edit-tip">点击修改</div>
-      </div>
-      <div class="user-info">
-        <h2 class="nickname">{{ user.nickname || '未设置昵称' }}</h2>
-        <p class="username">@{{ user.username }}</p>
-      </div>
-      <!-- 添加消息通知图标 -->
-      <div class="notification-bell" @click.stop="openNotificationDrawer">
-        <el-badge :value="unreadCount" :hidden="unreadCount === 0" type="danger">
-          <el-icon class="bell-icon"><Bell /></el-icon>
-        </el-badge>
-      </div>
-      <el-icon class="arrow-right"><ArrowRight /></el-icon>
-    </div>
+  <div v-if="user" class="profile-container">
+    <header class="profile-hero">
+      <div class="profile-hero-inner">
+        <div class="profile-topbar">
+          <div class="profile-wordmark"><span>Cook<strong>X</strong></span><i></i><b>我的</b></div>
+          <button type="button" class="notification-bell" aria-label="打开消息中心" @click="openNotificationDrawer">
+            <el-badge :value="unreadCount" :hidden="unreadCount === 0" type="danger"><el-icon><Bell /></el-icon></el-badge>
+          </button>
+        </div>
 
-    <div class="menu-list">
-      <div class="menu-item" @click="openEdit">
-        <span class="menu-label">个人信息</span>
-        <el-icon class="menu-arrow"><ArrowRight /></el-icon>
+        <div class="user-hero">
+          <button type="button" class="avatar-section" aria-label="编辑个人资料" @click="openEdit">
+            <el-avatar :size="88" :src="getFullAvatarUrl(user.avatar)"><el-icon><UserFilled /></el-icon></el-avatar>
+            <span><el-icon><EditPen /></el-icon></span>
+          </button>
+          <div class="user-info">
+            <span class="user-eyebrow">COOKX MEMBER</span>
+            <h1>{{ displayName }}</h1>
+            <p v-if="user.username">@{{ user.username }}</p>
+            <small>让烹饪更简单，让生活更美味</small>
+          </div>
+          <button type="button" class="edit-profile-button" @click="openEdit"><el-icon><EditPen /></el-icon>编辑资料</button>
+        </div>
       </div>
+    </header>
 
-      <div class="menu-item danger" @click="handleLogout">
-        <span class="menu-label">退出登录</span>
-        <el-icon class="menu-arrow"><SwitchButton /></el-icon>
-      </div>
+    <main class="profile-content">
+      <section v-if="profileStats.length" class="stats-card">
+        <article v-for="stat in profileStats" :key="stat.label"><strong>{{ stat.value }}</strong><span>{{ stat.label }}</span><small>{{ stat.description }}</small></article>
+      </section>
 
-      <div class="menu-item danger" @click="handleDeleteAccount">
-        <span class="menu-label">注销账户</span>
-        <el-icon class="menu-arrow"><Delete /></el-icon>
-      </div>
-    </div>
+      <section class="sense-card">
+        <div class="sense-copy">
+          <span class="sense-icon"><el-icon><Connection /></el-icon></span>
+          <div><span>COOKX SENSE</span><h2>CookX Sense</h2><p>{{ savedTemperatureDevice ? '已保存测温设备，连接状态请在 AI 厨房查看' : '尚未连接测温设备' }}</p></div>
+        </div>
+        <div class="sense-status"><i></i><span>进入 AI 厨房连接设备</span></div>
+        <button type="button" @click="openAiChef">进入 AI 厨房<el-icon><ArrowRight /></el-icon></button>
+      </section>
+
+      <section class="function-card">
+        <div class="section-title"><div><span>账户服务</span><h2>功能入口</h2></div><small>只展示当前可用功能</small></div>
+        <button type="button" class="function-row" @click="openPage('/favorites')">
+          <span class="row-icon"><el-icon><Star /></el-icon></span><span class="row-copy"><b>我的收藏</b><small>查看我收藏的菜谱</small></span><el-icon class="row-arrow"><ArrowRight /></el-icon>
+        </button>
+        <button type="button" class="function-row" @click="openPage('/cooking-history')">
+          <span class="row-icon warm"><el-icon><Clock /></el-icon></span><span class="row-copy"><b>烹饪记录</b><small>查看真实 AI 菜谱生成记录</small></span><el-icon class="row-arrow"><ArrowRight /></el-icon>
+        </button>
+        <button type="button" class="function-row" @click="openPage('/preferences')">
+          <span class="row-icon"><el-icon><Setting /></el-icon></span><span class="row-copy"><b>偏好设置</b><small>口味、辣度与食材禁忌</small></span><el-icon class="row-arrow"><ArrowRight /></el-icon>
+        </button>
+        <button type="button" class="function-row" @click="openPage('/account-security')">
+          <span class="row-icon"><el-icon><Lock /></el-icon></span><span class="row-copy"><b>账号与安全</b><small>账号资料与注销管理</small></span><el-icon class="row-arrow"><ArrowRight /></el-icon>
+        </button>
+        <button type="button" class="function-row" @click="openNotificationDrawer">
+          <span class="row-icon warm"><el-icon><Bell /></el-icon></span><span class="row-copy"><b>消息中心</b><small>查看食材临期与系统通知</small></span><span v-if="unreadCount" class="row-badge">{{ unreadCount }}</span><el-icon class="row-arrow"><ArrowRight /></el-icon>
+        </button>
+        <button type="button" class="function-row" @click="openPage('/about')">
+          <span class="row-icon"><el-icon><InfoFilled /></el-icon></span><span class="row-copy"><b>关于 CookX</b><small>产品介绍、版本与隐私说明</small></span><el-icon class="row-arrow"><ArrowRight /></el-icon>
+        </button>
+      </section>
+
+      <button type="button" class="logout-button" @click="handleLogout"><el-icon><SwitchButton /></el-icon>退出登录</button>
+      <p class="profile-brand-note">CookX · 感知每一度 · 智烹每一步</p>
+    </main>
 
     <!-- 消息通知抽屉 -->
     <el-drawer
@@ -128,7 +157,7 @@
       <el-form :model="editForm" :rules="editRules" ref="editFormRef" label-width="80px">
         <el-form-item label="头像">
           <div class="avatar-upload-section">
-            <el-avatar :size="100" :src="getFullAvatarUrl(editForm.avatar)" />
+            <el-avatar :size="100" :src="getFullAvatarUrl(editForm.avatar)"><el-icon><UserFilled /></el-icon></el-avatar>
             <el-upload
               class="avatar-uploader"
               :auto-upload="false"
@@ -168,19 +197,24 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowRight, SwitchButton, Delete, Bell } from '@element-plus/icons-vue'
+import { ArrowRight, Bell, Clock, Connection, EditPen, InfoFilled, Lock, Setting, Star, SwitchButton, UserFilled } from '@element-plus/icons-vue'
 import { authApi } from '@/api/auth'
 import axios from 'axios'
 import { API_BASE_URL, resolveBackendUrl } from '@/config/backend'
 
 const router = useRouter()
+const route = useRoute()
 const showEditDialog = ref(false)
 const updating = ref(false)
 const editFormRef = ref(null)
 const showNotificationDrawer = ref(false)
 const activeTab = ref('all')
+const recipeHistoryCount = ref(0)
+const historyLoaded = ref(false)
+const notificationsLoaded = ref(false)
+const savedTemperatureDevice = ref(localStorage.getItem('temperatureDeviceAddress') || '')
 
 const user = ref(null)
 
@@ -190,6 +224,19 @@ const messages = ref([])
 const unreadCount = computed(() => {
   return messages.value.filter(msg => !msg.isRead).length
 })
+
+const displayName = computed(() => user.value?.nickname || user.value?.username || '未设置昵称')
+const usageDays = computed(() => {
+  if (!user.value?.created_at) return null
+  const createdAt = new Date(String(user.value.created_at).replace(' ', 'T'))
+  if (Number.isNaN(createdAt.getTime())) return null
+  return Math.max(1, Math.floor((Date.now() - createdAt.getTime()) / 86400000) + 1)
+})
+const profileStats = computed(() => [
+  historyLoaded.value ? { label: '菜谱记录', value: recipeHistoryCount.value, description: '真实 AI 菜谱' } : null,
+  notificationsLoaded.value ? { label: '未读消息', value: unreadCount.value, description: '待查看提醒' } : null,
+  usageDays.value !== null ? { label: '使用天数', value: usageDays.value, description: '自注册起' } : null
+].filter(Boolean))
 
 // 筛选消息
 const filteredMessages = computed(() => {
@@ -247,14 +294,16 @@ const editRules = {
 }
 
 const getFullAvatarUrl = (path) => {
-  if (!path) return 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
+  if (!path) return ''
   if (path.startsWith('http')) return path
   return resolveBackendUrl(path)
 }
 
 onMounted(async () => {
   await fetchFreshUserInfo()
-  await fetchNotifications()
+  if (!user.value?.id) return
+  await Promise.all([fetchNotifications(), fetchRecipeStats()])
+  if (route.query.edit === '1') openEdit()
 })
 
 const fetchNotifications = async () => {
@@ -263,9 +312,24 @@ const fetchNotifications = async () => {
     const res = await axios.get(`${API_BASE_URL}/notifications`, {
       params: { user_id: user.value.id }
     })
-    messages.value = res.data
+    messages.value = Array.isArray(res.data) ? res.data : []
+    notificationsLoaded.value = true
   } catch (e) {
     console.error("加载消息失败", e)
+  }
+}
+
+const fetchRecipeStats = async () => {
+  if (!user.value?.id) return
+  try {
+    const res = await axios.get(`${API_BASE_URL}/chat-history`, {
+      params: { user_id: user.value.id }
+    })
+    const history = Array.isArray(res.data) ? res.data : []
+    recipeHistoryCount.value = history.filter(item => item?.recipe?.steps?.length).length
+    historyLoaded.value = true
+  } catch (error) {
+    console.error('加载菜谱记录失败', error)
   }
 }
 
@@ -279,8 +343,8 @@ const fetchFreshUserInfo = async () => {
   try {
     const res = await authApi.getUserInfo(localUser.id)
     if (res.data.status === 'success') {
-      user.value = res.data.user
-      localStorage.setItem('user', JSON.stringify(res.data.user))
+      user.value = { ...localUser, ...res.data.user }
+      localStorage.setItem('user', JSON.stringify(user.value))
     } else {
       ElMessage.error('用户信息已失效，请重新登录')
       handleLogoutDirectly()
@@ -297,6 +361,12 @@ const openEdit = () => {
   editForm.avatar = user.value.avatar
   showEditDialog.value = true
 }
+
+const openAiChef = () => {
+  router.push({ path: '/home', query: { tab: 'AiChef' } })
+}
+
+const openPage = (path) => router.push(path)
 
 const handleUpdateProfile = async () => {
   if (!editFormRef.value) return
@@ -347,18 +417,6 @@ const handleLogout = () => {
     .then(() => handleLogoutDirectly())
 }
 
-const handleDeleteAccount = () => {
-  ElMessageBox.confirm('警告：注销后所有冰箱数据和对话记录将永久删除！', '风险提示', {
-    confirmButtonText: '确认注销',
-    type: 'danger'
-  }).then(async () => {
-    try {
-      await authApi.deleteAccount(user.value.id)
-      ElMessage.success('账户已彻底注销')
-      handleLogoutDirectly()
-    } catch (e) { ElMessage.error('注销失败') }
-  })
-}
 </script>
 
 <style scoped>
@@ -772,5 +830,109 @@ const handleDeleteAccount = () => {
 
 .menu-item:nth-child(3) {
   animation-delay: 0.3s;
+}
+
+/* CookX 我的 */
+.profile-container {
+  min-height: calc(100vh - 70px);
+  padding: 0 0 calc(98px + env(safe-area-inset-bottom));
+  overflow-x: hidden;
+  background: var(--cookx-bg);
+  color: var(--cookx-text);
+}
+.profile-hero {
+  color: #fff;
+  background: radial-gradient(circle at 88% 10%, rgba(77,139,105,.2), transparent 31%), linear-gradient(145deg, #092a22, var(--cookx-primary-dark));
+}
+.profile-hero-inner, .profile-content { width: min(var(--cookx-settings-max), 100%); margin: 0 auto; box-sizing: border-box; }
+.profile-hero-inner { padding: 22px 20px 42px; }
+.profile-topbar, .profile-wordmark, .user-hero, .sense-copy, .sense-status, .section-title,
+.function-row, .row-copy, .logout-button { display: flex; align-items: center; }
+.profile-topbar { justify-content: space-between; }
+.profile-wordmark { gap: 13px; }
+.profile-wordmark > span { font-size: 29px; font-weight: 800; letter-spacing: -.8px; }
+.profile-wordmark strong { color: var(--cookx-accent); }
+.profile-wordmark > i { width: 1px; height: 25px; background: rgba(255,255,255,.22); }
+.profile-wordmark > b { font-size: 18px; }
+.notification-bell { display: grid; width: 43px; height: 43px; padding: 0; border: 1px solid rgba(255,255,255,.16); border-radius: 14px; background: rgba(255,255,255,.06); color: #fff; font-size: 20px; cursor: pointer; place-items: center; }
+.user-hero { gap: 20px; margin-top: 34px; }
+.avatar-section { position: relative; flex: 0 0 auto; padding: 0; border: 0; background: transparent; cursor: pointer; }
+.avatar-section :deep(.el-avatar) { border: 3px solid rgba(255,255,255,.28); background: rgba(255,255,255,.12); color: #fff; font-size: 36px; box-shadow: 0 12px 30px rgba(0,0,0,.2); }
+.avatar-section > span { position: absolute; right: -2px; bottom: 2px; display: grid; width: 29px; height: 29px; border: 3px solid var(--cookx-primary-dark); border-radius: 10px; background: var(--cookx-accent); color: #fff; font-size: 13px; place-items: center; }
+.user-info { flex: 1; min-width: 0; }
+.user-eyebrow { color: var(--cookx-gold); font-size: 9px; font-weight: 800; letter-spacing: 1.3px; }
+.user-info h1 { overflow: hidden; margin: 6px 0 4px; font-size: clamp(24px, 5vw, 34px); text-overflow: ellipsis; white-space: nowrap; }
+.user-info p { margin: 0 0 9px; color: rgba(255,255,255,.6); font-size: 12px; }
+.user-info small { color: rgba(255,255,255,.78); font-size: 12px; }
+.edit-profile-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 42px; padding: 0 15px; border: 1px solid rgba(255,255,255,.2); border-radius: 14px; background: rgba(255,255,255,.07); color: #fff; font: inherit; font-size: 12px; font-weight: 650; cursor: pointer; }
+.profile-content { position: relative; z-index: 2; padding: 0 18px; transform: translateY(-20px); }
+.stats-card { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); border: var(--cookx-border); border-radius: var(--cookx-radius-large); background: var(--cookx-surface); box-shadow: var(--cookx-shadow); }
+.stats-card article { position: relative; padding: 20px 16px; text-align: center; }
+.stats-card article + article::before { position: absolute; top: 23%; bottom: 23%; left: 0; width: 1px; background: rgba(23,63,53,.08); content: ''; }
+.stats-card strong { display: block; color: var(--cookx-primary-dark); font-size: 28px; line-height: 1; }
+.stats-card span { display: block; margin-top: 8px; font-size: 12px; font-weight: 700; }
+.stats-card small { display: block; margin-top: 3px; color: var(--cookx-text-secondary); font-size: 9px; }
+.sense-card { display: grid; grid-template-columns: 1fr auto; gap: 15px 22px; margin-top: 17px; padding: 21px; border: 1px solid rgba(255,255,255,.12); border-radius: var(--cookx-radius-large); background: linear-gradient(145deg, var(--cookx-primary-dark), var(--cookx-primary)); color: #fff; box-shadow: 0 12px 30px rgba(16,46,39,.16); }
+.sense-copy { gap: 14px; }
+.sense-icon { display: grid; flex: 0 0 48px; width: 48px; height: 48px; border-radius: 15px; background: rgba(255,255,255,.1); color: var(--cookx-gold); font-size: 23px; place-items: center; }
+.sense-copy > div > span { color: var(--cookx-gold); font-size: 9px; font-weight: 800; letter-spacing: 1.1px; }
+.sense-copy h2 { margin: 3px 0 4px; font-size: 19px; }
+.sense-copy p { margin: 0; color: rgba(255,255,255,.67); font-size: 10px; line-height: 1.5; }
+.sense-card > button { grid-row: span 2; align-self: center; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 43px; padding: 0 16px; border: 1px solid rgba(255,255,255,.18); border-radius: 14px; background: rgba(255,255,255,.09); color: #fff; font-weight: 700; cursor: pointer; }
+.sense-status { gap: 7px; grid-column: 1; color: rgba(255,255,255,.72); font-size: 10px; }
+.sense-status i { width: 7px; height: 7px; border-radius: 50%; background: #c3cac6; }
+.function-card { margin-top: 17px; padding: 20px; border: var(--cookx-border); border-radius: var(--cookx-radius-large); background: var(--cookx-surface); box-shadow: var(--cookx-shadow); }
+.section-title { justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.section-title > div > span { color: var(--cookx-accent); font-size: 9px; font-weight: 800; letter-spacing: 1.1px; }
+.section-title h2 { margin: 3px 0 0; font-size: 19px; }
+.section-title > small { color: var(--cookx-text-secondary); font-size: 10px; }
+.function-row { width: 100%; min-height: 68px; padding: 9px 5px; border: 0; border-top: 1px solid rgba(23,63,53,.07); background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.row-icon { display: grid; flex: 0 0 41px; width: 41px; height: 41px; margin-right: 13px; border-radius: 13px; background: #eaf2ec; color: var(--cookx-primary); font-size: 18px; place-items: center; }
+.row-icon.warm { background: #fff2e8; color: var(--cookx-accent); }
+.row-icon.danger { background: #fff0ee; color: var(--cookx-danger); }
+.row-copy { flex: 1; align-items: flex-start; flex-direction: column; gap: 4px; min-width: 0; }
+.row-copy b { font-size: 14px; }
+.row-copy small { overflow: hidden; width: 100%; color: var(--cookx-text-secondary); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.row-badge { min-width: 18px; margin-right: 8px; padding: 3px 6px; border-radius: 999px; background: var(--cookx-accent); color: #fff; font-size: 9px; text-align: center; }
+.row-arrow { color: #a2aaa5; }
+.danger-row .row-copy b { color: var(--cookx-danger); }
+.logout-button { justify-content: center; gap: 7px; width: 100%; min-height: 47px; margin-top: 16px; border: 1px solid rgba(216,74,58,.14); border-radius: 15px; background: rgba(255,255,255,.7); color: var(--cookx-danger); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.profile-brand-note { margin: 18px 0 0; color: #9ba39e; font-size: 9px; letter-spacing: .6px; text-align: center; }
+.loading-state { min-height: calc(100vh - 70px); box-sizing: border-box; background: var(--cookx-bg); }
+
+.notification-drawer :deep(.el-drawer) { border-radius: 24px 24px 0 0; background: var(--cookx-bg); }
+.notification-tabs :deep(.el-tabs__active-bar) { background: var(--cookx-primary); }
+.notification-tabs :deep(.el-tabs__item.is-active) { color: var(--cookx-primary); }
+.notification-tabs :deep(.el-tabs__item:hover) { color: var(--cookx-primary); }
+
+@media (max-width: 767px) {
+  .profile-hero-inner { padding: 17px var(--cookx-page-gutter-mobile) 38px; }
+  .profile-wordmark > span { font-size: 25px; }
+  .profile-wordmark > b { font-size: 15px; }
+  .user-hero { align-items: flex-start; gap: 15px; margin-top: 27px; }
+  .avatar-section :deep(.el-avatar) { width: 74px !important; height: 74px !important; font-size: 29px; }
+  .user-info h1 { font-size: 24px; }
+  .user-info small { display: block; max-width: 210px; line-height: 1.5; }
+  .edit-profile-button { min-width: 44px; width: 44px; padding: 0; }
+  .edit-profile-button .el-icon { font-size: 17px; }
+  .edit-profile-button { font-size: 0; }
+  .profile-content { padding: 0 var(--cookx-page-gutter-mobile); }
+  .stats-card article { padding: 17px 8px; }
+  .stats-card strong { font-size: 24px; }
+  .sense-card { grid-template-columns: 1fr; padding: 18px; }
+  .sense-card > button { grid-row: auto; width: 100%; }
+  .sense-status { grid-column: auto; }
+  .function-card { padding: 17px 14px; }
+  .section-title > small { display: none; }
+  .function-row { min-height: 66px; }
+}
+
+@media (max-width: 390px) {
+  .profile-wordmark > i { display: none; }
+  .user-hero { flex-wrap: wrap; }
+  .edit-profile-button { position: absolute; right: 15px; bottom: 37px; }
+  .stats-card { grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); }
+  .stats-card article { padding: 16px 5px; }
+  .stats-card small { display: none; }
 }
 </style>

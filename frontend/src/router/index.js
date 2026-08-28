@@ -27,6 +27,36 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/favorites',
+    name: 'Favorites',
+    component: () => import('../views/Favorites.vue'),
+    meta: { requiresAuth: true, navTab: 'Profile' }
+  },
+  {
+    path: '/cooking-history',
+    name: 'CookingHistory',
+    component: () => import('../views/CookingHistory.vue'),
+    meta: { requiresAuth: true, navTab: 'Profile' }
+  },
+  {
+    path: '/preferences',
+    name: 'Preferences',
+    component: () => import('../views/Preferences.vue'),
+    meta: { requiresAuth: true, navTab: 'Profile' }
+  },
+  {
+    path: '/account-security',
+    name: 'AccountSecurity',
+    component: () => import('../views/AccountSecurity.vue'),
+    meta: { requiresAuth: true, navTab: 'Profile' }
+  },
+  {
+    path: '/about',
+    name: 'AboutCookX',
+    component: () => import('../views/AboutCookX.vue'),
+    meta: { requiresAuth: true, navTab: 'Profile' }
+  },
+  {
     path: '/capture-confirm',
     name: 'CaptureConfirm',
     component: () => import('../views/CaptureConfirm.vue'),

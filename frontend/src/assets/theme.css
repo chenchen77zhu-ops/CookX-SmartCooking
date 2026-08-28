@@ -25,6 +25,12 @@
   --cookx-shadow-hover: 0 12px 36px rgba(28, 48, 40, 0.12);
   --cookx-border: 1px solid rgba(23, 63, 53, 0.08);
 
+  /* CookX 页面布局 */
+  --cookx-page-max: 1180px;
+  --cookx-settings-max: 920px;
+  --cookx-page-gutter: 24px;
+  --cookx-page-gutter-mobile: 16px;
+
   /* Element Plus 全局主题 */
   --el-color-primary: var(--cookx-primary);
   --el-color-primary-dark-2: var(--cookx-primary-dark);
@@ -103,6 +109,7 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
 #app {
@@ -139,9 +146,15 @@ body {
 }
 
 /* 按钮点击动画 */
-.el-button, .button {
+.el-button:not(.el-button--small), .button {
+  min-height: 44px;
   border-radius: var(--cookx-radius-button);
   transition: all 0.2s ease;
+}
+
+.el-button:disabled, .button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .el-button:active, .button:active {

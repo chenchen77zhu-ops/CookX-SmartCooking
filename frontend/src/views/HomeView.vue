@@ -49,7 +49,10 @@
           </div>
 
           <div v-if="inventoryLoading" class="loading-state">正在同步冰箱状态…</div>
-          <div v-else-if="inventoryError" class="loading-state error">暂时无法读取库存，请稍后重试。</div>
+          <div v-else-if="inventoryError" class="loading-state error">
+            <span>暂时无法读取库存，请稍后重试。</span>
+            <button type="button" @click="fetchInventory"><el-icon><Refresh /></el-icon>重新加载</button>
+          </div>
           <div v-else-if="inventory.length === 0" class="fridge-empty">
             <span class="empty-box"><el-icon><Box /></el-icon></span>
             <div>
@@ -312,7 +315,7 @@ const handleBack = () => {
 .home-layout { min-height: calc(100vh - 70px); background: var(--cookx-bg); color: var(--cookx-text); }
 button { font: inherit; }
 .dark-stage { overflow: hidden; padding: 20px 16px 34px; background: radial-gradient(circle at 82% 5%, rgba(77,139,105,.2), transparent 30%), linear-gradient(145deg, #092a22 0%, var(--cookx-primary-dark) 60%, #0b352a 100%); }
-.dark-inner, .dashboard-shell { width: min(100%, 900px); margin: 0 auto; }
+.dark-inner, .dashboard-shell { width: min(100%, var(--cookx-page-max)); margin: 0 auto; }
 .home-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 23px; }
 .wordmark, .child-header { color: #fff; font-size: 30px; font-weight: 760; letter-spacing: -.8px; }
 .wordmark strong, .child-header strong { color: var(--cookx-accent); font-weight: inherit; }
@@ -344,11 +347,12 @@ button { font: inherit; }
 .plain-link, .recipe-heading button { display: inline-flex; align-items: center; gap: 3px; padding: 7px 0; border: 0; background: none; color: var(--cookx-text-secondary); font-size: 12px; cursor: pointer; }
 .loading-state { padding: 22px 0; color: var(--cookx-text-secondary); font-size: 13px; text-align: center; }
 .loading-state.error { color: var(--cookx-danger); }
+.loading-state.error button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 40px; margin: 12px auto 0; padding: 0 15px; border: var(--cookx-border); border-radius: var(--cookx-radius-button); background: #fff; color: var(--cookx-primary); font: inherit; font-size: 12px; font-weight: 650; cursor: pointer; }
 .fridge-empty { display: flex; align-items: center; gap: 14px; padding: 13px; border-radius: 15px; background: #faf9f5; }
 .empty-box { display: grid; flex: 0 0 48px; width: 48px; height: 48px; border-radius: 13px; background: #e8eeea; color: var(--cookx-primary); font-size: 21px; place-items: center; }
 .fridge-empty strong { font-size: 14px; }
 .fridge-empty p { margin: 4px 0 7px; color: var(--cookx-text-secondary); font-size: 11px; }
-.outline-action, .insight-button { display: inline-flex; align-items: center; gap: 4px; min-height: 34px; padding: 0 13px; border: 1px solid rgba(23,63,53,.32); border-radius: 12px; background: transparent; color: var(--cookx-primary); font-size: 11px; font-weight: 650; cursor: pointer; }
+.outline-action, .insight-button { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 13px; border: 1px solid rgba(23,63,53,.32); border-radius: 12px; background: transparent; color: var(--cookx-primary); font-size: 11px; font-weight: 650; cursor: pointer; }
 .metric-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
 .metric-card { min-width: 0; gap: 12px; padding: 15px 12px; border: 1px solid rgba(23,63,53,.07); border-radius: 15px; background: #fff; box-shadow: 0 5px 18px rgba(28,48,40,.05); }
 .metric-icon { display: grid; flex: 0 0 44px; width: 44px; height: 44px; border-radius: 13px; font-size: 22px; place-items: center; }
@@ -413,7 +417,7 @@ button { font: inherit; }
 .recipe-empty-copy { position: relative; z-index: 2; justify-content: center; gap: 12px; min-height: 190px; padding: 20px; text-align: left; }
 .chef-mark { display: grid; flex: 0 0 44px; width: 44px; height: 44px; border-radius: 13px; background: rgba(255,255,255,.85); color: var(--cookx-primary); font-size: 20px; place-items: center; }
 .recipe-empty-copy strong { font-size: 14px; }.recipe-empty-copy p { margin: 5px 0 0; color: var(--cookx-text-secondary); font-size: 10px; }
-.recipe-empty-copy button { display: inline-flex; align-items: center; gap: 4px; min-height: 38px; margin-left: 8px; padding: 0 15px; border: 0; border-radius: 13px; background: var(--cookx-primary); color: #fff; font-size: 11px; font-weight: 650; cursor: pointer; }
+.recipe-empty-copy button { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; margin-left: 8px; padding: 0 15px; border: 0; border-radius: 13px; background: var(--cookx-primary); color: #fff; font-size: 11px; font-weight: 650; cursor: pointer; }
 .child-header { display: flex; align-items: center; justify-content: center; height: 56px; background: linear-gradient(135deg,var(--cookx-primary-dark),var(--cookx-primary)); box-shadow: 0 8px 24px rgba(16,46,39,.16); font-size: 20px; }
 .child-body { height: calc(100vh - 126px); overflow-y: auto; padding: 16px; background: var(--cookx-bg); }
 
@@ -427,7 +431,7 @@ button { font: inherit; }
 }
 
 @media (max-width: 390px) {
-  .dark-stage, .dashboard-shell { padding-right: 13px; padding-left: 13px; }
+  .dark-stage, .dashboard-shell { padding-right: var(--cookx-page-gutter-mobile); padding-left: var(--cookx-page-gutter-mobile); }
   .hero-card { min-height: 250px; }
   .hero-copy { width: 64%; padding-right: 8px; padding-left: 17px; }
   .hero-copy h2 { font-size: 20px; }

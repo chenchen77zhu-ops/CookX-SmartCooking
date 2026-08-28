@@ -3,15 +3,22 @@ from dashscope import MultiModalConversation
 import json
 import os
 import re
+from dotenv import load_dotenv
 
-# ✅ 设置你的 API KEY（或者写入 .env 文件中读取）
-dashscope.api_key = "sk-cf3dc4c8610f45e9a997a55907a07219"
+load_dotenv()
+
+# DashScope 密钥只从运行环境读取，不在源码中保存。
+dashscope.api_key = os.getenv("DASHSCOPE_API_KEY")
 
 
 async def get_ingredients_from_qwen(image_path):
     """
     使用通义千问-VL 精准识别图中所有食材
     """
+    if not dashscope.api_key:
+        print("[QWEN] DASHSCOPE_API_KEY is not configured")
+        return {"detected": [], "_qwen_error": "DASHSCOPE_API_KEY is not configured"}
+
     # 绝对路径转为符合 DashScope 要求的 file:// 格式
     absolute_path = os.path.abspath(image_path)
     file_url = f"file://{absolute_path}"
@@ -44,26 +51,49 @@ async def get_ingredients_from_qwen(image_path):
             messages=messages
         )
 
-        if response.status_code == 200:
+        status_code = getattr(response, "status_code", None)
+        request_id = getattr(response, "request_id", None)
+        response_code = getattr(response, "code", None)
+        response_message = getattr(response, "message", None)
+        print(
+            "[QWEN] "
+            f"status_code={status_code} request_id={request_id or '-'} "
+            f"code={response_code or '-'} message={response_message or '-'}"
+        )
+
+        if status_code == 200:
             raw_text = response.output.choices[0].message.content[0]['text']
-            print(f"--- 千问原始回复内容 ---\n{raw_text}\n----------------------")
 
             # ✅ 核心修复 1：更稳健的 JSON 提取（处理 ```json 标签）
             # 寻找字符串中第一个 [ 或 { 和 最后一个 ] 或 }
             json_str_match = re.search(r'(\[.*\]|\{.*\})', raw_text, re.DOTALL)
             if not json_str_match:
-                print("❌ 千问回复中未发现 JSON 结构")
-                return {"detected": []}
+                error = "response does not contain a JSON object or array"
+                print(f"[QWEN] JSON extraction failed: {error}")
+                return {"detected": [], "_qwen_error": error}
 
             clean_json_str = json_str_match.group(1)
             try:
                 data = json.loads(clean_json_str)
-            except Exception as e:
-                print(f"❌ JSON 解析失败: {e}")
-                return {"detected": []}
+            except json.JSONDecodeError as e:
+                error = f"JSON decode failed at position {e.pos}: {e.msg}"
+                print(f"[QWEN] {error}")
+                return {"detected": [], "_qwen_error": error}
 
             # ✅ 核心修复 2：兼容列表 [] 和 字典 {"detected": []} 两种返回格式
-            detected_list = data if isinstance(data, list) else data.get("detected", [])
+            if isinstance(data, list):
+                detected_list = data
+            elif isinstance(data, dict):
+                detected_list = data.get("detected", [])
+            else:
+                error = f"unexpected JSON root type: {type(data).__name__}"
+                print(f"[QWEN] JSON structure failed: {error}")
+                return {"detected": [], "_qwen_error": error}
+
+            if not isinstance(detected_list, list):
+                error = "detected field is not a list"
+                print(f"[QWEN] JSON structure failed: {error}")
+                return {"detected": [], "_qwen_error": error}
 
             # ✅ 核心修复 3：名称标准化 (解决 napa_cabbage 等命名差异)
             for item in detected_list:
@@ -77,7 +107,13 @@ async def get_ingredients_from_qwen(image_path):
 
             return {"detected": detected_list}
 
-        return {"detected": []}
+        error = (
+            f"DashScope request failed (status_code={status_code}, "
+            f"code={response_code or 'unknown'}, request_id={request_id or 'unknown'})"
+        )
+        print(f"[QWEN] request failed: {error}")
+        return {"detected": [], "_qwen_error": "Qwen request failed"}
     except Exception as e:
-        print(f"千问模块运行异常: {e}")
-        return {"detected": []}
+        error = f"{type(e).__name__}: {e}"
+        print(f"[QWEN] exception type={type(e).__name__} message={e}")
+        return {"detected": [], "_qwen_error": error}

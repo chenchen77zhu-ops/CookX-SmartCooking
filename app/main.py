@@ -2,7 +2,9 @@ import os
 import re
 import io
 import json
+import math
 import shutil
+import tempfile
 import uuid
 from datetime import datetime
 from typing import List
@@ -177,6 +179,222 @@ async def favicon():
     # 返回一个空的响应，避免 404 刷屏
     return Response(status_code=204)
 
+
+MERGEABLE_INVENTORY_MEASUREMENTS = ("weight_g", "grams", "volume_ml", "ml", "amount")
+INVENTORY_NAME_ALIASES = {
+    "tomato": "西红柿",
+    "番茄": "西红柿",
+    "西红柿": "西红柿",
+    "小番茄": "西红柿",
+    "圣女果": "西红柿",
+    "beef": "牛肉",
+    "牛肉": "牛肉",
+    "milk": "牛奶",
+    "牛奶": "牛奶",
+    "tofu": "豆腐",
+    "豆腐": "豆腐",
+    "potato": "土豆",
+    "土豆": "土豆",
+    "carrot": "胡萝卜",
+    "胡萝卜": "胡萝卜",
+    "chicken": "鸡肉",
+    "鸡肉": "鸡肉",
+    "egg": "鸡蛋",
+    "鸡蛋": "鸡蛋",
+    "onion": "洋葱",
+    "洋葱": "洋葱",
+    "garlic": "大蒜",
+    "大蒜": "大蒜",
+    "ginger": "生姜",
+    "姜": "生姜",
+    "生姜": "生姜",
+    "broccoli": "西兰花",
+    "西兰花": "西兰花",
+    "kimchi": "泡菜",
+    "韩式泡菜": "泡菜",
+    "泡菜": "泡菜",
+    "chili": "红辣椒",
+    "红辣椒": "红辣椒",
+    "青辣椒": "青辣椒",
+}
+
+
+def normalize_inventory_name(name):
+    normalized = str(name or "").strip().lower()
+    return INVENTORY_NAME_ALIASES.get(normalized, normalized)
+
+
+def _inventory_datetime(value):
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return None
+
+
+def _inventory_date(value):
+    """只取库存时间的自然日；旧数据时间无效时不参与合并。"""
+    parsed = _inventory_datetime(value)
+    return parsed.date() if parsed else None
+
+
+def _inventory_storage_method(item):
+    return str(
+        item.get("storage_method")
+        or item.get("storage_type")
+        or item.get("storage")
+        or "冷藏"
+    ).strip().lower()
+
+
+def get_inventory_batch_key(item):
+    """同名、同自然日、同储存方式、同保质期才是同一库存批次。"""
+    name = normalize_inventory_name(item.get("name"))
+    added_date = _inventory_date(item.get("add_time"))
+    if not name or added_date is None or item.get("shelf_life") is None:
+        return None
+    try:
+        shelf_life = int(item["shelf_life"])
+    except (TypeError, ValueError):
+        return None
+    return name, added_date.isoformat(), _inventory_storage_method(item), shelf_life
+
+
+def _finite_number(value):
+    if isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
+
+
+def _merge_measurements(existing, incoming):
+    """只累加同一实际数值字段；amount 还必须具有相同单位。"""
+    for field in MERGEABLE_INVENTORY_MEASUREMENTS:
+        existing_value = _finite_number(existing.get(field))
+        incoming_value = _finite_number(incoming.get(field))
+        if incoming_value is None:
+            continue
+        if field == "amount":
+            existing_unit = str(existing.get("amount_unit") or existing.get("unit") or "").strip().lower()
+            incoming_unit = str(incoming.get("amount_unit") or incoming.get("unit") or "").strip().lower()
+            if existing_value is None and incoming_unit:
+                existing[field] = int(incoming_value) if incoming_value.is_integer() else incoming_value
+                if incoming.get("amount_unit") is not None:
+                    existing["amount_unit"] = incoming["amount_unit"]
+                elif incoming.get("unit") is not None:
+                    existing["unit"] = incoming["unit"]
+                continue
+            if existing_value is None or not existing_unit or existing_unit != incoming_unit:
+                continue
+        elif existing_value is None:
+            existing[field] = int(incoming_value) if incoming_value.is_integer() else incoming_value
+            continue
+        total = existing_value + incoming_value
+        existing[field] = int(total) if total.is_integer() else total
+
+
+def _keep_earliest_add_time(existing, incoming):
+    existing_time = _inventory_datetime(existing.get("add_time"))
+    incoming_time = _inventory_datetime(incoming.get("add_time"))
+    if not existing_time or not incoming_time:
+        return
+    existing_clock = (existing_time.hour, existing_time.minute, existing_time.second, existing_time.microsecond)
+    incoming_clock = (incoming_time.hour, incoming_time.minute, incoming_time.second, incoming_time.microsecond)
+    if incoming_clock < existing_clock:
+        existing["add_time"] = incoming["add_time"]
+
+
+def merge_duplicate_inventory_batches(items):
+    """纯数据归并：不读写文件，并保留首条记录的稳定 ID 和未知字段。"""
+    merged = []
+    batches = {}
+    protected_fields = {
+        "id", "name", "quantity", "add_time", "shelf_life",
+        "storage_method", "storage_type", "storage",
+        *MERGEABLE_INVENTORY_MEASUREMENTS,
+    }
+
+    for source_item in items:
+        item = dict(source_item)
+        item["name"] = normalize_inventory_name(item.get("name"))
+        batch_key = get_inventory_batch_key(item)
+        if batch_key is None or batch_key not in batches:
+            merged.append(item)
+            if batch_key is not None:
+                batches[batch_key] = item
+            continue
+
+        existing = batches[batch_key]
+        existing["quantity"] = int(existing.get("quantity", 0)) + int(item.get("quantity", 0))
+        _merge_measurements(existing, item)
+        _keep_earliest_add_time(existing, item)
+        for field, value in item.items():
+            if field not in protected_fields and field not in existing:
+                existing[field] = value
+
+    return merged
+
+
+def merge_inventory_items(inventory_data, items, current_time=None):
+    """新增库存与历史数据共用同一批次 key 和归并函数。"""
+    batch_time = current_time or datetime.now()
+
+    for incoming in items:
+        name = normalize_inventory_name(incoming.get("name", "未知"))
+        if not name:
+            continue
+
+        incoming_quantity = int(incoming.get("quantity", 1))
+        incoming_shelf_life = int(incoming.get("shelf_life", 7))
+        new_item = {
+            "id": str(uuid.uuid4())[:8],
+            "name": name,
+            "quantity": incoming_quantity,
+            "add_time": batch_time.isoformat(),
+            "storage_type": (
+                incoming.get("storage_method")
+                or incoming.get("storage_type")
+                or incoming.get("storage")
+                or "冷藏"
+            ),
+            "shelf_life": incoming_shelf_life,
+        }
+        for field in MERGEABLE_INVENTORY_MEASUREMENTS:
+            value = _finite_number(incoming.get(field))
+            if value is not None:
+                new_item[field] = int(value) if value.is_integer() else value
+        for unit_field in ("amount_unit", "unit"):
+            if incoming.get(unit_field) is not None:
+                new_item[unit_field] = incoming[unit_field]
+        inventory_data.append(new_item)
+
+    return merge_duplicate_inventory_batches(inventory_data)
+
+
+def _write_inventory_atomic(path, data):
+    """在同一目录写入临时文件后原子替换，避免留下半写入 JSON。"""
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=os.path.dirname(path),
+            prefix="inventory-",
+            suffix=".tmp",
+            delete=False,
+        ) as temp_file:
+            temp_path = temp_file.name
+            json.dump(data, temp_file, ensure_ascii=False, indent=4)
+            temp_file.flush()
+            os.fsync(temp_file.fileno())
+        os.replace(temp_path, path)
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            os.remove(temp_path)
+
+
 @app.post("/api/add-to-inventory")
 async def add_to_inventory(items: List[dict], user_id: str = Query(...)):
     """正式入库：按用户隔离，并强制补全日期"""
@@ -193,28 +411,11 @@ async def add_to_inventory(items: List[dict], user_id: str = Query(...)):
                 except:
                     inventory_data = []
 
-        # 3. 处理新进入的食材
-        for incoming in items:
-            # 基础数据清洗
-            name = incoming.get("name", "未知").strip().lower()
-            if not name: continue
+        # 3. 同一用户的同日、同名食材在写入时合并
+        inventory_data = merge_inventory_items(inventory_data, items)
 
-            # 核心修正：如果前端没传时间，后端强制生成当前的 ISO 时间
-            # 这能彻底解决“保鲜期计算失败 (NaN)”的问题
-            curr_time = datetime.now().isoformat()
-
-            inventory_data.append({
-                "id": str(uuid.uuid4())[:8],
-                "name": name,
-                "quantity": int(incoming.get("quantity", 1)),
-                "add_time": curr_time,  # ✅ 统一时间格式
-                "storage_type": incoming.get("storage_type", "冷藏"),
-                "shelf_life": int(incoming.get("shelf_life", 7))
-            })
-
-        # 4. 覆盖写入
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(inventory_data, f, ensure_ascii=False, indent=4)
+        # 4. 原子写入当前用户的库存文件
+        _write_inventory_atomic(path, inventory_data)
 
         print(f"用户 {user_id} 成功存入 {len(items)} 件食材到 {path}")
         return {"status": "success", "message": "已存入冰箱"}
@@ -232,6 +433,8 @@ async def analyze_fridge(file: UploadFile = File(...)):
         temp_path = os.path.join(UPLOAD_DIR, temp_filename)
         with open(temp_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
+        print(f"[RECOGNITION] file={temp_filename}")
+        print(f"[RECOGNITION] size={os.path.getsize(temp_path)} bytes")
 
         # 2. 第二步：运行本地 YOLO 模型扫描
         results = model(
@@ -242,13 +445,29 @@ async def analyze_fridge(file: UploadFile = File(...)):
             agnostic_nms=True,
         )
         yolo_names = [model.names[int(c)] for r in results for c in r.boxes.cls]
+        box_count = sum(len(r.boxes) for r in results)
+        print(f"[YOLO] boxes={box_count}")
+        for result in results:
+            for class_id, confidence in zip(result.boxes.cls, result.boxes.conf):
+                class_name = model.names[int(class_id)]
+                print(f"[YOLO] class={class_name} confidence={float(confidence):.4f}")
 
         if len(yolo_names) == 0:
             # 彻底认不出来（yolo_names 为空）才请千问专家
-            print("YOLO 未识别到任何食材，正在启动千问视觉引擎...")
+            print("[YOLO] no detections, starting Qwen fallback")
             qwen_res = await get_ingredients_from_qwen(temp_path)
+            qwen_error = qwen_res.get("_qwen_error")
+            if qwen_error:
+                print(f"[QWEN] fallback failed: {qwen_error}")
+                print("[RECOGNITION] final detected=0")
+                return {
+                    "status": "error",
+                    "message": "AI 食材识别服务暂时不可用，请稍后重试",
+                    "detected": [],
+                }
             # qwen_res 已经是 [{"name": "大白菜", ...}] 这种中文格式了
             detected_items = qwen_res.get("detected", [])
+            print(f"[QWEN] detected {len(detected_items)} ingredients")
         else:
             print(f"YOLO 原始识别结果: {yolo_names}")
             detected_items = [
@@ -266,6 +485,7 @@ async def analyze_fridge(file: UploadFile = File(...)):
         # 4. 第四步：清理临时文件（可选）
         # os.remove(temp_path)
 
+        print(f"[RECOGNITION] final detected={len(detected_items)}")
         return {"status": "success", "detected": detected_items}
 
     except Exception as e:
@@ -392,10 +612,16 @@ async def get_inventory(user_id: str):  # ✅ 必须有这个参数
     try:
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
-            # 为每项数据注入保质期信息 (保持你之前的逻辑)
-            for item in data:
-                item["shelf_life"] = SHELF_LIFE_MAP.get(item["name"].lower(), 7)
-            return data
+
+        # Windows 不允许替换仍被当前进程打开的文件，归并与写回必须在读取句柄关闭后执行。
+        for item in data:
+            item.setdefault("shelf_life", SHELF_LIFE_MAP.get(item["name"].lower(), 7))
+        merged_data = merge_duplicate_inventory_batches(data)
+        if merged_data != data:
+            _write_inventory_atomic(path, merged_data)
+            merged_count = len(data) - len(merged_data)
+            print(f"用户 {user_id} 的历史库存已规范化，归并 {merged_count} 条重复批次")
+        return merged_data
     except Exception as e:
         print(f"读取失败: {e}")
         return []

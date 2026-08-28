@@ -1,5 +1,5 @@
 <template>
-  <div class="manage-container">
+  <div v-loading="inventoryLoading" class="manage-container">
     <section class="fridge-hero">
       <div class="hero-inner">
         <header class="fridge-topbar">
@@ -81,7 +81,13 @@
         </article>
       </div>
 
-      <section v-else class="inventory-empty">
+      <section v-else-if="inventoryError" class="inventory-empty inventory-error">
+        <span><el-icon><WarningFilled /></el-icon></span><h2>库存加载失败</h2>
+        <p>请检查网络连接后重新加载，已有库存数据不会因此被清空。</p>
+        <div class="empty-actions"><button type="button" @click="fetchInventory()"><el-icon><Refresh /></el-icon>重新加载</button></div>
+      </section>
+
+      <section v-else-if="!inventoryLoading" class="inventory-empty">
         <span><el-icon><Box /></el-icon></span><h2>{{ inventory.length ? '没有匹配的食材' : '冰箱还是空的' }}</h2>
         <p>{{ inventory.length ? '换个关键词或分类看看吧' : '添加一些食材，CookX 就能开始为你规划下一餐' }}</p>
         <div v-if="!inventory.length" class="empty-actions"><button type="button" @click="showAddDialog = true"><el-icon><Plus /></el-icon>添加食材</button></div>
@@ -162,10 +168,10 @@
 </template>
 
 <script setup>
-import { ref, computed, onBeforeUnmount, onMounted } from 'vue'
+import { ref, computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
-import { AlarmClock, Box, CameraFilled, CircleCheckFilled, Delete, KnifeFork, ArrowRight, EditPen, WarningFilled, Search, Plus } from '@element-plus/icons-vue'
+import { AlarmClock, Box, CameraFilled, CircleCheckFilled, Delete, KnifeFork, ArrowRight, EditPen, WarningFilled, Search, Plus, Refresh } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { API_BASE_URL, resolveBackendUrl } from '@/config/backend'
 import tomatoImage from '@/assets/images/ingredients/tomato.png'
@@ -205,13 +211,50 @@ const recognitionStatus = ref('idle')
 const uploadPercent = ref(0)
 const recognitionElapsedSeconds = ref(0)
 const recognizedItemCount = ref(0)
+const currentUserId = ref(null)
+const inventoryLoading = ref(true)
+const inventoryError = ref(false)
 let recognitionTimer = null
 let recognitionSuccessTimer = null
+let userWaitTimer = null
+let userWaitAttempts = 0
+let inventoryRequestVersion = 0
 const emit = defineEmits(['consult-recipe', 'clear-pending'])
-// 用户隔离
-const userStr = localStorage.getItem('user');
-const userInfo = userStr ? JSON.parse(userStr) : null;
-const userId = userInfo ? userInfo.id : null;
+
+const readStoredUserId = () => {
+  try {
+    return JSON.parse(localStorage.getItem('user') || '{}').id || null
+  } catch (error) {
+    console.warn('[INVENTORY] invalid cached user data')
+    return null
+  }
+}
+
+const syncCurrentUserId = () => {
+  const id = readStoredUserId()
+  console.log('[INVENTORY] current user_id:', id || 'not ready')
+  currentUserId.value = id
+  return id
+}
+
+const waitForCurrentUser = () => {
+  if (syncCurrentUserId()) return
+  inventoryLoading.value = true
+  userWaitAttempts += 1
+  if (userWaitAttempts < 20) {
+    userWaitTimer = setTimeout(waitForCurrentUser, 100)
+  } else {
+    router.push('/login')
+  }
+}
+
+const handleStoredUserChange = (event) => {
+  if (event.key === 'user') syncCurrentUserId()
+}
+
+const handleVisibilityChange = () => {
+  if (document.visibilityState === 'visible') syncCurrentUserId()
+}
 
 const isRecognizing = computed(() => ['uploading', 'analyzing'].includes(recognitionStatus.value))
 
@@ -703,21 +746,40 @@ const getItemImage = (item) => {
 
 const hideBrokenImage = (event) => { event.currentTarget.style.display = 'none' }
 
-const fetchInventory = async () => {
-  if (!userId) return;
+const fetchInventory = async (requestedUserId = currentUserId.value) => {
+  if (!requestedUserId) {
+    inventoryLoading.value = true
+    return
+  }
+  const requestVersion = ++inventoryRequestVersion
+  inventoryLoading.value = true
+  inventoryError.value = false
+  console.log(`[INVENTORY] request start user_id=${requestedUserId} version=${requestVersion}`)
   try {
     const res = await axios.get(`${API_BASE_URL}/inventory`,
     {
-      params: { user_id: userId }
+      params: { user_id: requestedUserId }
     });
-    inventory.value = res.data.map(item => ({
+    if (requestVersion !== inventoryRequestVersion || requestedUserId !== currentUserId.value) {
+      console.log(`[INVENTORY] discard stale response version=${requestVersion} currentVersion=${inventoryRequestVersion}`)
+      return
+    }
+    const receivedInventory = Array.isArray(res.data) ? res.data : []
+    console.log(`[INVENTORY] response user_id=${requestedUserId} version=${requestVersion} status=${res.status} count=${receivedInventory.length}`)
+    inventory.value = receivedInventory.map(item => ({
       ...item,
       daysUntilExpiry: calculateDaysUntilExpiry(item)
     }));
     lastUpdatedAt.value = new Date();
     if (inventory.value.length > 0) fetchQuickRecipes();
   } catch (error) {
+    if (requestVersion !== inventoryRequestVersion || requestedUserId !== currentUserId.value) return
     console.error("同步失败", error);
+    inventoryError.value = true
+  } finally {
+    if (requestVersion === inventoryRequestVersion && requestedUserId === currentUserId.value) {
+      inventoryLoading.value = false
+    }
   }
 };
 
@@ -731,6 +793,7 @@ const openEditDialog = (item) => {
 
 // 2. 提交编辑到后端
 const confirmEdit = async () => {
+  const userId = currentUserId.value
   if (!userId) return;
 
   try {
@@ -763,6 +826,7 @@ const goToChef = (dishName) => {
 }
 
 const saveToInventory = async () => {
+  const userId = currentUserId.value
   if (!userId || tempItems.value.length === 0) return
 
   try {
@@ -779,6 +843,7 @@ const saveToInventory = async () => {
 }
 
 const fetchQuickRecipes = async () => {
+  const userId = currentUserId.value
   if (!userId || inventory.value.length === 0) return;
   recLoading.value = true;
 
@@ -806,6 +871,8 @@ const fetchQuickRecipes = async () => {
 
 // 保存编辑
 const saveEdit = async () => {
+  const userId = currentUserId.value
+  if (!userId) return
   try {
     const enName = convertCnToEn(editingItem.value.name);
 
@@ -840,6 +907,8 @@ const saveEdit = async () => {
 
 // 修改 ManageFridge.vue 中的 removeItem 函数
 const removeItem = async (id) => {
+  const userId = currentUserId.value
+  if (!userId) return
   try {
     // 1. 确认框
     await ElMessageBox.confirm('确定要从冰箱移除这件食材吗？', '提示', {
@@ -875,6 +944,7 @@ const removeItem = async (id) => {
 
 // 手动添加新食材
 const saveNewItem = async () => {
+  const userId = currentUserId.value
   if (!newItem.value.name || !userId) return ElMessage.warning('请填写名称');
   try {
     // ✅ 修正 3：发送 Body 必须是列表，参数放在 params
@@ -914,8 +984,25 @@ const handleUploadSuccess = (response) => {
   }
 }
 
-onMounted(() => { if (!userId) router.push('/login'); else fetchInventory(); });
+watch(currentUserId, (id, previousId) => {
+  if (!id) {
+    inventoryLoading.value = true
+    return
+  }
+  if (previousId && previousId !== id) inventory.value = []
+  fetchInventory(id)
+})
+
+onMounted(() => {
+  window.addEventListener('storage', handleStoredUserChange)
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  waitForCurrentUser()
+});
 onBeforeUnmount(() => {
+  inventoryRequestVersion += 1
+  if (userWaitTimer) clearTimeout(userWaitTimer)
+  window.removeEventListener('storage', handleStoredUserChange)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
   clearRecognitionTimer();
   if (recognitionSuccessTimer) clearTimeout(recognitionSuccessTimer);
 });
@@ -942,7 +1029,7 @@ button { font: inherit; }
 
 .hero-inner,
 .inventory-surface {
-  width: min(100%, 1040px);
+  width: min(100%, var(--cookx-page-max));
   margin: 0 auto;
 }
 
@@ -1315,9 +1402,10 @@ button { font: inherit; }
 }
 
 .inventory-empty > span { display: grid; width: 54px; height: 54px; margin: 0 auto 13px; border-radius: 17px; background: #e7eee9; color: var(--cookx-primary); font-size: 24px; place-items: center; }
+.inventory-error > span { background: #fff0ed; color: var(--cookx-danger); }
 .inventory-empty h2 { margin: 0; font-size: 16px; }
 .inventory-empty p { margin: 7px auto 15px; color: var(--cookx-text-secondary); font-size: 11px; line-height: 1.55; }
-.empty-actions button { display: inline-flex; align-items: center; gap: 5px; min-height: 40px; padding: 0 16px; border: 0; border-radius: 13px; background: var(--cookx-primary); color: #fff; font-size: 11px; font-weight: 650; cursor: pointer; }
+.empty-actions button { display: inline-flex; align-items: center; gap: 5px; min-height: 44px; padding: 0 16px; border: 0; border-radius: 13px; background: var(--cookx-primary); color: #fff; font-size: 11px; font-weight: 650; cursor: pointer; }
 
 .recommend-section { margin-top: 18px; padding: 17px; border: var(--cookx-border); border-radius: 18px; background: #fff; }
 .main-title { display: flex; align-items: center; justify-content: space-between; margin: 0 0 12px; color: var(--cookx-text); font-size: 16px; }
@@ -1346,8 +1434,8 @@ button { font: inherit; }
 .recognize-fab {
   position: fixed;
   z-index: 900;
-  right: max(18px, calc((100vw - 1040px) / 2 + 18px));
-  bottom: calc(84px + env(safe-area-inset-bottom));
+  right: max(18px, calc((100vw - var(--cookx-page-max)) / 2 + 18px));
+  bottom: calc(var(--cookx-bottom-nav-height, 72px) + env(safe-area-inset-bottom) + 16px);
 }
 
 .recognize-button {
@@ -1418,7 +1506,7 @@ button { font: inherit; }
 .analysis-progress i { position: absolute; width: 38%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--cookx-primary), var(--cookx-accent)); animation: recognition-scan 1.35s ease-in-out infinite; }
 .elapsed-time { display: block; margin-top: 14px; color: var(--cookx-primary); font-size: 11px; }
 .recognition-card > small { display: block; margin-top: 5px; color: var(--cookx-text-secondary); font-size: 9px; }
-.recognition-card > button { min-height: 40px; margin-top: 4px; padding: 0 17px; border: 0; border-radius: 13px; background: var(--cookx-primary); color: #fff; cursor: pointer; }
+.recognition-card > button { min-height: 44px; margin-top: 4px; padding: 0 17px; border: 0; border-radius: 13px; background: var(--cookx-primary); color: #fff; cursor: pointer; }
 
 @keyframes recognition-spin { to { transform: rotate(360deg); } }
 @keyframes recognition-scan { 0% { left: -38%; } 55%, 100% { left: 100%; } }

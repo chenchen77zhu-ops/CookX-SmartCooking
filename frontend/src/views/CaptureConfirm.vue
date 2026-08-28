@@ -305,7 +305,7 @@ button { font: inherit; }
 
 .confirm-hero {
   position: relative;
-  width: min(100%, 1120px);
+  width: min(100%, var(--cookx-page-max));
   margin: 0 auto;
   padding: calc(18px + env(safe-area-inset-top)) 0 28px;
   text-align: center;
@@ -339,7 +339,7 @@ button { font: inherit; }
 
 .confirm-layout {
   display: grid;
-  width: min(100%, 1120px);
+  width: min(100%, var(--cookx-page-max));
   margin: 0 auto;
   gap: 16px;
 }
@@ -415,9 +415,9 @@ button { font: inherit; }
 .empty-state > span { display: grid; width: 58px; height: 58px; margin: 0 auto 14px; border-radius: 18px; background: #e8efe8; color: var(--cookx-primary); font-size: 25px; place-items: center; }
 .empty-state h2 { margin: 0; font-size: 17px; }
 .empty-state p { margin: 7px 0 16px; color: var(--cookx-text-secondary); font-size: 11px; }
-.empty-state button { display: inline-flex; align-items: center; gap: 5px; min-height: 40px; padding: 0 15px; border: 0; border-radius: 13px; background: var(--cookx-primary); color: #fff; cursor: pointer; }
+.empty-state button { display: inline-flex; align-items: center; gap: 5px; min-height: 44px; padding: 0 15px; border: 0; border-radius: 13px; background: var(--cookx-primary); color: #fff; cursor: pointer; }
 
-.action-bar { display: grid; width: min(100%, 1120px); margin: 17px auto 0; gap: 10px; }
+.action-bar { display: grid; width: min(100%, var(--cookx-page-max)); margin: 17px auto 0; gap: 10px; }
 .action-bar button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 52px; border-radius: 15px; font-weight: 680; cursor: pointer; }
 .secondary-action { border: var(--cookx-border); background: #fff; color: var(--cookx-primary); }
 .primary-action { border: 0; background: var(--cookx-primary); color: #fff; box-shadow: 0 10px 24px rgba(23, 63, 53, .20); }

@@ -1,0 +1,106 @@
+.profile-subpage {
+  min-height: calc(100vh - 70px);
+  padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  background: var(--cookx-bg);
+  color: var(--cookx-text);
+}
+
+.subpage-hero {
+  padding: 18px 16px 34px;
+  color: #fff;
+  background: radial-gradient(circle at 88% 0, rgba(77,139,105,.2), transparent 31%), linear-gradient(145deg, #092a22, var(--cookx-primary-dark));
+}
+
+.subpage-hero-inner,
+.subpage-content {
+  width: min(var(--cookx-settings-max), 100%);
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.subpage-topbar {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.subpage-back {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: 14px;
+  background: rgba(255,255,255,.06);
+  color: #fff;
+  cursor: pointer;
+  place-items: center;
+}
+
+.subpage-brand {
+  font-size: 23px;
+  font-weight: 800;
+}
+
+.subpage-brand strong { color: var(--cookx-accent); }
+.subpage-hero h1 { margin: 27px 0 6px; font-size: clamp(25px, 5vw, 33px); }
+.subpage-hero p { margin: 0; color: rgba(255,255,255,.68); font-size: 12px; line-height: 1.6; }
+.subpage-content { position: relative; z-index: 2; padding: 0 14px; transform: translateY(-17px); }
+
+.subpage-card {
+  padding: 20px;
+  border: var(--cookx-border);
+  border-radius: var(--cookx-radius-large);
+  background: var(--cookx-surface);
+  box-shadow: var(--cookx-shadow);
+}
+
+.subpage-empty {
+  min-height: 270px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  padding: 30px 20px;
+  text-align: center;
+}
+
+.subpage-empty-icon {
+  display: grid;
+  width: 66px;
+  height: 66px;
+  border-radius: 21px;
+  background: #eaf2ec;
+  color: var(--cookx-primary);
+  font-size: 28px;
+  place-items: center;
+}
+
+.subpage-empty h2 { margin: 17px 0 7px; font-size: 19px; }
+.subpage-empty p { max-width: 330px; margin: 0; color: var(--cookx-text-secondary); font-size: 12px; line-height: 1.7; }
+
+.subpage-primary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 44px;
+  margin-top: 18px;
+  padding: 0 17px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--cookx-primary);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.subpage-section-title { margin: 0 0 15px; font-size: 18px; }
+.subpage-muted { color: var(--cookx-text-secondary); }
+
+@media (max-width: 430px) {
+  .subpage-hero { padding: 15px var(--cookx-page-gutter-mobile) 31px; }
+  .subpage-content { padding: 0 var(--cookx-page-gutter-mobile); }
+  .subpage-card { padding: 17px 14px; }
+}
