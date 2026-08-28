@@ -100,9 +100,40 @@
       <aside class="fridge-tip"><el-icon><KnifeFork /></el-icon><span><strong>CookX 小贴士：</strong>定期清理过期食材，保持冰箱整洁；合理搭配食材，吃得健康又美味。</span></aside>
     </main>
 
-    <el-upload :action="`${API_BASE_URL}/analyze-fridge`" :on-success="handleUploadSuccess" :show-file-list="false" accept="image/*" class="recognize-fab">
+    <el-upload
+      :action="`${API_BASE_URL}/analyze-fridge`"
+      :before-upload="beforeRecognitionUpload"
+      :on-progress="handleRecognitionProgress"
+      :on-success="handleUploadSuccess"
+      :on-error="handleRecognitionError"
+      :disabled="isRecognizing"
+      :show-file-list="false"
+      accept="image/*"
+      class="recognize-fab"
+    >
       <div class="recognize-button"><el-icon><CameraFilled /></el-icon><span>识别食材</span></div>
     </el-upload>
+
+    <div v-if="recognitionStatus !== 'idle'" class="recognition-overlay" role="status" aria-live="polite">
+      <section class="recognition-card">
+        <div :class="['recognition-visual', recognitionStatus]">
+          <el-icon v-if="recognitionStatus === 'success'"><CircleCheckFilled /></el-icon>
+          <el-icon v-else-if="recognitionStatus === 'error'"><WarningFilled /></el-icon>
+          <el-icon v-else><CameraFilled /></el-icon>
+          <span v-if="isRecognizing" class="scan-ring"></span>
+        </div>
+        <h2>{{ recognitionTitle }}</h2>
+        <p>{{ recognitionMessage }}</p>
+        <div v-if="recognitionStatus === 'uploading'" class="upload-progress">
+          <div><span>正在上传图片</span><strong>{{ uploadPercent }}%</strong></div>
+          <div class="progress-track"><i :style="{ width: `${uploadPercent}%` }"></i></div>
+        </div>
+        <div v-else-if="recognitionStatus === 'analyzing'" class="analysis-progress"><i></i></div>
+        <strong v-if="isRecognizing" class="elapsed-time">已等待 {{ recognitionElapsedSeconds }} 秒</strong>
+        <small v-if="isRecognizing">请不要关闭页面或重复选择图片</small>
+        <button v-if="recognitionStatus === 'error'" type="button" @click="resetRecognitionState">返回重试</button>
+      </section>
+    </div>
 
     <el-dialog v-model="showAddDialog" title="添加食材" width="92%" center>
        <el-form :model="newItem" label-width="70px">
@@ -131,10 +162,10 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onBeforeUnmount, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
-import { AlarmClock, Box, CameraFilled, Delete, KnifeFork, ArrowRight, EditPen, WarningFilled, Search, Plus } from '@element-plus/icons-vue'
+import { AlarmClock, Box, CameraFilled, CircleCheckFilled, Delete, KnifeFork, ArrowRight, EditPen, WarningFilled, Search, Plus } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { API_BASE_URL, resolveBackendUrl } from '@/config/backend'
 import tomatoImage from '@/assets/images/ingredients/tomato.png'
@@ -152,6 +183,13 @@ import chiliImage from '@/assets/images/ingredients/chili.png'
 import garlicImage from '@/assets/images/ingredients/garlic.png'
 import kimchiImage from '@/assets/images/ingredients/kimchi.png'
 import leekImage from '@/assets/images/ingredients/leek.png'
+import cabbageImage from '@/assets/images/ingredients/cabbage.png'
+import spinachImage from '@/assets/images/ingredients/spinach.png'
+import tofuImage from '@/assets/images/ingredients/tofu.png'
+import cilantroImage from '@/assets/images/ingredients/cilantro.png'
+import greenChiliImage from '@/assets/images/ingredients/green-chili.png'
+import gingerImage from '@/assets/images/ingredients/ginger.png'
+import doubanjiangImage from '@/assets/images/ingredients/doubanjiang.png'
 
 const router = useRouter()
 const inventory = ref([])
@@ -163,11 +201,72 @@ const quickRecipes = ref([])
 const recLoading = ref(false)
 const showAddDialog = ref(false)
 const lastUpdatedAt = ref(null)
+const recognitionStatus = ref('idle')
+const uploadPercent = ref(0)
+const recognitionElapsedSeconds = ref(0)
+const recognizedItemCount = ref(0)
+let recognitionTimer = null
+let recognitionSuccessTimer = null
 const emit = defineEmits(['consult-recipe', 'clear-pending'])
 // 用户隔离
 const userStr = localStorage.getItem('user');
 const userInfo = userStr ? JSON.parse(userStr) : null;
 const userId = userInfo ? userInfo.id : null;
+
+const isRecognizing = computed(() => ['uploading', 'analyzing'].includes(recognitionStatus.value))
+
+const recognitionTitle = computed(() => {
+  if (recognitionStatus.value === 'uploading') return '正在上传图片'
+  if (recognitionStatus.value === 'analyzing') return 'CookX 正在识别食材'
+  if (recognitionStatus.value === 'success') return '识别完成'
+  return '识别失败'
+})
+
+const recognitionMessage = computed(() => {
+  if (recognitionStatus.value === 'success') return `发现 ${recognizedItemCount.value} 项食材，即将进入确认页`
+  if (recognitionStatus.value === 'error') return '请检查网络后重新尝试'
+  if (recognitionStatus.value === 'uploading') return '正在安全上传图片，请稍候…'
+  if (recognitionElapsedSeconds.value >= 30) return '仍在识别中，请保持网络连接'
+  if (recognitionElapsedSeconds.value >= 15) return '图片中的食材较多，本次识别需要一点时间'
+  if (recognitionElapsedSeconds.value >= 9) return '正在整理识别结果…'
+  if (recognitionElapsedSeconds.value >= 4) return 'AI 正在定位图片中的食材…'
+  return 'AI 正在分析图片，请稍候…'
+})
+
+const clearRecognitionTimer = () => {
+  if (recognitionTimer) {
+    clearInterval(recognitionTimer)
+    recognitionTimer = null
+  }
+}
+
+const resetRecognitionState = () => {
+  clearRecognitionTimer()
+  recognitionStatus.value = 'idle'
+  uploadPercent.value = 0
+  recognitionElapsedSeconds.value = 0
+  recognizedItemCount.value = 0
+}
+
+const beforeRecognitionUpload = () => {
+  if (isRecognizing.value) return false
+  resetRecognitionState()
+  recognitionStatus.value = 'uploading'
+  recognitionTimer = setInterval(() => { recognitionElapsedSeconds.value += 1 }, 1000)
+  return true
+}
+
+const handleRecognitionProgress = (event) => {
+  const percent = Math.min(100, Math.max(0, Math.round(Number(event?.percent) || 0)))
+  uploadPercent.value = percent
+  if (percent >= 100) recognitionStatus.value = 'analyzing'
+}
+
+const handleRecognitionError = () => {
+  clearRecognitionTimer()
+  recognitionStatus.value = 'error'
+  ElMessage.error('识别失败，请检查网络后重新尝试')
+}
 
 const filteredInventory = computed(() => {
   const list = inventory.value.filter(item => {
@@ -230,6 +329,7 @@ const foodConfig = {
 
   // 蔬菜
   'cabbage': { emoji: '🥬', cn: '白菜', category: 'vegetable' },
+  'cilantro': { emoji: '🌿', cn: '香菜', category: 'vegetable' },
   'carrot': { emoji: '🥕', cn: '胡萝卜', category: 'vegetable' },
   'chili': { emoji: '🌶️', cn: '辣椒', category: 'vegetable' },
   'garlic': { emoji: '🧄', cn: '大蒜', category: 'vegetable' },
@@ -244,6 +344,7 @@ const foodConfig = {
   'pumpkin': { emoji: '🎃', cn: '南瓜', category: 'vegetable' },
   'mushroom': { emoji: '🍄', cn: '蘑菇', category: 'vegetable' },
   'ginger': { emoji: '🫚', cn: '生姜', category: 'vegetable' },
+  'green_chili': { emoji: '🌶️', cn: '青辣椒', category: 'vegetable' },
   'broccoli': { emoji: '🥦', cn: '西兰花', category: 'vegetable' },
   'green_pepper': { emoji: '🌶️', cn: '青椒', category: 'vegetable' },
   'chive': { emoji: '🌿', cn: '韭菜', category: 'vegetable' },
@@ -290,7 +391,8 @@ const foodConfig = {
   'cooking_wine': { emoji: '🧂', cn: '料酒', category: 'condiment' },
   'cooking_oil': { emoji: '🧂', cn: '食用油', category: 'condiment' },
   'chili_sauce': { emoji: '🧂', cn: '辣椒酱', category: 'condiment' },
-  'kimchi': { emoji: '🥬', cn: '泡菜', category: 'other' }
+  'kimchi': { emoji: '🥬', cn: '泡菜', category: 'other' },
+  'doubanjiang': { emoji: '🧂', cn: '豆瓣酱', category: 'condiment' }
 }
 
 // 中文到英文的反向映射
@@ -312,10 +414,12 @@ const cnToEnMap = {
   // 蔬菜
   '白菜': 'cabbage',
   '大白菜': 'cabbage',
+  '香菜': 'cilantro',
   '胡萝卜': 'carrot',
   '辣椒': 'chili',
   '红辣椒': 'chili',
-  '青椒': 'chili',
+  '青辣椒': 'green_chili',
+  '青椒': 'green_chili',
   '大蒜': 'garlic',
   '蒜': 'garlic',
   '蒜头': 'garlic',
@@ -335,6 +439,7 @@ const cnToEnMap = {
   '南瓜': 'pumpkin',
   '蘑菇': 'mushroom',
   '生姜': 'ginger',
+  '姜': 'ginger',
   '西兰花': 'broccoli',
   '花菜': 'cauliflower',
   '芹菜': 'celery',
@@ -389,6 +494,8 @@ const cnToEnMap = {
   '泡菜': 'kimchi',
   '韩国泡菜': 'kimchi',
   '辣白菜': 'kimchi',
+  '韩式泡菜': 'kimchi',
+  '豆瓣酱': 'doubanjiang',
   '红洋葱': 'onion',
   '紫洋葱': 'onion'
 }
@@ -462,7 +569,8 @@ const ingredientImages = {
   egg: eggImage,
   chicken: chickenImage,
   chili: chiliImage,
-  green_pepper: chiliImage,
+  green_pepper: greenChiliImage,
+  green_chili: greenChiliImage,
   garlic: garlicImage,
   kimchi: kimchiImage,
   leek: leekImage,
@@ -470,7 +578,13 @@ const ingredientImages = {
   lettuce: lettuceImage,
   broccoli: broccoliImage,
   rice: riceImage,
-  milk: milkImage
+  milk: milkImage,
+  cabbage: cabbageImage,
+  spinach: spinachImage,
+  tofu: tofuImage,
+  cilantro: cilantroImage,
+  ginger: gingerImage,
+  doubanjiang: doubanjiangImage
 }
 
 const estimatedMeasurePerItem = {
@@ -485,7 +599,15 @@ const estimatedMeasurePerItem = {
   rice: { value: 500, unit: 'g' },
   milk: { value: 250, unit: 'ml' },
   beef: { value: 200, unit: 'g' },
-  pork: { value: 200, unit: 'g' }
+  pork: { value: 200, unit: 'g' },
+  cabbage: { value: 500, unit: 'g' },
+  spinach: { value: 250, unit: 'g' },
+  tofu: { value: 300, unit: 'g' },
+  cilantro: { value: 50, unit: 'g' },
+  green_chili: { value: 50, unit: 'g' },
+  ginger: { value: 100, unit: 'g' },
+  kimchi: { value: 200, unit: 'g' },
+  doubanjiang: { value: 200, unit: 'g' }
 }
 
 const formatMeasure = (value, unit) => {
@@ -778,17 +900,25 @@ const handleUploadSuccess = (response) => {
     
     // 存储到 localStorage 以便在确认页使用
     localStorage.setItem('tempIdentifiedItems', JSON.stringify(itemsWithStorage));
-    
-    // 跳转到识别结果确认页
-    router.push('/capture-confirm');
+
+    clearRecognitionTimer();
+    recognizedItemCount.value = data.detected.length;
+    recognitionStatus.value = 'success';
+    recognitionSuccessTimer = setTimeout(() => {
+      router.push('/capture-confirm');
+    }, 650);
   } else {
+    clearRecognitionTimer();
+    recognitionStatus.value = 'error';
     ElMessage.warning('未能识别到食材');
   }
 }
 
-
-
 onMounted(() => { if (!userId) router.push('/login'); else fetchInventory(); });
+onBeforeUnmount(() => {
+  clearRecognitionTimer();
+  if (recognitionSuccessTimer) clearTimeout(recognitionSuccessTimer);
+});
 </script>
 
 <style scoped>
@@ -1237,6 +1367,61 @@ button { font: inherit; }
 
 .recognize-button .el-icon { font-size: 21px; }
 .recognize-button span { margin-top: 3px; font-size: 9px; font-weight: 650; }
+
+.recognize-fab.is-disabled .recognize-button { opacity: .55; cursor: wait; }
+
+.recognition-overlay {
+  position: fixed;
+  z-index: 2100;
+  inset: 0;
+  display: grid;
+  padding: 22px;
+  background: rgba(8, 38, 31, .54);
+  backdrop-filter: blur(7px);
+  place-items: center;
+}
+
+.recognition-card {
+  width: min(100%, 360px);
+  padding: 28px 24px 24px;
+  border: 1px solid rgba(255, 255, 255, .68);
+  border-radius: 24px;
+  background: #fffdf8;
+  box-shadow: 0 24px 70px rgba(5, 31, 25, .28);
+  text-align: center;
+}
+
+.recognition-visual {
+  position: relative;
+  display: grid;
+  width: 70px;
+  height: 70px;
+  margin: 0 auto 17px;
+  border-radius: 22px;
+  background: #e9f2e9;
+  color: var(--cookx-primary);
+  font-size: 31px;
+  place-items: center;
+}
+
+.recognition-visual.success { background: #e7f3e9; color: var(--cookx-success); }
+.recognition-visual.error { background: #fff0ed; color: var(--cookx-danger); }
+.scan-ring { position: absolute; inset: -7px; border: 2px solid rgba(23, 63, 53, .12); border-top-color: var(--cookx-accent); border-radius: 25px; animation: recognition-spin 1.15s linear infinite; }
+.recognition-card h2 { margin: 0; color: var(--cookx-text); font-size: 20px; }
+.recognition-card > p { min-height: 38px; margin: 8px 0 17px; color: var(--cookx-text-secondary); font-size: 11px; line-height: 1.7; }
+.upload-progress > div:first-child { display: flex; justify-content: space-between; color: var(--cookx-text-secondary); font-size: 10px; }
+.upload-progress strong { color: var(--cookx-primary); }
+.progress-track,
+.analysis-progress { height: 7px; margin-top: 8px; overflow: hidden; border-radius: 999px; background: #e5ebe6; }
+.progress-track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--cookx-primary), var(--cookx-accent)); transition: width .2s ease; }
+.analysis-progress { position: relative; }
+.analysis-progress i { position: absolute; width: 38%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--cookx-primary), var(--cookx-accent)); animation: recognition-scan 1.35s ease-in-out infinite; }
+.elapsed-time { display: block; margin-top: 14px; color: var(--cookx-primary); font-size: 11px; }
+.recognition-card > small { display: block; margin-top: 5px; color: var(--cookx-text-secondary); font-size: 9px; }
+.recognition-card > button { min-height: 40px; margin-top: 4px; padding: 0 17px; border: 0; border-radius: 13px; background: var(--cookx-primary); color: #fff; cursor: pointer; }
+
+@keyframes recognition-spin { to { transform: rotate(360deg); } }
+@keyframes recognition-scan { 0% { left: -38%; } 55%, 100% { left: 100%; } }
 
 :deep(.el-dialog) { max-width: 430px; }
 
