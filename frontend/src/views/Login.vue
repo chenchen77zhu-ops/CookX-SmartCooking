@@ -4,8 +4,8 @@
       <!-- LOGO 区域 -->
       <div class="logo-section">
         <div class="logo-icon">🍳</div>
-        <h1 class="login-title">SmartCooking</h1>
-        <p class="login-subtitle">鲜厨智享</p>
+        <h1 class="login-title">CookX</h1>
+        <p class="login-subtitle">感知每一度 · 智烹每一步</p>
       </div>
 
       <el-form :model="loginForm" :rules="loginRules" ref="loginFormRef" label-width="0px">
@@ -127,7 +127,7 @@ const handleLogin = async () => {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #E8F5E9 0%, #F9FAFB 100%);
+  background: var(--cookx-bg);
   position: relative;
   overflow: hidden;
 }
@@ -140,7 +140,7 @@ const handleLogin = async () => {
   right: -100px;
   width: 300px;
   height: 300px;
-  background: radial-gradient(circle, rgba(102, 187, 106, 0.1) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(216, 107, 53, 0.10) 0%, transparent 70%);
   border-radius: 50%;
 }
 
@@ -151,16 +151,17 @@ const handleLogin = async () => {
   left: -150px;
   width: 400px;
   height: 400px;
-  background: radial-gradient(circle, rgba(46, 125, 50, 0.08) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(23, 63, 53, 0.08) 0%, transparent 70%);
   border-radius: 50%;
 }
 
 .login-card {
-  background: #fff;
+  background: var(--cookx-surface);
   /* 调小内边距：上下从48px减到30px，左右从40px减到24px */
   padding: 30px 24px;
-  border-radius: 20px;
-  box-shadow: 0 8px 32px rgba(46, 125, 50, 0.12);
+  border: var(--cookx-border);
+  border-radius: var(--cookx-radius-large);
+  box-shadow: var(--cookx-shadow);
   width: 88%;      /* ✅ 关键：宽度占屏幕88%，不撑满 */
   max-width: 350px; /* ✅ 关键：最大宽度从420px缩小到350px */
   position: relative;
@@ -199,14 +200,14 @@ const handleLogin = async () => {
 }
 
 .login-title {
-  color: #2E7D32;
+  color: var(--cookx-primary);
   margin-bottom: 4px;
   font-size: 24px; /* 标题从32px减小到24px */
   font-weight: 600;
 }
 
 .login-subtitle {
-  color: #888;
+  color: var(--cookx-text-secondary);
   font-size: 13px; /* 副标题缩小 */
 }
 
@@ -215,18 +216,18 @@ const handleLogin = async () => {
 }
 
 :deep(.el-input__wrapper:hover) {
-  box-shadow: 0 0 0 1px #66BB6A inset !important;
+  box-shadow: 0 0 0 1px var(--cookx-success) inset !important;
   background-color: #fff;
 }
 
 :deep(.el-input__wrapper.is-focus) {
-  box-shadow: 0 0 0 1px #2E7D32 inset !important;
+  box-shadow: 0 0 0 1px var(--cookx-primary) inset !important;
   background-color: #fff;
 }
 
 :deep(.el-input__inner) {
   font-size: 15px;
-  color: #1F2937;
+  color: var(--cookx-text);
 }
 
 :deep(.el-form-item) {
@@ -242,7 +243,7 @@ const handleLogin = async () => {
 
 .login-button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(46, 125, 50, 0.4);
+  box-shadow: 0 8px 22px rgba(23, 63, 53, 0.22);
 }
 
 .login-button:active {
@@ -255,7 +256,7 @@ const handleLogin = async () => {
 }
 
 .link {
-  color: #2E7D32;
+  color: var(--cookx-primary);
   text-decoration: none;
   margin-left: 5px;
   font-weight: 600;
@@ -263,7 +264,7 @@ const handleLogin = async () => {
 }
 
 .link:hover {
-  color: #1B5E20;
+  color: var(--cookx-accent);
   text-decoration: underline;
 }
 

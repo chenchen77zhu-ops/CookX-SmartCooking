@@ -1,33 +1,82 @@
 /* ========================================
-   SmartCooking 健康绿色主题视觉规范
+   CookX Design System
+   自然 × 温暖 × AI 科技
    ======================================== */
 
 :root {
-  /* 主色体系 - 健康绿色 */
-  --primary-green: #2E7D32;
-  --light-green: #66BB6A;
-  --super-light-green: #E8F5E9;
-  
-  /* 功能色 */
-  --fresh-blue: #42A5F5;
-  --warning-orange: #FFA726;
-  --danger-red: #EF5350;
-  --voice-purple: #7C4DFF;
-  --camera-blue: #1976D2;
-  
-  /* 中性色 */
-  --text-title: #1F2937;
-  --text-body: #4B5563;
-  --text-secondary: #9CA3AF;
-  --bg-page: #F9FAFB;
-  --bg-card: #FFFFFF;
-  --border-light: #E5E7EB;
-  
-  /* 圆角规范 */
-  --radius-card: 16px;
-  --radius-button: 12px;
-  --radius-input: 12px;
-  
+  /* CookX 品牌色 */
+  --cookx-primary: #173F35;
+  --cookx-primary-dark: #102E27;
+  --cookx-accent: #D86B35;
+  --cookx-gold: #E9A23B;
+  --cookx-bg: #F7F5EF;
+  --cookx-surface: #FFFFFF;
+  --cookx-text: #202522;
+  --cookx-text-secondary: #737A75;
+  --cookx-success: #4D8B69;
+  --cookx-danger: #D84A3A;
+
+  /* CookX 形状、边框与阴影 */
+  --cookx-radius-large: 24px;
+  --cookx-radius-card: 18px;
+  --cookx-radius-button: 15px;
+  --cookx-radius-input: 14px;
+  --cookx-shadow: 0 8px 30px rgba(28, 48, 40, 0.08);
+  --cookx-shadow-hover: 0 12px 36px rgba(28, 48, 40, 0.12);
+  --cookx-border: 1px solid rgba(23, 63, 53, 0.08);
+
+  /* Element Plus 全局主题 */
+  --el-color-primary: var(--cookx-primary);
+  --el-color-primary-dark-2: var(--cookx-primary-dark);
+  --el-color-primary-light-3: #5D7B73;
+  --el-color-primary-light-5: #8B9F9A;
+  --el-color-primary-light-7: #B9C7C3;
+  --el-color-primary-light-8: #D1DBD8;
+  --el-color-primary-light-9: #E8EEEC;
+  --el-color-success: var(--cookx-success);
+  --el-color-success-light-3: #82AA91;
+  --el-color-success-light-5: #A6C5B4;
+  --el-color-success-light-7: #CADFD2;
+  --el-color-success-light-8: #DCEADF;
+  --el-color-success-light-9: #EDF4EF;
+  --el-color-warning: var(--cookx-gold);
+  --el-color-warning-light-3: #F0BA70;
+  --el-color-warning-light-5: #F4CD9D;
+  --el-color-warning-light-7: #F8E1C5;
+  --el-color-warning-light-8: #FAEBD8;
+  --el-color-warning-light-9: #FDF5EB;
+  --el-color-danger: var(--cookx-danger);
+  --el-color-danger-light-3: #E27E72;
+  --el-color-danger-light-5: #EAA49D;
+  --el-color-danger-light-7: #F3C9C5;
+  --el-color-danger-light-8: #F7DBD8;
+  --el-color-danger-light-9: #FBEDEC;
+  --el-text-color-primary: var(--cookx-text);
+  --el-text-color-regular: var(--cookx-text-secondary);
+  --el-bg-color-page: var(--cookx-bg);
+  --el-border-radius-base: var(--cookx-radius-input);
+  --el-border-color: rgba(23, 63, 53, 0.12);
+  --el-fill-color-blank: var(--cookx-surface);
+
+  /* 兼容现有页面变量，统一收口到 CookX Tokens */
+  --primary-green: var(--cookx-primary);
+  --light-green: var(--cookx-success);
+  --super-light-green: #E8EFEA;
+  --fresh-blue: #5B7E75;
+  --warning-orange: var(--cookx-accent);
+  --danger-red: var(--cookx-danger);
+  --voice-purple: var(--cookx-accent);
+  --camera-blue: var(--cookx-primary);
+  --text-title: var(--cookx-text);
+  --text-body: #4E5651;
+  --text-secondary: var(--cookx-text-secondary);
+  --bg-page: var(--cookx-bg);
+  --bg-card: var(--cookx-surface);
+  --border-light: rgba(23, 63, 53, 0.08);
+  --radius-card: var(--cookx-radius-card);
+  --radius-button: var(--cookx-radius-button);
+  --radius-input: var(--cookx-radius-input);
+
   /* 间距规范 */
   --spacing-xs: 8px;
   --spacing-sm: 16px;
@@ -35,9 +84,9 @@
   --spacing-lg: 32px;
   
   /* 阴影规范 */
-  --shadow-light: 0 2px 8px rgba(46, 125, 50, 0.08);
-  --shadow-medium: 0 4px 16px rgba(46, 125, 50, 0.12);
-  --shadow-heavy: 0 8px 32px rgba(46, 125, 50, 0.16);
+  --shadow-light: var(--cookx-shadow);
+  --shadow-medium: var(--cookx-shadow-hover);
+  --shadow-heavy: 0 16px 44px rgba(28, 48, 40, 0.16);
 }
 
 /* 全局基础样式 */
@@ -49,11 +98,16 @@
 
 body {
   font-family: 'PingFang SC', 'Noto Sans SC', 'Roboto', 'Inter', sans-serif;
-  background-color: var(--bg-page);
+  background-color: var(--cookx-bg);
   color: var(--text-body);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+#app {
+  min-height: 100vh;
+  background: var(--cookx-bg);
 }
 
 /* 字体大小规范 */
@@ -74,7 +128,8 @@ body {
   background: var(--bg-card);
   border-radius: var(--radius-card);
   padding: var(--spacing-md);
-  box-shadow: var(--shadow-light);
+  border: var(--cookx-border);
+  box-shadow: var(--cookx-shadow);
   transition: all 0.3s ease;
 }
 
@@ -85,6 +140,7 @@ body {
 
 /* 按钮点击动画 */
 .el-button, .button {
+  border-radius: var(--cookx-radius-button);
   transition: all 0.2s ease;
 }
 
@@ -99,6 +155,18 @@ body {
   transition: all 0.3s ease;
 }
 
+.el-card {
+  border: var(--cookx-border);
+  border-radius: var(--cookx-radius-card);
+  box-shadow: var(--cookx-shadow);
+}
+
+.el-dialog {
+  border: var(--cookx-border);
+  border-radius: var(--cookx-radius-large);
+  box-shadow: var(--cookx-shadow-hover);
+}
+
 .el-input__wrapper:hover {
   box-shadow: 0 0 0 1px var(--light-green) inset !important;
 }
@@ -109,10 +177,12 @@ body {
 
 /* 主题色按钮 */
 .el-button--primary {
-  --el-button-bg-color: var(--primary-green);
-  --el-button-border-color: var(--primary-green);
-  --el-button-hover-bg-color: #1B5E20;
-  --el-button-hover-border-color: #1B5E20;
+  --el-button-bg-color: var(--cookx-primary);
+  --el-button-border-color: var(--cookx-primary);
+  --el-button-hover-bg-color: var(--cookx-primary-dark);
+  --el-button-hover-border-color: var(--cookx-primary-dark);
+  --el-button-active-bg-color: var(--cookx-primary-dark);
+  --el-button-active-border-color: var(--cookx-primary-dark);
 }
 
 /* 加载动画 - 绿色旋转叶子 */

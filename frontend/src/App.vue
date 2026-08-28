@@ -9,6 +9,18 @@
 
     <!-- 2. 底部导航栏 -->
     <nav v-if="showBottomNav" class="bottom-nav">
+      <!-- 首页 Dashboard -->
+      <div
+        class="nav-item"
+        :class="{ active: activeTab === 'Home' }"
+        @click="switchTab('Home')"
+      >
+        <div class="nav-icon-wrapper">
+          <el-icon class="nav-icon"><House /></el-icon>
+        </div>
+        <span class="nav-text">首页</span>
+      </div>
+
       <!-- 冰箱管理 -->
       <div
         class="nav-item"
@@ -18,7 +30,7 @@
         <div class="nav-icon-wrapper">
           <el-icon class="nav-icon"><Box /></el-icon>
         </div>
-        <span class="nav-text">冰箱管理</span>
+        <span class="nav-text">冰箱</span>
       </div>
 
       <!-- AI 厨房 -->
@@ -49,10 +61,9 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { Box, Bowl, User } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import { House, Box, Bowl, User } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -67,18 +78,19 @@ const showBottomNav = computed(() => {
 const activeTab = computed(() => {
   if (route.path === '/profile') return 'Profile'
   if (route.path.includes('/home')) {
-    // 如果 URL 里有 tab 参数，就用参数，否则默认 Manage
-    return route.query.tab || 'Manage'
+    if (route.query.tab === 'Manage') return 'Manage'
+    if (route.query.tab === 'AiChef') return 'AiChef'
+    return 'Home'
   }
-  return 'Manage'
+  return 'Home'
 })
 
 // 4. ✅ 核心修改：切换逻辑
 const switchTab = (tab) => {
-  activeTab.value = tab; // 同步底部高亮状态
-
   if (tab === 'Profile') {
     router.push('/profile');
+  } else if (tab === 'Home') {
+    router.push('/home');
   } else {
     // ✅ 关键点：统一跳转到 /home，并带上 tab 参数
     // 这样 URL 会变成 /home?tab=Manage 或 /home?tab=AiChef
@@ -91,13 +103,13 @@ const switchTab = (tab) => {
 /* 全局基础样式 */
 body {
   margin: 0;
-  background-color: var(--bg-page);
+  background-color: var(--cookx-bg);
   font-family: 'PingFang SC', 'Noto Sans SC', 'Roboto', 'Inter', sans-serif;
 }
 
 .app-container {
   min-height: 100vh;
-  background: var(--bg-page);
+  background: var(--cookx-bg);
   padding-bottom: 70px; /* 为底部导航留出空间 */
 }
 
@@ -108,11 +120,11 @@ body {
   left: 0;
   right: 0;
   height: 70px;
-  background: #fff;
+  background: var(--cookx-surface);
   display: flex;
   border-top: 1px solid var(--border-light);
   padding-bottom: env(safe-area-inset-bottom);
-  box-shadow: 0 -2px 12px rgba(46, 125, 50, 0.08);
+  box-shadow: 0 -8px 30px rgba(28, 48, 40, 0.08);
   z-index: 1000;
 }
 
@@ -150,10 +162,11 @@ body {
   color: var(--text-secondary);
   font-weight: 500;
   transition: all 0.3s ease;
+  white-space: nowrap;
 }
 
 .nav-item.active .nav-icon-wrapper {
-  background: linear-gradient(135deg, var(--super-light-green) 0%, rgba(232, 245, 233, 0.5) 100%);
+  background: rgba(23, 63, 53, 0.08);
 }
 
 .nav-item.active .nav-icon {

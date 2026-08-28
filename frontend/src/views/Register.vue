@@ -4,8 +4,8 @@
       <!-- LOGO 区域 -->
       <div class="logo-section">
         <div class="logo-icon">🍳</div>
-        <h1 class="register-title">SmartCooking</h1>
-        <p class="register-subtitle">开启您的鲜厨之旅</p>
+        <h1 class="register-title">CookX</h1>
+        <p class="register-subtitle">感知每一度 · 智烹每一步</p>
       </div>
 
       <el-form :model="registerForm" :rules="registerRules" ref="registerFormRef" label-width="0px">
@@ -143,16 +143,17 @@ const handleRegister = async () => {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #E8F5E9 0%, #F9FAFB 100%);
+  background: var(--cookx-bg);
   position: relative;
 }
 
 .register-card {
-  background: #fff;
+  background: var(--cookx-surface);
   /* ✅ 压缩内边距，使卡片更紧凑 */
   padding: 30px 24px;
-  border-radius: 20px;
-  box-shadow: 0 8px 32px rgba(46, 125, 50, 0.12);
+  border: var(--cookx-border);
+  border-radius: var(--cookx-radius-large);
+  box-shadow: var(--cookx-shadow);
   /* ✅ 设置宽度百分比及最大宽度，不撑满全屏 */
   width: 88%;
   max-width: 350px;
@@ -176,7 +177,7 @@ const handleRegister = async () => {
 }
 
 .register-title {
-  color: #2E7D32;
+  color: var(--cookx-primary);
   margin-bottom: 4px;
   font-size: 24px;
   font-weight: 600;
@@ -184,7 +185,7 @@ const handleRegister = async () => {
 }
 
 .register-subtitle {
-  color: #888;
+  color: var(--cookx-text-secondary);
   font-size: 13px;
   text-align: center;
 }
@@ -194,8 +195,8 @@ const handleRegister = async () => {
 }
 
 :deep(.el-input__wrapper) {
-  border-radius: 10px !important;
-  background-color: #F9FAFB;
+  border-radius: var(--cookx-radius-input) !important;
+  background-color: var(--cookx-surface);
   padding: 8px 12px;
 }
 
@@ -204,8 +205,8 @@ const handleRegister = async () => {
   height: 44px;
   font-size: 15px;
   font-weight: 600;
-  border-radius: 10px !important;
-  background: linear-gradient(135deg, #2E7D32 0%, #66BB6A 100%);
+  border-radius: var(--cookx-radius-button) !important;
+  background: var(--cookx-primary);
   border: none;
   margin-top: 10px;
 }
@@ -218,7 +219,7 @@ const handleRegister = async () => {
 }
 
 .link {
-  color: #2E7D32;
+  color: var(--cookx-primary);
   text-decoration: none;
   font-weight: 600;
 }
