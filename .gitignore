@@ -78,3 +78,5 @@ runs/
 # Temporary backup and inspection files
 *.bak
 *.inspect.ndjson
+
+test_food2.png
