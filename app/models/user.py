@@ -1,13 +1,20 @@
 import os
 import json
+import shutil
 import hashlib
 import uuid
 from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel
 
-# 用户数据文件
-USERS_FILE = "app/users.json"
+# 用户数据文件（基于本文件定位，不依赖运行时的当前工作目录）
+APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+LEGACY_USERS_FILE = os.path.join(APP_DIR, "users.json")
+USERS_FILE = os.path.join(APP_DIR, "data", "users", "users.json")
+
+os.makedirs(os.path.dirname(USERS_FILE), exist_ok=True)
+if not os.path.exists(USERS_FILE) and os.path.exists(LEGACY_USERS_FILE):
+    shutil.copy2(LEGACY_USERS_FILE, USERS_FILE)
 
 class User(BaseModel):
     id: str
