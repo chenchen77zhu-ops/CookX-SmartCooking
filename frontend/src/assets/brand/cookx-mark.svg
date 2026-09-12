@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">CookX 品牌图形</title>
+  <desc id="desc">厨师帽、智能温度感知节点、自然叶片与隐约的 X 结构</desc>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M67 119V91c-19-4-30-20-27-39 3-18 19-31 38-30 8-10 25-15 45-15 23 0 42 8 48 22 20-3 39 11 42 31 3 21-12 40-33 43v16" stroke="#F7F5EF" stroke-width="13"/>
+    <path d="M67 119h113" stroke="#F7F5EF" stroke-width="13"/>
+    <path d="M96 63v74M128 51v90M160 68v69" stroke="#F7F5EF" stroke-width="8"/>
+    <circle cx="96" cy="61" r="9" fill="#4D8B69" stroke="#F7F5EF" stroke-width="5"/>
+    <circle cx="128" cy="49" r="9" fill="#E9A23B" stroke="#F7F5EF" stroke-width="5"/>
+    <circle cx="160" cy="66" r="9" fill="#D86B35" stroke="#F7F5EF" stroke-width="5"/>
+    <path d="M48 151c35 4 62 17 80 40-32 12-67 4-89-24 31 2 60 10 89 24" fill="#4D8B69" stroke="#F7F5EF" stroke-width="7"/>
+    <path d="M208 151c-35 4-62 17-80 40 32 12 67 4 89-24-31 2-60 10-89 24" fill="#78A85D" stroke="#F7F5EF" stroke-width="7"/>
+    <path d="M92 137l72 72M164 137l-72 72" stroke="#E9A23B" stroke-width="5" opacity=".82"/>
+    <path d="M67 216c39 15 83 15 122 0" stroke="#F7F5EF" stroke-width="8"/>
+  </g>
+</svg>

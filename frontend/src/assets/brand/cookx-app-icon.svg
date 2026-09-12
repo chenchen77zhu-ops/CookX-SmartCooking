@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 432 432" role="img" aria-labelledby="title desc">
+  <title id="title">CookX Android 应用图标</title>
+  <desc id="desc">厨师帽、智能温度感知节点、自然叶片、CookX 字标与流动叶片曲线</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#102E27"/>
+      <stop offset="0.56" stop-color="#173F35"/>
+      <stop offset="1" stop-color="#1F5A48"/>
+    </linearGradient>
+    <linearGradient id="leaf" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#4D8B69"/>
+      <stop offset="1" stop-color="#A7CE4A"/>
+    </linearGradient>
+  </defs>
+  <rect width="432" height="432" rx="96" fill="url(#background)"/>
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <path d="M142 176v-27c-24-6-39-28-35-52 4-23 25-40 49-39 11-18 33-29 60-29s49 11 60 29c24-1 45 16 49 39 4 24-11 46-35 52v27" fill="none" stroke="#F7F5EF" stroke-width="14"/>
+    <path d="M142 176h21m106 0h21" fill="none" stroke="#F7F5EF" stroke-width="14"/>
+    <path d="M176 92v84m40-102v102m40-84v84" fill="none" stroke="#8DBB69" stroke-width="8"/>
+    <circle cx="176" cy="89" r="11" fill="#9BCB4A" stroke="#F7F5EF" stroke-width="4"/>
+    <circle cx="216" cy="71" r="11" fill="#E9A23B" stroke="#F7F5EF" stroke-width="4"/>
+    <circle cx="256" cy="89" r="11" fill="#4D8B69" stroke="#F7F5EF" stroke-width="4"/>
+    <path d="M123 178c34 11 65 9 93-5 28 14 59 16 93 5-23 35-54 49-93 43-39 6-70-8-93-43Z" fill="#F7F5EF"/>
+    <path d="M139 183c29 6 55 2 77-10-15 25-39 35-72 27Z" fill="#4D8B69"/>
+    <path d="M293 183c-29 6-55 2-77-10 15 25 39 35 72 27Z" fill="url(#leaf)"/>
+  </g>
+  <g aria-label="CookX">
+    <text x="216" y="298" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="78" font-weight="800" letter-spacing="-5" fill="#F7F5EF">Cook<tspan fill="#A7CE4A">X</tspan></text>
+  </g>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M91 342c48 17 90 14 126-8 35-21 77-23 124-8-48 1-90 15-126 42-37-17-78-25-124-26Z" fill="#4D8B69" opacity=".76"/>
+    <path d="M82 339c55 10 101 7 137-9 37-17 80-20 131-9-47 9-91 27-132 53-41-18-86-29-136-35Z" stroke="#F7F5EF" stroke-width="8"/>
+    <path d="M126 362c40 9 75 7 105-7 31-14 60-19 88-15-32 8-65 23-98 43-31-12-63-19-95-21Z" fill="#A7CE4A" opacity=".9"/>
+  </g>
+</svg>

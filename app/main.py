@@ -433,48 +433,87 @@ async def analyze_fridge(file: UploadFile = File(...)):
         temp_path = os.path.join(UPLOAD_DIR, temp_filename)
         with open(temp_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-        print(f"[RECOGNITION] file={temp_filename}")
-        print(f"[RECOGNITION] size={os.path.getsize(temp_path)} bytes")
+        upload_size = os.path.getsize(temp_path)
+        with Image.open(temp_path) as uploaded_image:
+            image_width, image_height = uploaded_image.size
+            image_mode = uploaded_image.mode
+            image_channels = len(uploaded_image.getbands())
+        print(
+            f"[RECOGNITION] upload filename={file.filename!r} "
+            f"content_type={file.content_type!r} saved_file={temp_filename} "
+            f"bytes={upload_size} width={image_width} height={image_height} "
+            f"mode={image_mode} channels={image_channels}"
+        )
 
         # 2. 第二步：运行本地 YOLO 模型扫描
-        results = model(
-            temp_path,
-            conf=0.5,  # 设定置信度
-            iou=0.3,
-            imgsz=640,
-            agnostic_nms=True,
+        print(
+            "[YOLO] model=app/models/best.pt conf=0.5 iou=0.3 imgsz=640 "
+            "agnostic_nms=True classes=None max_det=300(default)"
         )
-        yolo_names = [model.names[int(c)] for r in results for c in r.boxes.cls]
-        box_count = sum(len(r.boxes) for r in results)
-        print(f"[YOLO] boxes={box_count}")
-        for result in results:
-            for class_id, confidence in zip(result.boxes.cls, result.boxes.conf):
-                class_name = model.names[int(class_id)]
-                print(f"[YOLO] class={class_name} confidence={float(confidence):.4f}")
-
-        if len(yolo_names) == 0:
-            # 彻底认不出来（yolo_names 为空）才请千问专家
-            print("[YOLO] no detections, starting Qwen fallback")
-            qwen_res = await get_ingredients_from_qwen(temp_path)
-            qwen_error = qwen_res.get("_qwen_error")
-            if qwen_error:
-                print(f"[QWEN] fallback failed: {qwen_error}")
-                print("[RECOGNITION] final detected=0")
-                return {
-                    "status": "error",
-                    "message": "AI 食材识别服务暂时不可用，请稍后重试",
-                    "detected": [],
-                }
-            # qwen_res 已经是 [{"name": "大白菜", ...}] 这种中文格式了
-            detected_items = qwen_res.get("detected", [])
-            print(f"[QWEN] detected {len(detected_items)} ingredients")
-        else:
-            print(f"YOLO 原始识别结果: {yolo_names}")
-            detected_items = [
+        yolo_error = None
+        yolo_items = []
+        try:
+            results = model(
+                temp_path,
+                conf=0.5,  # 设定置信度
+                iou=0.3,
+                imgsz=640,
+                agnostic_nms=True,
+            )
+            yolo_names = [model.names[int(c)] for r in results for c in r.boxes.cls]
+            raw_detections = [
+                {"name": model.names[int(class_id)], "confidence": round(float(confidence), 4)}
+                for result in results
+                for class_id, confidence in zip(result.boxes.cls, result.boxes.conf)
+            ]
+            box_count = sum(len(r.boxes) for r in results)
+            yolo_items = [
                 {"name": NAME_MAP.get(name, name), "quantity": quantity}
                 for name, quantity in Counter(yolo_names).items()
             ]
-            print(f"YOLO 聚合结果: {detected_items}")
+            print(f"[YOLO] boxes={box_count}")
+            print(f"[YOLO] raw detections={raw_detections}")
+            print(f"[YOLO] detected foods={yolo_items}")
+        except Exception as error:
+            yolo_error = f"{type(error).__name__}: {error}"
+            print(f"[YOLO] failed: {yolo_error}")
+
+        # Qwen 是复杂场景的整图识别来源，因此每张图均调用；不再依赖 YOLO 的检测数量。
+        print("[QWEN] called: true")
+        qwen_res = await get_ingredients_from_qwen(temp_path)
+        qwen_error = qwen_res.get("_qwen_error")
+        qwen_items = qwen_res.get("detected", []) if not qwen_error else []
+        if qwen_error:
+            print(f"[QWEN] failed: {qwen_error}")
+        else:
+            print(f"[QWEN] detected foods={qwen_items}")
+
+        merged_by_name = {}
+        for item in [*yolo_items, *qwen_items]:
+            raw_name = str(item.get("name", "")).strip()
+            if not raw_name:
+                continue
+            name = NAME_MAP.get(raw_name.lower(), raw_name)
+            quantity = item.get("quantity", 1)
+            try:
+                quantity = max(1, int(quantity))
+            except (TypeError, ValueError):
+                quantity = 1
+            existing = merged_by_name.get(name)
+            if existing is None:
+                merged_by_name[name] = {"name": name, "quantity": quantity}
+            else:
+                existing["quantity"] = max(existing["quantity"], quantity)
+        detected_items = list(merged_by_name.values())
+        print(f"[FUSION] merged foods={detected_items}")
+
+        if not detected_items and qwen_error:
+            print("[RECOGNITION] final detected=0")
+            return {
+                "status": "error",
+                "message": "AI 食材识别服务暂时不可用，请稍后重试",
+                "detected": [],
+            }
         # -------------------------------------------------------
 
         # 3. 第三步：统一为识别出的食材添加新鲜度评估（逻辑保持不变）
@@ -485,7 +524,7 @@ async def analyze_fridge(file: UploadFile = File(...)):
         # 4. 第四步：清理临时文件（可选）
         # os.remove(temp_path)
 
-        print(f"[RECOGNITION] final detected={len(detected_items)}")
+        print(f"[RECOGNITION] final food count={len(detected_items)} items={detected_items}")
         return {"status": "success", "detected": detected_items}
 
     except Exception as e:

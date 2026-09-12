@@ -1,6 +1,6 @@
-import { Capacitor } from '@capacitor/core'
+﻿import { Capacitor } from '@capacitor/core'
 
-const NATIVE_BACKEND_BASE_URL = 'http://192.168.3.29:8000'
+const NATIVE_BACKEND_BASE_URL = 'http://192.168.43.49:8000'
 const LOCAL_BACKEND_ORIGIN_PATTERN = /^https?:\/\/(?:127\.0\.0\.1|localhost):8000(?=\/|$)/i
 
 export const IS_NATIVE_APP = Capacitor.isNativePlatform()

@@ -9,6 +9,7 @@ load_dotenv()
 
 # DashScope 密钥只从运行环境读取，不在源码中保存。
 dashscope.api_key = os.getenv("DASHSCOPE_API_KEY")
+QWEN_VL_MODEL = os.getenv("QWEN_VL_MODEL", "qwen3-vl-plus")
 
 
 async def get_ingredients_from_qwen(image_path):
@@ -47,8 +48,9 @@ async def get_ingredients_from_qwen(image_path):
 
     try:
         response = MultiModalConversation.call(
-            model='qwen-vl-plus',
-            messages=messages
+            model=QWEN_VL_MODEL,
+            messages=messages,
+            enable_thinking=False,
         )
 
         status_code = getattr(response, "status_code", None)
