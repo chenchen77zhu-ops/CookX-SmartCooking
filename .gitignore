@@ -50,3 +50,31 @@ app/static/audio/
 
 # Temporary files
 tmp/
+
+# Local Codex and Gradle workspaces
+.codex/
+.gradle-user/
+
+# Additional Python caches
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Vite cache
+frontend/.vite/
+
+# Android generated files
+frontend/android/.gradle/
+frontend/android/build/
+frontend/android/app/build/
+frontend/android/*-apk-unpacked/
+frontend/android/verify-apk/
+frontend/android/*.zip
+frontend/android/phone-base.apk
+
+# YOLO inference outputs
+runs/
+
+# Temporary backup and inspection files
+*.bak
+*.inspect.ndjson
