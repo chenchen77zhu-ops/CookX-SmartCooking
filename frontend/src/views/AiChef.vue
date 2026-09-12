@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="ai-chef-container">
     <header class="chef-hero">
       <div class="chef-hero-inner">
@@ -8,7 +8,7 @@
             <span :class="['device-pill', { connected: temperatureConnected }]">
               <el-icon><Connection /></el-icon>CookX Sense {{ temperatureConnectionText }}
             </span>
-            <span class="voice-pill"><el-icon><Microphone /></el-icon>{{ isCookingPaused ? '语音已暂停' : (navigationVisible ? '语音指导中' : '语音待命') }}</span>
+            <span class="voice-pill"><el-icon><Microphone /></el-icon>{{ navigationVisible ? voiceStatusText : '语音待命' }}</span>
           </div>
         </div>
 
@@ -43,7 +43,7 @@
     <main class="chef-content">
       <template v-if="navigationVisible && activeSteps.length">
         <section class="cooking-grid">
-          <article class="current-step-card panel-card">
+          <article :class="['current-step-card', 'panel-card', { 'is-voice-active': isVoicePlaying }]">
             <div class="panel-heading">
               <span><el-icon><Food /></el-icon>当前步骤</span>
               <b v-if="currentStepDuration"><el-icon><Timer /></el-icon>剩余 {{ formatTime(timeLeft) }}</b>
@@ -51,6 +51,20 @@
             <div class="step-count">第 <strong>{{ currentStepIdx + 1 }}</strong> / {{ activeSteps.length }} 步</div>
             <h2>{{ currentStepTitle }}</h2>
             <p class="step-description">{{ currentStepText }}</p>
+            <div :class="['inline-voice', voicePlaybackState]">
+              <div class="inline-voice-main">
+                <span class="voice-wave" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+                <strong>{{ inlineVoiceStatusText }}</strong>
+                <span v-if="voiceProgressVisible" class="voice-remaining">{{ voiceRemainingTime }}</span>
+              </div>
+              <div v-if="voiceProgressVisible" class="voice-progress" aria-label="本步骤语音播放进度">
+                <span :style="{ width: `${voiceProgressPercent}%` }"></span>
+              </div>
+              <div class="inline-voice-actions">
+                <button type="button" class="voice-toggle" @click="toggleVoicePlayback"><el-icon><VideoPause v-if="isVoicePlaying" /><VideoPlay v-else /></el-icon>{{ voiceControlText }}</button>
+                <button type="button" @click="replayCurrentStep"><el-icon><RefreshRight /></el-icon>重新播报</button>
+              </div>
+            </div>
             <div v-if="currentStepMeta.length" class="step-meta">
               <span v-for="meta in currentStepMeta" :key="meta.label"><b>{{ meta.label }}</b>{{ meta.value }}</span>
             </div>
@@ -59,7 +73,7 @@
             <div class="step-switcher">
               <button type="button" :disabled="currentStepIdx === 0" @click="prevStep"><el-icon><ArrowLeft /></el-icon>上一步</button>
               <span>第 {{ currentStepIdx + 1 }} / {{ activeSteps.length }} 步</span>
-              <button type="button" class="next" @click="nextStep">{{ currentStepIdx === activeSteps.length - 1 ? '完成' : '下一步' }}<el-icon><ArrowRight /></el-icon></button>
+              <button type="button" class="next" :disabled="isLastStep" @click="nextStep">下一步<el-icon><ArrowRight /></el-icon></button>
             </div>
           </article>
 
@@ -69,25 +83,15 @@
               <i :class="{ connected: temperatureConnected }">{{ temperatureConnectionText }}</i>
             </div>
             <div class="temperature-grid">
-              <div><span>环境温度</span><strong>--<small>°C</small></strong><p>当前设备未提供</p></div>
+              <div><span>环境温度</span><strong>{{ ambientTemperature === null ? '--' : ambientTemperature.toFixed(1) }}<small>°C</small></strong><p>{{ ambientTemperature === null ? '当前硬件固件未上传环境温度' : '设备环境温度' }}</p></div>
               <div><span>锅面温度</span><strong>{{ currentTemperature === null ? '--' : currentTemperature.toFixed(1) }}<small>°C</small></strong><p>{{ currentTemperature === null ? '等待数据' : temperatureLevel.status }}</p></div>
             </div>
-            <div v-if="temperatureConnected" class="sense-update"><el-icon><CircleCheckFilled /></el-icon><span><b>设备已连接，数据实时更新</b>最后更新 {{ lastTemperatureTime }}</span></div>
+            <div v-if="temperatureConnected" class="sense-update"><el-icon><CircleCheckFilled /></el-icon><span><b>{{ currentTemperature === null ? '数据暂未更新' : '设备已连接，数据实时更新' }}</b>最后更新 {{ lastTemperatureTime }}</span></div>
             <div v-else class="sense-empty"><el-icon><Connection /></el-icon><div><b>尚未连接 CookX Sense</b><span>连接设备后可实时查看温度</span></div></div>
             <div v-if="currentTemperature !== null" class="sense-tip"><span>{{ temperatureLevel.status }}</span><p>{{ temperatureLevel.tip }}</p></div>
-            <button v-if="!temperatureConnected" type="button" class="sense-action" :disabled="temperatureConnecting" @click="temperatureDialogVisible = true">{{ temperatureConnecting ? '连接中…' : '连接测温设备' }}</button>
+            <button v-if="!temperatureConnected" type="button" class="sense-action" :disabled="temperatureConnecting" @click="openTemperatureDialog">{{ temperatureConnecting ? '连接中…' : '连接测温设备' }}</button>
             <button v-else type="button" class="sense-action secondary" @click="disconnectTemperature">断开设备</button>
           </article>
-        </section>
-
-        <section class="voice-control panel-card">
-          <div class="voice-heading"><span><el-icon><Microphone /></el-icon><b>语音助手</b></span><p>{{ isCookingPaused ? '语音已暂停' : 'CookX 正在为你播报当前步骤' }}</p></div>
-          <div class="voice-buttons">
-            <button type="button" :disabled="currentStepIdx === 0" @click="prevStep"><el-icon><ArrowLeft /></el-icon><span>上一步</span></button>
-            <button type="button" @click="replayCurrentStep"><el-icon><RefreshRight /></el-icon><span>重新播报</span></button>
-            <button type="button" class="pause-control" @click="toggleCookingPause"><el-icon><VideoPlay v-if="isCookingPaused" /><VideoPause v-else /></el-icon><span>{{ isCookingPaused ? '继续烹饪' : '暂停烹饪' }}</span></button>
-            <button type="button" class="next-control" @click="nextStep"><el-icon><ArrowRight /></el-icon><span>{{ currentStepIdx === activeSteps.length - 1 ? '完成' : '下一步' }}</span></button>
-          </div>
         </section>
 
         <section class="steps-panel panel-card">
@@ -150,18 +154,28 @@
       <div class="input-content"><el-input ref="recipeInput" v-model="userInput" placeholder="告诉 CookX 你想做什么…" @keyup.enter="sendMessage()"><template #append><el-button :loading="loading" :icon="Promotion" @click="sendMessage()" /></template></el-input></div>
     </div>
 
-    <el-dialog v-model="temperatureDialogVisible" title="连接 JDY-31 测温设备" width="90%">
-      <el-input
-        v-model="temperatureDeviceAddress"
-        placeholder="请输入已配对设备 MAC，例如 00:11:22:33:44:55"
-        maxlength="17"
-        clearable
-        @keyup.enter="connectTemperature"
-      />
-      <p class="temperature-dialog-help">请先在 Android 系统蓝牙设置中完成 JDY-31 配对。</p>
+    <el-dialog v-model="temperatureDialogVisible" title="连接 CookX Sense" width="90%" @closed="stopTemperatureScan">
+      <div class="bluetooth-scan-status">
+        <span>{{ bluetoothScanText }}</span>
+        <el-button size="small" :loading="temperatureScanning" @click="startTemperatureScan">重新扫描</el-button>
+      </div>
+      <div class="bluetooth-device-list">
+        <button
+          v-for="device in sortedTemperatureDevices"
+          :key="device.address"
+          type="button"
+          :class="['bluetooth-device-item', { recommended: device.isJdy31, selected: temperatureDeviceAddress === device.address }]"
+          @click="temperatureDeviceAddress = device.address"
+        >
+          <span><b>{{ device.name || '未知蓝牙设备' }}</b><small>{{ device.address }}</small></span>
+          <em>{{ device.isJdy31 ? 'CookX 设备' : 'Classic Bluetooth' }}</em>
+        </button>
+        <p v-if="!sortedTemperatureDevices.length" class="temperature-dialog-help">{{ temperatureScanning ? '正在扫描附近的 JDY-31…' : '暂未发现设备，请确认模块已上电。' }}</p>
+      </div>
+      <details class="bluetooth-debug"><summary>高级调试：手工地址</summary><el-input v-model="temperatureDeviceAddress" placeholder="00:11:22:33:44:55" maxlength="17" clearable /></details>
       <template #footer>
         <el-button @click="temperatureDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="temperatureConnecting" @click="connectTemperature">连接</el-button>
+        <el-button type="primary" :loading="temperatureConnecting" :disabled="!temperatureDeviceAddress" @click="connectTemperature">{{ temperatureConnecting ? '正在连接…' : '连接' }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -179,9 +193,16 @@ import { ElMessage, ElNotification, ElMessageBox } from 'element-plus'
 import {
   connectTemperatureDevice,
   disconnectTemperatureDevice,
+  requestBluetoothPermissions,
+  getBluetoothState,
+  scanTemperatureDevices,
+  stopTemperatureDeviceScan,
+  onTemperatureDeviceFound,
+  onTemperatureConnectionStateChanged,
   onTemperatureData,
   handleTemperatureUpdate
 } from '@/services/temperatureDevice'
+import { TEMPERATURE_STALE_MS } from '@/services/temperatureStream'
 import { API_BASE_URL, resolveBackendUrl } from '@/config/backend'
 
 // --- 基础定义 ---
@@ -201,6 +222,9 @@ const currentStepIdx = ref(0)
 const timeLeft = ref(0)
 const isListening = ref(false)
 const isCookingPaused = ref(false)
+const voicePlaybackState = ref('idle')
+const voiceCurrentTime = ref(0)
+const voiceDuration = ref(0)
 const activeReminders = ref([])
 let timer = null
 let recognition = null
@@ -210,11 +234,16 @@ let voiceRequestVersion = 0
 let preloadedVoice = null
 let preloadGeneration = 0
 let temperatureListener = null
+let temperatureStaleTimer = null
+let temperatureDeviceFoundListener = null
+let temperatureConnectionStateListener = null
 
 const releaseAudioResource = (audio, blobUrl) => {
   if (audio) {
     audio.onended = null
     audio.onerror = null
+    audio.ontimeupdate = null
+    audio.ondurationchange = null
     try { audio.pause() } catch (e) {}
     try { audio.currentTime = 0 } catch (e) {}
     audio.removeAttribute('src')
@@ -225,13 +254,14 @@ const releaseAudioResource = (audio, blobUrl) => {
 }
 
 const stopCurrentAudio = () => {
-  if (!currentAudio && !currentAudioBlobUrl) return
-
-  console.log('[Voice] stop current audio')
+  if (currentAudio || currentAudioBlobUrl) console.log('[Voice] stop current audio')
   const audio = currentAudio
   const blobUrl = currentAudioBlobUrl
   currentAudio = null
   currentAudioBlobUrl = null
+  voicePlaybackState.value = 'idle'
+  voiceCurrentTime.value = 0
+  voiceDuration.value = 0
   releaseAudioResource(audio, blobUrl)
 }
 
@@ -245,6 +275,9 @@ const discardStepAudio = (audio, blobUrl) => {
   if (currentAudio === audio) {
     currentAudio = null
     currentAudioBlobUrl = null
+    voicePlaybackState.value = 'idle'
+    voiceCurrentTime.value = 0
+    voiceDuration.value = 0
   }
   releaseAudioResource(audio, blobUrl)
 }
@@ -308,12 +341,35 @@ const takePreloadedVoice = (stepIndex, text) => {
 }
 
 const currentTemperature = ref(null)
+const ambientTemperature = ref(null)
 const lastTemperatureTimestamp = ref(null)
 const temperatureConnected = ref(false)
 const temperatureConnecting = ref(false)
 const temperatureAcceptingData = ref(false)
 const temperatureDialogVisible = ref(false)
 const temperatureDeviceAddress = ref(localStorage.getItem('temperatureDeviceAddress') || '')
+const temperatureDevices = ref([])
+const temperatureScanning = ref(false)
+
+const sortedTemperatureDevices = computed(() => [...temperatureDevices.value].sort((a, b) => Number(b.isJdy31) - Number(a.isJdy31)))
+const bluetoothScanText = computed(() => temperatureScanning.value ? '正在扫描 Classic Bluetooth 设备' : `发现 ${temperatureDevices.value.length} 个设备`)
+
+const clearTemperatureReading = () => {
+  if (temperatureStaleTimer) {
+    window.clearTimeout(temperatureStaleTimer)
+    temperatureStaleTimer = null
+  }
+  currentTemperature.value = null
+  ambientTemperature.value = null
+}
+
+const scheduleTemperatureStaleTimeout = () => {
+  if (temperatureStaleTimer) window.clearTimeout(temperatureStaleTimer)
+  temperatureStaleTimer = window.setTimeout(() => {
+    temperatureStaleTimer = null
+    currentTemperature.value = null
+  }, TEMPERATURE_STALE_MS)
+}
 
 const temperatureConnectionText = computed(() => {
   if (temperatureConnecting.value) return '连接中'
@@ -351,8 +407,50 @@ const temperatureLevel = computed(() => {
   return { status: '危险', tip: '油温过高，请暂缓下锅并降低火力。', tagType: 'danger', className: 'temperature-danger', icon: '🔥' }
 })
 
+const bluetoothErrorMessage = (error) => {
+  const messages = {
+    BLUETOOTH_UNSUPPORTED: '此手机不支持蓝牙',
+    BLUETOOTH_DISABLED: '请开启手机蓝牙后继续',
+    PERMISSION_DENIED: '请允许 CookX 使用附近设备权限',
+    SCAN_FAILED: '蓝牙扫描启动失败，请稍后重试',
+    DEVICE_NOT_FOUND: '请选择扫描到的 JDY-31 设备',
+    CONNECT_FAILED: '无法连接 JDY-31，请确认模块已上电并靠近手机',
+    CONNECTION_LOST: 'CookX Sense 连接已断开',
+    NOT_CONNECTED: '设备尚未连接',
+    WRITE_FAILED: '蓝牙数据发送失败'
+  }
+  return messages[error?.code] || error?.message || '蓝牙操作失败'
+}
+
+const startTemperatureScan = async () => {
+  temperatureDevices.value = []
+  temperatureScanning.value = true
+  try {
+    await requestBluetoothPermissions()
+    const bluetooth = await getBluetoothState()
+    if (bluetooth.status === 'unsupported') return
+    if (!bluetooth.enabled) throw Object.assign(new Error('请开启手机蓝牙后继续'), { code: 'BLUETOOTH_DISABLED' })
+    await scanTemperatureDevices()
+  } catch (error) {
+    temperatureScanning.value = false
+    ElMessage.error(bluetoothErrorMessage(error))
+  }
+}
+
+const stopTemperatureScan = async () => {
+  temperatureScanning.value = false
+  try { await stopTemperatureDeviceScan() } catch (error) { console.warn('停止蓝牙扫描失败:', error) }
+}
+
+const openTemperatureDialog = async () => {
+  temperatureDialogVisible.value = true
+  await startTemperatureScan()
+}
+
 const connectTemperature = async () => {
   if (temperatureConnecting.value) return
+  clearTemperatureReading()
+  lastTemperatureTimestamp.value = null
   temperatureConnecting.value = true
   try {
     const result = await connectTemperatureDevice(temperatureDeviceAddress.value)
@@ -364,12 +462,15 @@ const connectTemperature = async () => {
     temperatureConnected.value = true
     temperatureAcceptingData.value = true
     temperatureDialogVisible.value = false
-    localStorage.setItem('temperatureDeviceAddress', temperatureDeviceAddress.value.trim().toUpperCase())
-    ElMessage.success(`测温设备已连接${result.mode === 'insecure' ? '（兼容模式）' : ''}`)
+    localStorage.setItem('temperatureDeviceAddress', result.address || temperatureDeviceAddress.value.trim().toUpperCase())
+    await stopTemperatureScan()
+    ElMessage.success(`CookX Sense 已连接${result.name ? `：${result.name}` : ''}`)
   } catch (error) {
+    clearTemperatureReading()
+    lastTemperatureTimestamp.value = null
     temperatureConnected.value = false
     temperatureAcceptingData.value = false
-    ElMessage.error(error?.message || '测温设备连接失败，请检查配对状态和 MAC 地址')
+    ElMessage.error(bluetoothErrorMessage(error))
   } finally {
     temperatureConnecting.value = false
   }
@@ -377,6 +478,8 @@ const connectTemperature = async () => {
 
 const disconnectTemperature = async () => {
   temperatureAcceptingData.value = false
+  clearTemperatureReading()
+  lastTemperatureTimestamp.value = null
   try {
     const result = await disconnectTemperatureDevice()
     if (result.status === 'unsupported') {
@@ -395,10 +498,21 @@ const registerTemperatureListener = async () => {
   try {
     temperatureListener = await onTemperatureData((data) => {
       if (!temperatureAcceptingData.value) return
-      const update = handleTemperatureUpdate(data.temperature, data.timestamp)
+      const update = handleTemperatureUpdate(data.temperature, data.updatedAt)
       if (!update) return
       currentTemperature.value = update.temperature
-      lastTemperatureTimestamp.value = update.timestamp
+      lastTemperatureTimestamp.value = update.updatedAt
+      scheduleTemperatureStaleTimeout()
+    })
+    temperatureDeviceFoundListener = await onTemperatureDeviceFound((device) => {
+      const index = temperatureDevices.value.findIndex(item => item.address === device.address)
+      if (index >= 0) temperatureDevices.value.splice(index, 1, device)
+      else temperatureDevices.value.push(device)
+    })
+    temperatureConnectionStateListener = await onTemperatureConnectionStateChanged((connection) => {
+      temperatureScanning.value = connection.state === 'scanning'
+      temperatureConnected.value = connection.state === 'connected'
+      if (connection.state === 'error' && connection.message) ElMessage.error(connection.message)
     })
   } catch (error) {
     console.error('注册温度监听失败:', error)
@@ -408,6 +522,8 @@ const registerTemperatureListener = async () => {
 
 const cleanupTemperatureDevice = async () => {
   temperatureAcceptingData.value = false
+  clearTemperatureReading()
+  lastTemperatureTimestamp.value = null
   if (temperatureListener) {
     try {
       await temperatureListener.remove()
@@ -416,6 +532,12 @@ const cleanupTemperatureDevice = async () => {
     }
     temperatureListener = null
   }
+  for (const listener of [temperatureDeviceFoundListener, temperatureConnectionStateListener]) {
+    try { await listener?.remove() } catch (error) { console.warn('移除蓝牙监听失败:', error) }
+  }
+  temperatureDeviceFoundListener = null
+  temperatureConnectionStateListener = null
+  await stopTemperatureScan()
   try {
     await disconnectTemperatureDevice()
   } catch (error) {
@@ -450,6 +572,34 @@ const getStepText = (step) => typeof step === 'object' ? (step?.text || step?.co
 const getStepTitle = (step, index) => typeof step === 'object' && step?.title ? step.title : `步骤 ${index + 1}`
 const activeSteps = computed(() => Array.isArray(activeRecipe.value?.steps) ? activeRecipe.value.steps : [])
 const currentStep = computed(() => activeSteps.value[currentStepIdx.value] || null)
+const isLastStep = computed(() => currentStepIdx.value >= activeSteps.value.length - 1)
+const isVoicePlaying = computed(() => voicePlaybackState.value === 'playing')
+const voiceStatusText = computed(() => {
+  if (voicePlaybackState.value === 'loading') return `正在准备 · 第 ${currentStepIdx.value + 1} 步`
+  if (voicePlaybackState.value === 'playing') return `正在播报 · 第 ${currentStepIdx.value + 1} 步`
+  if (voicePlaybackState.value === 'paused') return `播报已暂停 · 第 ${currentStepIdx.value + 1} 步`
+  return `语音待播放 · 第 ${currentStepIdx.value + 1} 步`
+})
+const inlineVoiceStatusText = computed(() => {
+  if (voicePlaybackState.value === 'loading') return '正在准备本步骤语音'
+  if (voicePlaybackState.value === 'playing') return '正在播报本步骤'
+  if (voicePlaybackState.value === 'paused') return '本步骤播报已暂停'
+  return '本步骤语音待播放'
+})
+const voiceControlText = computed(() => {
+  if (voicePlaybackState.value === 'playing') return '暂停播报'
+  if (voicePlaybackState.value === 'paused') return '继续播报'
+  return '播放本步骤'
+})
+const voiceProgressVisible = computed(() => Number.isFinite(voiceDuration.value) && voiceDuration.value > 0)
+const voiceProgressPercent = computed(() => {
+  if (!voiceProgressVisible.value) return 0
+  return Math.min(100, Math.max(0, (voiceCurrentTime.value / voiceDuration.value) * 100))
+})
+const voiceRemainingTime = computed(() => {
+  if (!voiceProgressVisible.value) return ''
+  return formatTime(Math.max(0, Math.ceil(voiceDuration.value - voiceCurrentTime.value)))
+})
 const currentStepText = computed(() => getStepText(currentStep.value))
 const currentStepTitle = computed(() => getStepTitle(currentStep.value, currentStepIdx.value))
 const currentStepDuration = computed(() => Number(currentStep.value?.time_estimate || currentStep.value?.duration || 0))
@@ -629,6 +779,7 @@ const runStep = async () => {
   if (!step) return;
   const stepIndex = currentStepIdx.value;
   const stepNumber = stepIndex + 1;
+  voicePlaybackState.value = 'loading';
   console.log(`[Voice] runStep version=${requestVersion} step=${stepNumber}`);
 
   timeLeft.value = Number(step.time_estimate) || 60;
@@ -661,7 +812,10 @@ const runStep = async () => {
 
       if (discardStaleVoiceRequest(requestVersion)) return;
 
-      if (!res.data?.audio_url) return;
+      if (!res.data?.audio_url) {
+        if (requestVersion === voiceRequestVersion) voicePlaybackState.value = 'idle';
+        return;
+      }
       const audioUrl = resolveBackendUrl(res.data.audio_url);
 
       // ✅ 核心修复：不直接用 new Audio(url)
@@ -689,7 +843,22 @@ const runStep = async () => {
     currentAudioBlobUrl = blobUrl;
     currentAudio = audio;
 
+    const syncVoiceProgress = () => {
+      if (currentAudio !== audio || requestVersion !== voiceRequestVersion) return;
+      voiceCurrentTime.value = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
+      voiceDuration.value = Number.isFinite(audio.duration) ? audio.duration : 0;
+    };
+    audio.ontimeupdate = syncVoiceProgress;
+    audio.ondurationchange = syncVoiceProgress;
+
     audio.onended = () => {
+      if (currentAudio === audio) {
+        stopCurrentAudio();
+        if (requestVersion === voiceRequestVersion) initVoiceRecognition();
+      }
+    };
+
+    audio.onerror = () => {
       if (currentAudio === audio) {
         stopCurrentAudio();
         if (requestVersion === voiceRequestVersion) initVoiceRecognition();
@@ -702,6 +871,7 @@ const runStep = async () => {
     }
 
     console.log(`[Voice] play version=${requestVersion} step=${stepNumber}`);
+    voicePlaybackState.value = 'playing';
     await audio.play();
 
     if (discardStaleVoiceRequest(requestVersion)) {
@@ -798,31 +968,33 @@ const replayCurrentStep = () => {
   runStep()
 }
 
-const toggleCookingPause = async () => {
+const toggleVoicePlayback = async () => {
   if (!navigationVisible.value) return
-  if (!isCookingPaused.value) {
+  if (voicePlaybackState.value === 'playing') {
     isCookingPaused.value = true
     if (timer) { clearInterval(timer); timer = null }
     if (currentAudio) {
       try { currentAudio.pause() } catch (error) { console.warn('暂停语音失败:', error) }
-    } else {
-      voiceRequestVersion++
     }
+    voicePlaybackState.value = 'paused'
     return
   }
 
-  isCookingPaused.value = false
-  if (currentAudio) {
+  if (voicePlaybackState.value === 'paused' && currentAudio) {
     try {
+      isCookingPaused.value = false
       await currentAudio.play()
+      voicePlaybackState.value = 'playing'
       startStepTimer()
     } catch (error) {
       console.warn('继续语音失败，重新播报当前步骤:', error)
       runStep()
     }
-  } else {
-    runStep()
+    return
   }
+
+  isCookingPaused.value = false
+  runStep()
 }
 
 // --- 功能性跳转 ---
@@ -832,7 +1004,8 @@ const goToMarket = () => {
     const center = longitude != null && latitude != null
       ? `&center=${longitude},${latitude}`
       : '';
-    window.location.href = `https://uri.amap.com/search?keyword=${encodeURIComponent('菜市场')}${center}&view=map&src=smart_cooking&coordinate=gaode`;
+    const amapUrl = `https://uri.amap.com/search?keyword=${encodeURIComponent('菜市场')}${center}&view=map&src=smart_cooking&coordinate=gaode`;
+    window.open(amapUrl, '_blank');
   };
 
   navigator.geolocation.getCurrentPosition((pos) => {
@@ -1086,6 +1259,16 @@ onUnmounted(cleanupTemperatureDevice)
   font-size: 12px;
   line-height: 1.5;
 }
+.bluetooth-scan-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; color: var(--cookx-text-secondary); font-size: 12px; }
+.bluetooth-device-list { display: grid; gap: 8px; max-height: 300px; overflow-y: auto; }
+.bluetooth-device-item { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 12px 13px; border: 1px solid rgba(23,63,53,.12); border-radius: 12px; background: #fafbf8; color: var(--cookx-primary-dark); text-align: left; cursor: pointer; }
+.bluetooth-device-item span { display: grid; gap: 3px; }
+.bluetooth-device-item small { color: var(--cookx-text-secondary); font-family: monospace; }
+.bluetooth-device-item em { color: var(--cookx-text-secondary); font-size: 10px; font-style: normal; }
+.bluetooth-device-item.recommended { border-color: rgba(77,139,105,.35); background: rgba(77,139,105,.08); }
+.bluetooth-device-item.selected { border-color: var(--cookx-primary); box-shadow: 0 0 0 2px rgba(23,63,53,.08); }
+.bluetooth-debug { margin-top: 12px; color: var(--cookx-text-secondary); font-size: 11px; }
+.bluetooth-debug summary { margin-bottom: 8px; cursor: pointer; }
 
 .chat-messages {
   flex: 1;
@@ -1297,6 +1480,8 @@ onUnmounted(cleanupTemperatureDevice)
 .panel-card, .chef-state-card { border: var(--cookx-border); border-radius: var(--cookx-radius-large); background: var(--cookx-surface); box-shadow: var(--cookx-shadow); }
 .cooking-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(320px, .75fr); gap: 18px; }
 .current-step-card, .sense-card { padding: 23px; }
+.current-step-card { transition: border-color .22s ease, box-shadow .22s ease, transform .22s ease; }
+.current-step-card.is-voice-active { border-color: rgba(77,139,105,.34); box-shadow: 0 12px 34px rgba(23,63,53,.13); }
 .panel-heading { justify-content: space-between; gap: 12px; margin-bottom: 22px; }
 .panel-heading > span { display: inline-flex; align-items: center; gap: 9px; font-size: 17px; font-weight: 750; }
 .panel-heading > span .el-icon { display: grid; width: 31px; height: 31px; border-radius: 10px; background: #edf3ef; color: var(--cookx-primary); place-items: center; }
@@ -1304,6 +1489,23 @@ onUnmounted(cleanupTemperatureDevice)
 .panel-heading > i { position: relative; padding-left: 13px; color: var(--cookx-text-secondary); font-size: 11px; font-style: normal; }
 .panel-heading > i::before { position: absolute; top: 50%; left: 0; width: 7px; height: 7px; border-radius: 50%; background: #c8ceca; content: ''; transform: translateY(-50%); }
 .panel-heading > i.connected::before { background: #4caf6a; box-shadow: 0 0 0 4px rgba(76,175,106,.1); }
+.inline-voice { margin-top: 17px; padding: 12px 13px; border: 1px solid rgba(23,63,53,.09); border-radius: 14px; background: #f8f8f4; color: var(--cookx-text-secondary); transition: border-color .2s ease, background .2s ease; }
+.inline-voice.playing { border-color: rgba(77,139,105,.34); background: rgba(77,139,105,.09); color: var(--cookx-primary); }
+.inline-voice.loading { border-color: rgba(233,162,59,.26); background: rgba(233,162,59,.07); color: #93631f; }
+.inline-voice.paused { border-color: rgba(216,107,53,.2); background: rgba(216,107,53,.06); color: var(--cookx-accent); }
+.inline-voice-main { display: flex; align-items: center; gap: 9px; min-height: 24px; font-size: 12px; }
+.voice-remaining { margin-left: auto; color: currentColor; font-variant-numeric: tabular-nums; font-weight: 700; }
+.voice-wave { display: inline-flex; align-items: center; justify-content: center; gap: 2px; width: 20px; height: 18px; }
+.voice-wave i { width: 2px; height: 5px; border-radius: 2px; background: currentColor; transform-origin: center; }
+.inline-voice.playing .voice-wave i { animation: cookx-voice-wave .8s ease-in-out infinite alternate; }
+.inline-voice.playing .voice-wave i:nth-child(2) { animation-delay: -.6s; }
+.inline-voice.playing .voice-wave i:nth-child(3) { animation-delay: -.3s; }
+.inline-voice.playing .voice-wave i:nth-child(4) { animation-delay: -.7s; }
+@keyframes cookx-voice-wave { from { height: 5px; opacity: .58; } to { height: 16px; opacity: 1; } }
+.inline-voice .voice-progress { margin-top: 9px; }
+.inline-voice-actions { display: flex; gap: 8px; margin-top: 10px; }
+.inline-voice-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 38px; padding: 0 12px; border: 1px solid rgba(23,63,53,.14); border-radius: 11px; background: #fff; color: var(--cookx-primary); font-size: 11px; font-weight: 700; cursor: pointer; }
+.inline-voice-actions .voice-toggle { border-color: transparent; background: var(--cookx-primary); color: #fff; }
 .step-count { color: var(--cookx-text-secondary); font-size: 15px; }
 .step-count strong { color: var(--cookx-accent); font-size: 23px; }
 .current-step-card h2 { margin: 12px 0 13px; color: var(--cookx-primary-dark); font-size: clamp(25px, 4vw, 36px); line-height: 1.2; }
@@ -1336,15 +1538,9 @@ onUnmounted(cleanupTemperatureDevice)
 .sense-tip p { margin: 4px 0 0; color: var(--cookx-text-secondary); font-size: 11px; }
 .sense-action { width: 100%; min-height: 43px; margin-top: 14px; border: 0; border-radius: 13px; background: var(--cookx-primary); color: #fff; font-weight: 700; cursor: pointer; }
 .sense-action.secondary { border: 1px solid rgba(23,63,53,.16); background: #fff; color: var(--cookx-primary); }
-.voice-control { margin-top: 18px; padding: 19px 22px; }
-.voice-heading { justify-content: space-between; gap: 12px; }
-.voice-heading > span { gap: 8px; color: var(--cookx-primary-dark); }
-.voice-heading > span .el-icon { color: var(--cookx-primary); font-size: 20px; }
-.voice-heading p { margin: 0; color: var(--cookx-text-secondary); font-size: 11px; }
-.voice-buttons { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 17px; }
-.voice-buttons button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; border: 1px solid rgba(23,63,53,.12); border-radius: 16px; background: #f7f9f6; color: var(--cookx-primary); font-weight: 700; cursor: pointer; }
-.voice-buttons .pause-control { border-color: transparent; background: var(--cookx-accent); color: #fff; box-shadow: 0 8px 22px rgba(216,107,53,.2); }
-.voice-buttons .next-control { border-color: transparent; background: var(--cookx-primary); color: #fff; }
+.voice-progress { height: 4px; margin-top: 15px; overflow: hidden; border-radius: 999px; background: rgba(23,63,53,.09); }
+.voice-progress span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--cookx-success), var(--cookx-gold)); transition: width .18s linear; }
+.step-switcher button.next:disabled { border-color: rgba(23,63,53,.12); background: #edf0ed; color: var(--cookx-text-secondary); box-shadow: none; }
 .steps-panel { margin-top: 18px; padding: 21px 22px; overflow: hidden; }
 .section-heading { justify-content: space-between; margin-bottom: 18px; }
 .section-heading h2 { margin: 0; font-size: 17px; }
@@ -1423,10 +1619,7 @@ onUnmounted(cleanupTemperatureDevice)
   .step-switcher button { min-width: 96px; min-height: 44px; }
   .temperature-grid > div { padding: 14px 11px; }
   .temperature-grid strong { font-size: 29px; }
-  .voice-control { padding: 17px 14px; }
-  .voice-heading { align-items: flex-start; flex-direction: column; }
-  .voice-buttons { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
-  .voice-buttons button { min-height: 48px; font-size: 12px; }
+  .inline-voice-actions button { flex: 1; min-height: 42px; }
   .steps-panel { padding: 18px 14px; }
   .step-track { grid-auto-columns: 84px; grid-auto-flow: column; grid-template-columns: none; padding: 5px 0 8px; }
   .support-grid { grid-template-columns: 1fr; gap: 10px; }

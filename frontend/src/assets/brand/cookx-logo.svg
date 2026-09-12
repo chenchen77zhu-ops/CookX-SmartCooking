@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 260" role="img" aria-labelledby="title desc">
+  <title id="title">CookX</title>
+  <desc id="desc">CookX AI 智能烹饪助手，感知每一度，智烹每一步</desc>
+  <rect width="760" height="260" rx="36" fill="#F7F5EF"/>
+  <rect x="38" y="34" width="192" height="192" rx="48" fill="#173F35"/>
+  <image href="cookx-mark.svg" x="56" y="52" width="156" height="156"/>
+  <text x="264" y="126" fill="#173F35" font-family="Arial, sans-serif" font-size="82" font-weight="750">Cook<tspan fill="#4D8B69">X</tspan></text>
+  <text x="268" y="170" fill="#737A75" font-family="sans-serif" font-size="24" letter-spacing="3">AI 智能烹饪助手</text>
+  <text x="268" y="208" fill="#173F35" font-family="sans-serif" font-size="22" letter-spacing="2">感知每一度 · 智烹每一步</text>
+</svg>

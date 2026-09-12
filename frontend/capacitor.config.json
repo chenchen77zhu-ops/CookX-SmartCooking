@@ -1,6 +1,6 @@
 {
   "appId": "com.smartcooking.app",
-  "appName": "SmartCooking",
+  "appName": "CookX",
   "webDir": "dist",
   "android": {
     "allowMixedContent": true

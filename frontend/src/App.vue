@@ -1,5 +1,6 @@
 <template>
   <div class="app-container">
+    <CookXSplash :visible="showNativeSplash" />
     <!-- 1. 路由展示区域 -->
     <router-view v-slot="{ Component }">
       <transition name="fade" mode="out-in">
@@ -67,12 +68,24 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { Capacitor } from '@capacitor/core'
 import { House, Box, Bowl, User } from '@element-plus/icons-vue'
+import CookXSplash from '@/components/CookXSplash.vue'
 
 const router = useRouter()
 const route = useRoute()
+const showNativeSplash = ref(Capacitor.isNativePlatform())
+let splashTimer = null
+
+onMounted(() => {
+  if (showNativeSplash.value) splashTimer = window.setTimeout(() => { showNativeSplash.value = false }, 850)
+})
+
+onBeforeUnmount(() => {
+  if (splashTimer) window.clearTimeout(splashTimer)
+})
 
 // 2. 控制导航栏显示
 const showBottomNav = computed(() => {

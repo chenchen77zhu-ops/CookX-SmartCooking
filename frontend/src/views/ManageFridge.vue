@@ -291,8 +291,13 @@ const resetRecognitionState = () => {
   recognizedItemCount.value = 0
 }
 
-const beforeRecognitionUpload = () => {
+const beforeRecognitionUpload = (file) => {
   if (isRecognizing.value) return false
+  console.log('CookX upload file', {
+    name: file?.name,
+    type: file?.type,
+    size: file?.size
+  })
   resetRecognitionState()
   recognitionStatus.value = 'uploading'
   recognitionTimer = setInterval(() => { recognitionElapsedSeconds.value += 1 }, 1000)
@@ -305,9 +310,14 @@ const handleRecognitionProgress = (event) => {
   if (percent >= 100) recognitionStatus.value = 'analyzing'
 }
 
-const handleRecognitionError = () => {
+const handleRecognitionError = (error) => {
   clearRecognitionTimer()
   recognitionStatus.value = 'error'
+  console.error('CookX analyze-fridge upload rejected', {
+    message: error?.message,
+    code: error?.code,
+    status: error?.status
+  })
   ElMessage.error('识别失败，请检查网络后重新尝试')
 }
 
@@ -958,7 +968,13 @@ const saveNewItem = async () => {
 };
 
 const handleUploadSuccess = (response) => {
-  const data = response.data || response;
+  const data = response?.data ?? response;
+  if (!data) {
+    clearRecognitionTimer();
+    recognitionStatus.value = 'error';
+    ElMessage.error('识别响应为空，请重新尝试');
+    return;
+  }
   if (data.status === "success" && data.detected && data.detected.length > 0) {
     // 将识别结果转换为临时数据格式，包含存储方式
     const itemsWithStorage = data.detected.map(item => ({
