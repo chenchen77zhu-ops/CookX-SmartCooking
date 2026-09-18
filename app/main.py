@@ -7,7 +7,7 @@ import shutil
 import tempfile
 import uuid
 from datetime import datetime
-from typing import List
+from typing import Any, Dict, List, Optional
 from collections import Counter
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query
 from fastapi import Response
@@ -17,15 +17,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from ultralytics import YOLO
 from PIL import Image
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime, timedelta
 # 导入你自己的服务模块
 from app.services.deepseek_service import get_recipe_suggestion
 from app.services.tts_service import generate_voice
 from app.services.qwen_service import get_ingredients_from_qwen
+from app.services.recommendation_service import (
+    filter_eligible_recipes, load_recipes, recommend_recipes,
+    safe_inventory_names, validate_weights,
+)
 from app.models.user import (
     create_user, authenticate_user, update_user, delete_user,
-    find_user_by_username, find_user_by_phone
+    find_user_by_username, find_user_by_phone, get_all_users
 )
 from app.services.sms_service import send_sms_code, verify_sms_code
 app = FastAPI(title="Smart Cooking API")
@@ -46,6 +50,12 @@ if not os.path.exists(INVENTORY_FILE):
 class LoginRequest(BaseModel):
     username: str
     password: str
+
+class RecommendationRequest(BaseModel):
+    user_id: str = Field(..., min_length=1)
+    top_k: int = Field(5, ge=1, le=20)
+    weights: Optional[Dict[str, float]] = None
+    preferences: Optional[Dict[str, Any]] = None
 
 # 开启跨域
 app.add_middleware(
@@ -516,7 +526,8 @@ async def analyze_fridge(file: UploadFile = File(...)):
             }
         # -------------------------------------------------------
 
-        # 3. 第三步：统一为识别出的食材添加新鲜度评估（逻辑保持不变）
+        # DEPRECATED/TODO: 仅供旧识别界面兼容；该名称哈希值不是真实鲜度。
+        # 后续由 FreshFusion 鲜度智融引擎替换。多目标推荐算法严禁读取此字段。
         for item in detected_items:
             name_hash = sum(ord(c) for c in item["name"])
             item["freshness"] = ['新鲜', '较新鲜', '一般'][name_hash % 3]
@@ -531,6 +542,83 @@ async def analyze_fridge(file: UploadFile = File(...)):
         print(f"识别接口异常: {e}")
         return {"status": "error", "message": str(e)}
 
+
+@app.post("/api/recommendations")
+async def multi_objective_recommendations(request: RecommendationRequest):
+    """Return deterministic recommendations from local recipes and user inventory."""
+    if not any(user.get("id") == request.user_id for user in get_all_users()):
+        raise HTTPException(status_code=404, detail="用户不存在")
+
+    try:
+        validate_weights(request.weights)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    inventory_path = os.path.join(USER_DATA_BASE, request.user_id, "inventory.json")
+    inventory = []
+    if os.path.exists(inventory_path):
+        try:
+            with open(inventory_path, "r", encoding="utf-8") as inventory_file:
+                loaded = json.load(inventory_file)
+                inventory = loaded if isinstance(loaded, list) else []
+        except (OSError, json.JSONDecodeError) as exc:
+            raise HTTPException(status_code=500, detail="用户库存数据无法读取") from exc
+
+    recipes = load_recipes()
+    generated_at = datetime.now().astimezone().isoformat()
+    scoring_time = datetime.now()
+    safe_names = safe_inventory_names(inventory, scoring_time)
+    if not safe_names:
+        return {
+            "algorithm_version": "multi_objective_v1",
+            "user_id": request.user_id,
+            "generated_at": generated_at,
+            "status": "inventory_required",
+            "message": "当前没有可用库存食材，请先添加或识别食材后再获取推荐。",
+            "eligible_recipe_count": 0,
+            "filtered_recipe_count": len(recipes),
+            "recommendations": [],
+        }
+
+    eligible_recipes, filtered_count = filter_eligible_recipes(
+        inventory=inventory,
+        recipes=recipes,
+        preferences=request.preferences,
+        now=scoring_time,
+    )
+    if not eligible_recipes:
+        return {
+            "algorithm_version": "multi_objective_v1",
+            "user_id": request.user_id,
+            "generated_at": generated_at,
+            "status": "no_eligible_recipes",
+            "message": "当前库存与候选菜谱没有有效的关键食材匹配。",
+            "eligible_recipe_count": 0,
+            "filtered_recipe_count": filtered_count,
+            "recommendations": [],
+        }
+
+    try:
+        recommendations = recommend_recipes(
+            inventory=inventory,
+            top_k=request.top_k,
+            preferences=request.preferences,
+            weights=request.weights,
+            recipes=eligible_recipes,
+            now=scoring_time,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {
+        "algorithm_version": "multi_objective_v1",
+        "user_id": request.user_id,
+        "generated_at": generated_at,
+        "status": "success",
+        "message": "已根据当前安全库存生成推荐。",
+        "eligible_recipe_count": len(eligible_recipes),
+        "filtered_recipe_count": filtered_count,
+        "recommendations": recommendations,
+    }
 
 @app.get("/api/recommend-recipe")
 async def recommend_recipe(user_prompt: str, user_id: str, save_history: bool = True):
