@@ -1,0 +1,55 @@
+name: Temperature module
+on:
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - 'firmware/**'
+      - 'research/temperature/**'
+      - '.github/workflows/temperature.yml'
+  push:
+    branches: [main, feat/temperature-intelligence]
+    paths:
+      - 'frontend/**'
+      - 'firmware/**'
+      - 'research/temperature/**'
+      - '.github/workflows/temperature.yml'
+permissions:
+  contents: read
+jobs:
+  app:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+      - name: Dependencies and unit tests
+        working-directory: frontend
+        run: |
+          npm ci --registry=https://registry.npmjs.org
+          npm test
+          npm run build
+          npx cap sync android
+      - name: Android SDK
+        run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
+      - name: Android build and unit tests
+        working-directory: frontend/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug testDebugUnitTest --no-daemon
+  simulation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install numpy==2.4.4
+      - run: python -m unittest discover -s research/temperature -p "test_*.py"

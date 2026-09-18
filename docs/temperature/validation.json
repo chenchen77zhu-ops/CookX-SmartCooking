@@ -1,0 +1,42 @@
+{
+  "recordedAt": "2026-09-18T05:35:39.177800+00:00",
+  "frontend": {
+    "unitTestsPassed": 21,
+    "productionBuild": "passed",
+    "browser": "production preview, 390px, model/replay/export/correction/step/fallback passed"
+  },
+  "simulation": {
+    "unitTestsPassed": 3
+  },
+  "android": {
+    "assembleDebug": "passed",
+    "testDebugUnitTest": "passed (one existing template test; not Bluetooth instrumentation)",
+    "jdk": 21,
+    "sdk": 36,
+    "gradle": "8.14.3",
+    "environment": "Windows, ASCII temporary build copy",
+    "bundledModelSha256": "46e444706ca8c37f6c3b91f7be9a43d84ee54d6f0cedcc2b41cdad145fd59d57",
+    "bundledRuntime": [
+      "assets/public/temperature/runtime/ort-wasm-simd-threaded.mjs",
+      "assets/public/temperature/runtime/ort-wasm-simd-threaded.wasm"
+    ],
+    "distAssetsMatch": true,
+    "apkSha256": "e49d14d74257db69e00b566cad04f024d6e41b564f26265cdfb735b598f22b90"
+  },
+  "firmware": {
+    "compile": "passed",
+    "board": "esp32:esp32:esp32",
+    "core": "3.3.11",
+    "flashUsedBytes": 297028,
+    "ramUsedBytes": 23692,
+    "flashed": false
+  },
+  "notValidated": [
+    "Real ESP32/JDY-31 Bluetooth session",
+    "Real cooking or moving probe recognition",
+    "Physical Android phone inference P95",
+    "Microphone/speaker real-device regression"
+  ],
+  "defaultMode": "rules",
+  "modelReleaseGate": "not met; experimental only"
+}

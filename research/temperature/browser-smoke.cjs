@@ -54,7 +54,7 @@ const path = require('node:path')
  assert.deepEqual(errors,[])
  const report={mobileWidth:390,overflow,uncaughtErrors:errors,exportSamples:exported.samples.length,
    checks:['model-load','wasm-inference','simulation-source','export','probe-correction','step-navigation','model-failure-fallback'],
-   screenshot:shot}
+   screenshot:path.relative(path.resolve(__dirname,'../..'),shot).replace(/\\/g,'/')}
  fs.writeFileSync(path.resolve(__dirname,'../../docs/temperature/browser-results.json'),JSON.stringify(report,null,2))
  console.log(JSON.stringify(report))
  } finally {await browser.close()}

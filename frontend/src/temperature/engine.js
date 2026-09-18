@@ -76,7 +76,7 @@ export function createTemperatureEngine({ qualityGate = true, maxSampleGapMs = 1
       risk = elevated ? (t - highSince >= 10000 ? 'danger' : 'warning') : 'observing'
       if (risk === 'danger') suggestion = '持续高温，请检查锅内情况与测温位置，必要时降低火力。'
       else if (risk === 'warning') suggestion = '温度偏高，请核对当前步骤与测温位置。'
-      else if (phase !== 'unknown' && range) suggestion = filtered < range[0] ? '低于当前步骤目标温区，请结合操作状态确认。' : '处于当前步骤目标温区，仍需观察锅内情况。'
+      else if (phase !== 'unknown' && range) suggestion = filtered < range[0] ? '低于当前步骤目标温区，请结合操作状态确认。' : filtered > range[1] ? '高于当前步骤目标温区，请结合操作状态确认。' : '处于当前步骤目标温区，仍需观察锅内情况。'
       reasons.push(range ? '步骤目标 ' + Number(range[0]).toFixed(0) + '–' + Number(range[1]).toFixed(0) + ' ℃' : '缺少明确步骤温区，仅判断温度趋势')
     }
     let alert = null

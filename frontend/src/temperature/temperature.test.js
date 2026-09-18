@@ -97,3 +97,9 @@ test('model result rejected after reset, timeout or unusable reading',()=>{
   assert.equal(acceptPrediction(m,{quality:'usable'},2,5000),null)
   assert.equal(acceptPrediction({...m,forecast:[NaN]},{quality:'usable'},2,1200),null)
 })
+
+test('temperature above target is never described as in range',()=>{
+  const e=createTemperatureEngine();e.setContext({targetRange:[150,180]})
+  const result=feed(e,0,185)
+  assert.equal(result.risk,'observing');assert.match(result.suggestion,/高于当前步骤目标温区/)
+})
