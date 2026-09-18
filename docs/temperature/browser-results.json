@@ -10,7 +10,9 @@
     "export",
     "probe-correction",
     "step-navigation",
-    "model-failure-fallback"
+    "model-failure-fallback",
+    "audio-pause-resume",
+    "timer-during-inference"
   ],
   "screenshot": "tmp/temperature-mobile.png"
 }

@@ -3,7 +3,7 @@
   "frontend": {
     "unitTestsPassed": 21,
     "productionBuild": "passed",
-    "browser": "production preview, 390px, model/replay/export/correction/step/fallback passed"
+    "browser": "production preview, 390px, model/replay/export/correction/step/fallback passed; silent local WAV playback pause/resume and timer during inference passed"
   },
   "simulation": {
     "unitTestsPassed": 3
@@ -38,5 +38,10 @@
     "Microphone/speaker real-device regression"
   ],
   "defaultMode": "rules",
-  "modelReleaseGate": "not met; experimental only"
+  "modelReleaseGate": "not met; experimental only",
+  "integration": {
+    "syncedMain": "1359a48",
+    "recommendationTestsPassed": 50,
+    "testCredentials": "Placeholder API keys only; no cloud inference in regression tests"
+  }
 }
