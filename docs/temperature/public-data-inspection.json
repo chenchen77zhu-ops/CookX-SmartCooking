@@ -1,0 +1,30 @@
+{
+  "source": "NIST M32171",
+  "url": "https://data.nist.gov/od/ds/mds2-2171/all%20data4-10-20.xlsx",
+  "used_for_pan_training": false,
+  "downloaded": true,
+  "bytes": 4732592,
+  "sha256": "58ec90dad57c02386ccbf4027a0cf3459525f0a6d1751510753640f7fd76dc27",
+  "sheets": [
+    "Schematic",
+    "Experiments",
+    "Columns (sensors)",
+    "data"
+  ],
+  "temperature_column_descriptions": [
+    "pan temperature",
+    "Burner set to maximum power for 180 s, half power for 390 s, flipped burgers, half power until meat temperature reached well done temperature of 77 C (at most 600 s).",
+    "Broiled for 1122 s (10 % longer than the time for the meat temperature to reach a safe temperature of 71 C).",
+    "Burner set to half power, then maximum power at 190 s to preheat oil to ~190 C. At 384 s, chicken legs added to pan and cooked for 4 minutes on each side for a total of 18.5 minutes, which was 10 % longer than the time it took for the meat temperature to reach 74 \u00b0C.",
+    "Burner set to maximum power to preheat oil to ~190 C. At 280 s, frozen fries were added and burner power set to half. Trying to maintain a pan temperature of ~190 C, at 350 s burner power was increased to maximum, and at 622 s, burner power was set to half. After 15 minutes of frying, when the color of the fries had turned medium brown, the burner was set to maximum power until the food ignited.",
+    "Thermocouple voltage converted to deg C in LabView",
+    "absolute water content, in percent by volume, calculated from relative humidity and temperature outputs of the sensor, and barometric pressure from the 18 CO sensor",
+    "Measured thermocouple temperature",
+    "Pan temperature used to define normal cooking",
+    "Measured thermocouple temperature ",
+    "absolute water content, in percent by volume, calculated from relative humidity, temperature and barometric pressure outputs of the 18 CO sensor",
+    "The difference between average velocity from bi-directional probe and average velocity from constant temperature thermal anemometer on 5-23-18 when hood flow was on maximum setting (velocity ~3.5 m/s) is 0.4 m/s, and is always larger than the combined uncertainty, 5%.",
+    "Velocity calculated from bi-directional probe pressure differential, temperature within the bi-directional probe, and barometric pressure from the 18 CO sensor"
+  ],
+  "limitations": "Includes pan Type-K thermocouples as well as duct sensors; 4-second sampling. Not MLX90614 observations. External risk benchmark only; excluded from training."
+}

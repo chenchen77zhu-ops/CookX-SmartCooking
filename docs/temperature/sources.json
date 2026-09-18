@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "hardwareValidation": false,
+  "sources": [
+    {
+      "id": "nist-m32171",
+      "url": "https://doi.org/10.18434/M32171",
+      "dataUrl": "https://data.nist.gov/od/ds/mds2-2171/all%20data4-10-20.xlsx",
+      "license": "https://www.nist.gov/open/license",
+      "measurement": "Exhaust duct sensors plus Type-K pan center/intermediate thermocouples, 4-second cadence",
+      "usage": "Pan TC center and Pre-Ignition labels: external temperature-only risk benchmark; excluded from model training, threshold tuning and prototype claims"
+    },
+    {
+      "id": "melexis-mlx90614",
+      "url": "https://www.melexis.com/en/documents/documentation/datasheets/datasheet-mlx90614",
+      "usage": "Sensor range, emissivity and field-of-view limitations; no extracted training samples"
+    },
+    {
+      "id": "crepe-digital-twin",
+      "url": "https://doi.org/10.1016/j.jfoodeng.2023.111697",
+      "usage": "Methodological precedent for thermal simulation; no copying of reported accuracy or dataset"
+    },
+    {
+      "id": "cookx-simulation-v1",
+      "license": "Project-generated synthetic data",
+      "measurement": "None: numerical simulation",
+      "usage": "Training/validation/test with grouped seeds",
+      "parameters": "Engineering assumptions, not fitted to the prototype: pan 500\u20131000 J/K (OOD 1100\u20131500), power 850\u20131900 W, loss 2\u20135 W/K, food contact 10\u201324 W/K, food 0.1\u20130.35 kg, emissivity 0.85, area 0.035 m\u00b2, sensor lag 1 s, noise sd 0.5 \u00b0C. Stefan\u2013Boltzmann constant SI; evaporation 2.256 MJ/kg approximation near water boiling. No claimed universal calibration."
+    },
+    {
+      "id": "local-csv-unverified",
+      "files": [
+        "temp_20260911_104214.csv",
+        "temp_20260911_092607.csv"
+      ],
+      "usage": "Excluded: provenance and measurement conditions not confirmed"
+    }
+  ]
+}

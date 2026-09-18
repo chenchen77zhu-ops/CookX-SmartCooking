@@ -1,0 +1,47 @@
+{
+  "domain": "NIST Type-K pan-center thermocouple, not prototype infrared",
+  "samplePeriodSeconds": 4,
+  "adapter": "Engine maxSampleGapMs=5000 for original 4 s cadence; no upsampling",
+  "experiments": 60,
+  "models": {
+    "legacy_fixed_205C": {
+      "positiveSampleRecall": 0.9563218390804598,
+      "negativeSampleFalsePositiveRate": 0.25579665220086795,
+      "falseAlarmEpisodes": 50,
+      "eventRecall": 0.9777777777777777,
+      "eventCount": 45,
+      "missedEvents": 1,
+      "meanDetectionDelaySeconds": 0.5454545454545454,
+      "abstainedSamples": 2739,
+      "confusion": {
+        "tp": 4576,
+        "fp": 2063,
+        "fn": 209,
+        "tn": 6002
+      }
+    },
+    "context_rules": {
+      "positiveSampleRecall": 0.696969696969697,
+      "negativeSampleFalsePositiveRate": 0.17755734655920644,
+      "falseAlarmEpisodes": 51,
+      "eventRecall": 0.9777777777777777,
+      "eventCount": 45,
+      "missedEvents": 1,
+      "meanDetectionDelaySeconds": 3,
+      "abstainedSamples": 4137,
+      "confusion": {
+        "tp": 3335,
+        "fp": 1432,
+        "fn": 1450,
+        "tn": 6633
+      }
+    }
+  },
+  "source": "https://doi.org/10.18434/M32171",
+  "temperatureColumn": "Pan TC center",
+  "labelColumn": "Pre-Ignition",
+  "trainingUse": false,
+  "thresholdTuningOnThisDataset": false,
+  "limitation": "Temperature-only auxiliary alarms; experiment labels depend on cooking conditions and sometimes hottest-location estimates. Thermocouple sampling at 4 s and 2.2 C manufacturer uncertainty differ from MLX90614. Out-of-range/missing data count as abstentions and missed alarms, never clipped. No model stage F1: dataset has no compatible six-phase labels. Models do not override rule risk.",
+  "metricsDefinition": "Positive-sample recall counts abstentions as missed positives. Event recall: any alarm within each run's labelled pre-ignition interval; delay: first alarm in that interval minus its start; false episodes: alarm rising edges in labelled normal conditions, including early alerts."
+}

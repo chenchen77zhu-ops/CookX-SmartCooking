@@ -1,0 +1,70 @@
+<template>
+  <section class="insight" aria-label="温度时序分析">
+    <div class="insight-head"><strong>{{ assessment.phaseLabel }}</strong><span :class="assessment.quality">{{ qualityLabel }}</span></div>
+    <p v-if="assessment.temperature !== null" class="current-reading">{{ assessment.temperature.toFixed(1) }} <small>℃</small></p>
+    <p class="source">{{ replaying ? '物理仿真回放 · 非设备实测' : '设备测温 · 移动识别研究版' }}</p>
+    <svg viewBox="0 0 320 100" role="img" aria-label="最近一分钟温度曲线">
+      <path d="M0 85 H320 M0 45 H320 M0 5 H320" stroke="#e7e1d6" fill="none"/>
+      <polyline v-for="(line,i) in paths" :key="i" :points="line" fill="none" stroke="#bc643b" stroke-width="2"/>
+      <text x="4" y="98" font-size="9" fill="#746e64">{{ extent[0].toFixed(0) }}–{{ extent[1].toFixed(0) }} ℃ · 60 秒</text>
+    </svg>
+    <p v-for="reason in assessment.reasons" :key="reason">{{ reason }}</p>
+    <p v-if="assessment.suggestion" class="suggestion" :class="assessment.risk" role="status">{{ assessment.suggestion }}</p>
+    <div class="event-actions">
+      <button @click="$emit('confirm','ingredient_added')">刚投料</button>
+      <button @click="$emit('confirm','probe_moved')">移动了探头</button>
+      <button @click="$emit('confirm','heat_off')">已关火</button>
+    </div>
+    <details>
+      <summary>算法与记录</summary>
+      <p>{{ modelState }}</p>
+      <label><input type="checkbox" :checked="experimental" @change="$emit('experimental',$event.target.checked)"> 启用实验模型（仿真训练）</label>
+      <div v-if="prediction">
+        <p>模型阶段估计：{{ prediction.phaseLabel }}。{{ prediction.note }}</p>
+        <p v-for="item in prediction.forecast" :key="item.seconds">{{ item.seconds }} 秒后：{{ item.low.toFixed(0) }}–{{ item.high.toFixed(0) }} ℃</p>
+      </div>
+      <p v-else-if="experimental">证据不足或窗口正在恢复，暂不显示模型预测。</p>
+      <div class="event-actions">
+        <button v-if="!replaying" :disabled="connected" @click="$emit('replay')">仿真回放</button>
+        <button v-else @click="$emit('stop-replay')">停止回放</button>
+        <button @click="$emit('export',false)">导出本次</button>
+        <button @click="$emit('export',true)">导出保存记录</button>
+      </div>
+      <p v-if="connected">回放需先断开设备，避免混淆数据来源。</p>
+      <p v-if="storageMessage" role="status">{{ storageMessage }}</p>
+    </details>
+  </section>
+</template>
+<script setup>
+import { computed } from 'vue'
+import { QUALITY_LABELS } from '@/temperature/context'
+const props=defineProps({assessment:Object,history:Array,prediction:Object,modelState:String,experimental:Boolean,replaying:Boolean,connected:Boolean,storageMessage:String})
+defineEmits(['confirm','experimental','replay','stop-replay','export'])
+const qualityLabel=computed(()=>QUALITY_LABELS[props.assessment.quality])
+const extent=computed(()=>{
+  const values=props.history.filter(s=>s.valid && Number.isFinite(s.temperature)).map(s=>s.temperature)
+  return values.length?[Math.min(...values)-5,Math.max(...values)+5]:[0,100]
+})
+const paths=computed(()=>{
+  const end=props.history.at(-1)?.updatedAt??0,[lo,hi]=extent.value
+  let lines=[],line=[],previous=null
+  for(const s of props.history){
+    if(!s.valid || s.discontinuity || (previous && s.updatedAt-previous.updatedAt>1500)){if(line.length)lines.push(line.join(' '));line=[]}
+    if(s.valid && Number.isFinite(s.temperature)) line.push(((s.updatedAt-end+60000)/60000*320).toFixed(1)+','+(85-(s.temperature-lo)/(hi-lo)*80).toFixed(1))
+    previous=s
+  }
+  if(line.length)lines.push(line.join(' '))
+  return lines
+})
+</script>
+<style scoped>
+.insight{margin-top:16px;border-top:1px solid #e5ded2;padding-top:16px;color:#51493e}
+.insight-head{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.insight-head strong{font-size:21px}.insight-head span{font-size:12px;padding:5px 8px;border-radius:12px;background:#f5eddf}
+.insight-head .invalid{background:#eee}.insight-head .suspect{color:#86570b}.source{font-size:11px!important;color:#80776a}
+.current-reading{font-size:28px!important;color:#1a4437;font-weight:600}.current-reading small{font-size:14px}.insight p{font-size:12px;line-height:1.6;margin:8px 0}.insight svg{width:100%;height:112px}
+.event-actions{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+button{border:1px solid #d9cdbc;background:#fffaf2;color:#6e4b32;padding:7px 9px;border-radius:8px;cursor:pointer;font:inherit;font-size:12px}
+button:disabled{opacity:.5;cursor:default}.suggestion{padding:10px;border-radius:8px;background:#f7eddc}.danger{background:#ffe1db;color:#9c2e20}
+details{font-size:12px;margin-top:12px}summary{cursor:pointer;padding:6px 0}label{display:flex;align-items:center;gap:6px}
+</style>

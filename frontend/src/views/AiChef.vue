@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="ai-chef-container">
     <header class="chef-hero">
       <div class="chef-hero-inner">
@@ -88,7 +88,11 @@
             </div>
             <div v-if="temperatureConnected" class="sense-update"><el-icon><CircleCheckFilled /></el-icon><span><b>{{ currentTemperature === null ? '数据暂未更新' : '设备已连接，数据实时更新' }}</b>最后更新 {{ lastTemperatureTime }}</span></div>
             <div v-else class="sense-empty"><el-icon><Connection /></el-icon><div><b>尚未连接 CookX Sense</b><span>连接设备后可实时查看温度</span></div></div>
-            <div v-if="currentTemperature !== null" class="sense-tip"><span>{{ temperatureLevel.status }}</span><p>{{ temperatureLevel.tip }}</p></div>
+            <TemperatureInsight :assessment="thermalAssessment" :history="thermalHistory" :prediction="thermalPrediction"
+              :model-state="thermalModelState" :experimental="thermalExperimental" :replaying="thermalReplaying"
+              :connected="temperatureConnected" :storage-message="thermalStorageMessage"
+              @confirm="thermal.confirm($event)" @experimental="thermal.setExperimental($event)"
+              @replay="thermal.startReplay()" @stop-replay="thermal.stopReplay()" @export="thermal.exportSession($event)" />
             <button v-if="!temperatureConnected" type="button" class="sense-action" :disabled="temperatureConnecting" @click="openTemperatureDialog">{{ temperatureConnecting ? '连接中…' : '连接测温设备' }}</button>
             <button v-else type="button" class="sense-action secondary" @click="disconnectTemperature">断开设备</button>
           </article>
@@ -200,9 +204,13 @@ import {
   onTemperatureDeviceFound,
   onTemperatureConnectionStateChanged,
   onTemperatureData,
-  handleTemperatureUpdate
+  handleTemperatureUpdate,
+  resetTemperatureBuffer
 } from '@/services/temperatureDevice'
 import { TEMPERATURE_STALE_MS } from '@/services/temperatureStream'
+import TemperatureInsight from '@/components/TemperatureInsight.vue'
+import { useTemperatureIntelligence } from '@/temperature/useTemperatureIntelligence'
+import { adaptCookingContext } from '@/temperature/context'
 import { API_BASE_URL, resolveBackendUrl } from '@/config/backend'
 
 // --- 基础定义 ---
@@ -215,6 +223,8 @@ const recipeInput = ref(null)
 const messages = ref([])
 const userStr = localStorage.getItem('user');
 const userId = JSON.parse(userStr || '{}').id;
+const thermal = useTemperatureIntelligence('cookx-temperature-session-' + (userId ?? 'guest'))
+const { assessment: thermalAssessment, history: thermalHistory, prediction: thermalPrediction, modelState: thermalModelState, experimental: thermalExperimental, replaying: thermalReplaying, storageMessage: thermalStorageMessage } = thermal
 // --- 导航与提醒状态 ---
 const navigationVisible = ref(false)
 const activeRecipe = ref({ steps: [] })
@@ -355,6 +365,8 @@ const sortedTemperatureDevices = computed(() => [...temperatureDevices.value].so
 const bluetoothScanText = computed(() => temperatureScanning.value ? '正在扫描 Classic Bluetooth 设备' : `发现 ${temperatureDevices.value.length} 个设备`)
 
 const clearTemperatureReading = () => {
+  thermal.invalidate()
+  resetTemperatureBuffer()
   if (temperatureStaleTimer) {
     window.clearTimeout(temperatureStaleTimer)
     temperatureStaleTimer = null
@@ -368,6 +380,8 @@ const scheduleTemperatureStaleTimeout = () => {
   temperatureStaleTimer = window.setTimeout(() => {
     temperatureStaleTimer = null
     currentTemperature.value = null
+    ambientTemperature.value = null
+    thermal.invalidate('温度已超时，不能继续判断')
   }, TEMPERATURE_STALE_MS)
 }
 
@@ -381,31 +395,10 @@ const lastTemperatureTime = computed(() => {
   return new Date(lastTemperatureTimestamp.value).toLocaleTimeString('zh-CN', { hour12: false })
 })
 
-const temperatureLevel = computed(() => {
-  const temp = currentTemperature.value
-  if (temp === null) {
-    return {
-      status: '等待数据',
-      tip: '连接测温设备后，这里会显示实时油温。',
-      tagType: 'info',
-      className: 'temperature-idle',
-      icon: '🌡️'
-    }
-  }
-  if (temp < 140) {
-    return { status: '油温偏低', tip: '油温较低，请继续加热。', tagType: 'info', className: 'temperature-low', icon: '🌡️' }
-  }
-  if (temp < 170) {
-    return { status: '正在升温', tip: '正在接近合适的下锅温度。', tagType: 'warning', className: 'temperature-rising', icon: '♨️' }
-  }
-  if (temp <= 185) {
-    return { status: '适合下锅', tip: '当前油温合适，可以准备下入食材。', tagType: 'success', className: 'temperature-ready', icon: '✅' }
-  }
-  if (temp <= 205) {
-    return { status: '油温偏高', tip: '油温偏高，建议调小火。', tagType: 'warning', className: 'temperature-high', icon: '⚠️' }
-  }
-  return { status: '危险', tip: '油温过高，请暂缓下锅并降低火力。', tagType: 'danger', className: 'temperature-danger', icon: '🔥' }
-})
+const temperatureLevel = computed(() => ({
+  status: thermalAssessment.value.phaseLabel,
+  className: thermalAssessment.value.risk === 'danger' ? 'temperature-danger' : thermalAssessment.value.risk === 'warning' ? 'temperature-high' : 'temperature-idle'
+}))
 
 const bluetoothErrorMessage = (error) => {
   const messages = {
@@ -448,6 +441,7 @@ const openTemperatureDialog = async () => {
 }
 
 const connectTemperature = async () => {
+  if (thermalReplaying.value) thermal.stopReplay()
   if (temperatureConnecting.value) return
   clearTemperatureReading()
   lastTemperatureTimestamp.value = null
@@ -498,6 +492,9 @@ const registerTemperatureListener = async () => {
   try {
     temperatureListener = await onTemperatureData((data) => {
       if (!temperatureAcceptingData.value) return
+      thermal.receive(data)
+      ambientTemperature.value = Number.isFinite(data.ambientTemperature) ? data.ambientTemperature : null
+      if (data.valid === false) { currentTemperature.value = null; return }
       const update = handleTemperatureUpdate(data.temperature, data.updatedAt)
       if (!update) return
       currentTemperature.value = update.temperature
@@ -512,6 +509,8 @@ const registerTemperatureListener = async () => {
     temperatureConnectionStateListener = await onTemperatureConnectionStateChanged((connection) => {
       temperatureScanning.value = connection.state === 'scanning'
       temperatureConnected.value = connection.state === 'connected'
+      temperatureAcceptingData.value = temperatureConnected.value
+      if (!temperatureConnected.value) clearTemperatureReading()
       if (connection.state === 'error' && connection.message) ElMessage.error(connection.message)
     })
   } catch (error) {
@@ -611,6 +610,10 @@ const currentStepMeta = computed(() => {
     currentStep.value.temperature ? { label: '目标温度', value: currentStep.value.temperature } : null
   ].filter(Boolean)
 })
+watch(() => [activeRecipe.value, currentStep.value, currentStepIdx.value], () => {
+  thermal.setContext(adaptCookingContext(activeRecipe.value, currentStep.value, currentStepIdx.value))
+}, { deep: true, immediate: true })
+
 const recipeTotalSeconds = computed(() => activeSteps.value.reduce((total, step) => {
   const duration = Number(step?.time_estimate || step?.duration || 0)
   return total + (Number.isFinite(duration) && duration > 0 ? duration : 0)

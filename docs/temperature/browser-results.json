@@ -1,0 +1,18 @@
+{
+  "mobileWidth": 390,
+  "overflow": false,
+  "uncaughtErrors": [],
+  "exportSamples": 11,
+  "checks": [
+    "model-load",
+    "wasm-inference",
+    "simulation-source",
+    "export",
+    "probe-correction",
+    "step-navigation",
+    "model-failure-fallback",
+    "audio-pause-resume",
+    "timer-during-inference"
+  ],
+  "screenshot": "tmp/temperature-mobile.png"
+}
