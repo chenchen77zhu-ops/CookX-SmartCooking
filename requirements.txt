@@ -10,3 +10,4 @@ python-dotenv
 edge-tts
 aiohttp
 aiofiles
+pytest
