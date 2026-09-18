@@ -93,8 +93,10 @@
         <div v-if="!inventory.length" class="empty-actions"><button type="button" @click="showAddDialog = true"><el-icon><Plus /></el-icon>添加食材</button></div>
       </section>
 
+      <MultiObjectiveRecommendations @manage-inventory="showAddDialog = true" />
+
       <section v-if="inventory.length > 0" class="recommend-section">
-        <div class="main-title"><span><el-icon><KnifeFork /></el-icon>今日灵感</span><small>基于当前真实库存</small></div>
+        <div class="main-title"><span><el-icon><KnifeFork /></el-icon>AI 生成灵感</span><small>由大模型生成新的菜谱方案</small></div>
         <div class="recipe-container" v-loading="recLoading">
           <div v-for="(rec, index) in quickRecipes" :key="index" class="recipe-row-card">
             <div class="rec-info"><span class="rec-icon"><el-icon><KnifeFork /></el-icon></span><span class="rec-dish-name">{{ rec?.dish_name || '构思中...' }}</span></div>
@@ -174,6 +176,7 @@ import axios from 'axios'
 import { AlarmClock, Box, CameraFilled, CircleCheckFilled, Delete, KnifeFork, ArrowRight, EditPen, WarningFilled, Search, Plus, Refresh } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { API_BASE_URL, resolveBackendUrl } from '@/config/backend'
+import MultiObjectiveRecommendations from '@/components/MultiObjectiveRecommendations.vue'
 import tomatoImage from '@/assets/images/ingredients/tomato.png'
 import potatoImage from '@/assets/images/ingredients/potato.png'
 import carrotImage from '@/assets/images/ingredients/carrot.png'
@@ -1297,7 +1300,7 @@ button { font: inherit; }
   position: relative;
   z-index: 3;
   margin-top: -12px;
-  padding: 17px 14px 23px;
+  padding: 17px 14px calc(108px + env(safe-area-inset-bottom));
   border: var(--cookx-border);
   border-radius: 22px;
   background: rgba(255, 255, 255, .82);
@@ -1532,7 +1535,7 @@ button { font: inherit; }
 @media (min-width: 720px) {
   .fridge-hero { padding-right: 24px; padding-bottom: 42px; padding-left: 24px; }
   .hero-grid { grid-template-columns: 1.05fr 1fr .9fr; }
-  .inventory-surface { margin-top: -18px; padding: 22px; }
+  .inventory-surface { margin-top: -18px; padding: 22px 22px calc(108px + env(safe-area-inset-bottom)); }
   .food-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
   .food-visual { height: 150px; }
 }
@@ -1541,6 +1544,26 @@ button { font: inherit; }
   .food-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
+@media (max-width: 620px) {
+  .inventory-surface { padding-bottom: 24px; }
+
+  .recognize-fab {
+    position: relative;
+    right: auto;
+    bottom: auto;
+    display: flex;
+    width: max-content;
+    margin: 14px 14px calc(var(--cookx-bottom-nav-height, 72px) + env(safe-area-inset-bottom) + 12px) auto;
+  }
+
+  .recognize-button {
+    width: 60px;
+    height: 60px;
+    border-width: 2px;
+  }
+
+  .recognize-button .el-icon { font-size: 19px; }
+}
 @media (max-width: 370px) {
   .fridge-hero { padding-right: 12px; padding-left: 12px; }
   .inventory-surface { padding-right: 10px; padding-left: 10px; }

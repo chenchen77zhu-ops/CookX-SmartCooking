@@ -10,4 +10,5 @@ export const uploadImg = (file) => {
 export const getRecipe = (userPrompt, userId, saveHistory = true) => request.get('/recommend-recipe', {
     params: { user_prompt: userPrompt, user_id: userId, save_history: saveHistory }
 });
+export const getMultiObjectiveRecommendations = (payload, signal) => request.post('/recommendations', payload, { signal });
 export const getTTS = (text) => request.get('/tts', { params: { text } });
