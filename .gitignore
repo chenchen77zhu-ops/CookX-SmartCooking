@@ -80,3 +80,7 @@ runs/
 *.inspect.ndjson
 
 test_food2.png
+
+# Reproducible temperature datasets and bundled runtime copies
+research/temperature/*.generated.json
+frontend/public/temperature/runtime/

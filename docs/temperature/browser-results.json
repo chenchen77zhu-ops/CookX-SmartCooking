@@ -1,0 +1,16 @@
+{
+  "mobileWidth": 390,
+  "overflow": false,
+  "uncaughtErrors": [],
+  "exportSamples": 11,
+  "checks": [
+    "model-load",
+    "wasm-inference",
+    "simulation-source",
+    "export",
+    "probe-correction",
+    "step-navigation",
+    "model-failure-fallback"
+  ],
+  "screenshot": "C:\\Users\\Moyin\\Desktop\\鲜厨智享\\_repo\\CookX-SmartCooking\\tmp\\temperature-mobile.png"
+}
