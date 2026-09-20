@@ -14,7 +14,7 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
  const assets=path.resolve(__dirname,'../../frontend/dist/assets')
  const workerFile=fs.readdirSync(assets).find(name=>/^inference\.worker-.*\.js$/.test(name))
  assert.ok(workerFile,'Build the frontend before running production WASM parity')
- const fixture=JSON.parse(fs.readFileSync(path.join(__dirname,'parity-fixture.json'),'utf8'))
+ const fixture=JSON.parse(fs.readFileSync(process.env.COOKX_PARITY_FIXTURE||path.join(__dirname,'parity-fixture.json'),'utf8'))
  const result=await page.evaluate(async ({fixture,workerPath})=>{
    const worker=new Worker(workerPath,{type:'module'}),latencies=[]
    let index=0
@@ -42,7 +42,7 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
  const ordered=result.latencies.sort((a,b)=>a-b)
  const report={environment:'Desktop Chromium headless, not Android phone',browserVersion:browser.version(),
    samples:100,wasmP95Ms:ordered[94],maxAbsError:error,externalNetworkRequests:external.length}
- fs.writeFileSync(path.resolve(__dirname,'../../docs/temperature/wasm-results.json'),JSON.stringify(report,null,2))
+ fs.writeFileSync(process.env.COOKX_PARITY_OUTPUT||path.resolve(__dirname,'../../docs/temperature/wasm-results.json'),JSON.stringify(report,null,2))
  console.log(JSON.stringify(report))
  }finally{await browser.close()}
 })().catch(e=>{console.error(e);process.exit(1)})

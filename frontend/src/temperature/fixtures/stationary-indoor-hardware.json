@@ -1,0 +1,383 @@
+{
+  "durationSeconds": 45,
+  "dtr": false,
+  "source": "hardware_serial",
+  "status": "captured",
+  "chunks": [
+    {
+      "text": "UNKNOWN_COMMAND:+CONNECTING<<[address-redacted]\r\nUNKNOWN_COMMAND:CONNECTED\r\n",
+      "receivedAt": 1789873614914
+    },
+    {
+      "text": "TEMP:29.0\r\n",
+      "receivedAt": 1789873615117
+    },
+    {
+      "text": "TEMP:28.8\r\n",
+      "receivedAt": 1789873615632
+    },
+    {
+      "text": "TEMP:28.8\r\n",
+      "receivedAt": 1789873616096
+    },
+    {
+      "text": "TEMP:29.0\r\n",
+      "receivedAt": 1789873616633
+    },
+    {
+      "text": "TEMP:28.7\r\n",
+      "receivedAt": 1789873617096
+    },
+    {
+      "text": "TEMP:28.3\r\n",
+      "receivedAt": 1789873617620
+    },
+    {
+      "text": "TEMP:28.2\r\n",
+      "receivedAt": 1789873618128
+    },
+    {
+      "text": "TEMP:28.0\r\n",
+      "receivedAt": 1789873618606
+    },
+    {
+      "text": "TEMP:27.7\r\n",
+      "receivedAt": 1789873619134
+    },
+    {
+      "text": "TEMP:27.3\r\n",
+      "receivedAt": 1789873619601
+    },
+    {
+      "text": "TEMP:27.2\r\n",
+      "receivedAt": 1789873620112
+    },
+    {
+      "text": "TEMP:27.2\r\n",
+      "receivedAt": 1789873620606
+    },
+    {
+      "text": "TEMP:27.1\r\n",
+      "receivedAt": 1789873621087
+    },
+    {
+      "text": "TEMP:27.1\r\n",
+      "receivedAt": 1789873621601
+    },
+    {
+      "text": "TEMP:27.1\r\n",
+      "receivedAt": 1789873622114
+    },
+    {
+      "text": "TEMP:27.1\r\n",
+      "receivedAt": 1789873622623
+    },
+    {
+      "text": "TEMP:27.1\r\n",
+      "receivedAt": 1789873623107
+    },
+    {
+      "text": "TEMP:27.1\r\n",
+      "receivedAt": 1789873623616
+    },
+    {
+      "text": "TEMP:27.1\r\n",
+      "receivedAt": 1789873624089
+    },
+    {
+      "text": "TEMP:27.1\r\n",
+      "receivedAt": 1789873624590
+    },
+    {
+      "text": "TEMP:27.1\r\n",
+      "receivedAt": 1789873625100
+    },
+    {
+      "text": "TEMP:27.1\r\n",
+      "receivedAt": 1789873625609
+    },
+    {
+      "text": "TEMP:27.1\r\n",
+      "receivedAt": 1789873626138
+    },
+    {
+      "text": "TEMP:27.1\r\n",
+      "receivedAt": 1789873626617
+    },
+    {
+      "text": "TEMP:27.1\r\n",
+      "receivedAt": 1789873627130
+    },
+    {
+      "text": "TEMP:27.1\r\n",
+      "receivedAt": 1789873627646
+    },
+    {
+      "text": "TEMP:27.1\r\n",
+      "receivedAt": 1789873628114
+    },
+    {
+      "text": "TEMP:27.1\r\n",
+      "receivedAt": 1789873628623
+    },
+    {
+      "text": "TEMP:27.0\r\n",
+      "receivedAt": 1789873629099
+    },
+    {
+      "text": "TEMP:27.0\r\n",
+      "receivedAt": 1789873629614
+    },
+    {
+      "text": "TEMP:26.9\r\n",
+      "receivedAt": 1789873630126
+    },
+    {
+      "text": "TEMP:26.9\r\n",
+      "receivedAt": 1789873630603
+    },
+    {
+      "text": "TEMP:26.8\r\n",
+      "receivedAt": 1789873631116
+    },
+    {
+      "text": "TEMP:26.8\r\n",
+      "receivedAt": 1789873631630
+    },
+    {
+      "text": "TEMP:26.8\r\n",
+      "receivedAt": 1789873632094
+    },
+    {
+      "text": "TEMP:26.8\r\n",
+      "receivedAt": 1789873632620
+    },
+    {
+      "text": "TEMP:26.9\r\n",
+      "receivedAt": 1789873633103
+    },
+    {
+      "text": "TEMP:26.9\r\n",
+      "receivedAt": 1789873633615
+    },
+    {
+      "text": "TEMP:26.9\r\n",
+      "receivedAt": 1789873634127
+    },
+    {
+      "text": "TEMP:27.0\r\n",
+      "receivedAt": 1789873634592
+    },
+    {
+      "text": "TEMP:27.1\r\n",
+      "receivedAt": 1789873635138
+    },
+    {
+      "text": "TEMP:27.1\r\n",
+      "receivedAt": 1789873635618
+    },
+    {
+      "text": "TEMP:27.1\r\n",
+      "receivedAt": 1789873636130
+    },
+    {
+      "text": "TEMP:27.1\r\n",
+      "receivedAt": 1789873636597
+    },
+    {
+      "text": "TEMP:27.1\r\n",
+      "receivedAt": 1789873637119
+    },
+    {
+      "text": "TEMP:27.1\r\n",
+      "receivedAt": 1789873637632
+    },
+    {
+      "text": "TEMP:27.1\r\n",
+      "receivedAt": 1789873638097
+    },
+    {
+      "text": "TEMP:27.2\r\n",
+      "receivedAt": 1789873638607
+    },
+    {
+      "text": "TEMP:27.2\r\n",
+      "receivedAt": 1789873639120
+    },
+    {
+      "text": "TEMP:27.2\r\n",
+      "receivedAt": 1789873639583
+    },
+    {
+      "text": "TEMP:27.2\r\n",
+      "receivedAt": 1789873640096
+    },
+    {
+      "text": "TEMP:27.2\r\n",
+      "receivedAt": 1789873640621
+    },
+    {
+      "text": "TEMP:27.2\r\n",
+      "receivedAt": 1789873641136
+    },
+    {
+      "text": "TEMP:27.2\r\n",
+      "receivedAt": 1789873641607
+    },
+    {
+      "text": "TEMP:27.2\r\n",
+      "receivedAt": 1789873642083
+    },
+    {
+      "text": "TEMP:27.2\r\n",
+      "receivedAt": 1789873642593
+    },
+    {
+      "text": "TEMP:27.2\r\n",
+      "receivedAt": 1789873643101
+    },
+    {
+      "text": "TEMP:27.2\r\n",
+      "receivedAt": 1789873643612
+    },
+    {
+      "text": "TEMP:27.2\r\n",
+      "receivedAt": 1789873644080
+    },
+    {
+      "text": "TEMP:27.2\r\n",
+      "receivedAt": 1789873644604
+    },
+    {
+      "text": "TEMP:27.2\r\n",
+      "receivedAt": 1789873645115
+    },
+    {
+      "text": "TEMP:27.2\r\n",
+      "receivedAt": 1789873645576
+    },
+    {
+      "text": "TEMP:27.2\r\n",
+      "receivedAt": 1789873646105
+    },
+    {
+      "text": "TEMP:27.3\r\n",
+      "receivedAt": 1789873646632
+    },
+    {
+      "text": "TEMP:27.3\r\n",
+      "receivedAt": 1789873647098
+    },
+    {
+      "text": "TEMP:27.3\r\n",
+      "receivedAt": 1789873647609
+    },
+    {
+      "text": "TEMP:27.2\r\n",
+      "receivedAt": 1789873648122
+    },
+    {
+      "text": "TEMP:27.2\r\n",
+      "receivedAt": 1789873648602
+    },
+    {
+      "text": "TEMP:27.2\r\n",
+      "receivedAt": 1789873649113
+    },
+    {
+      "text": "TEMP:27.2\r\n",
+      "receivedAt": 1789873649626
+    },
+    {
+      "text": "TEMP:27.2\r\n",
+      "receivedAt": 1789873650106
+    },
+    {
+      "text": "TEMP:27.3\r\n",
+      "receivedAt": 1789873650600
+    },
+    {
+      "text": "TEMP:27.3\r\n",
+      "receivedAt": 1789873651115
+    },
+    {
+      "text": "TEMP:27.3\r\n",
+      "receivedAt": 1789873651626
+    },
+    {
+      "text": "TEMP:27.3\r\n",
+      "receivedAt": 1789873652104
+    },
+    {
+      "text": "TEMP:27.3\r\n",
+      "receivedAt": 1789873652585
+    },
+    {
+      "text": "TEMP:27.3\r\n",
+      "receivedAt": 1789873653098
+    },
+    {
+      "text": "TEMP:27.3\r\n",
+      "receivedAt": 1789873653622
+    },
+    {
+      "text": "TEMP:27.3\r\n",
+      "receivedAt": 1789873654092
+    },
+    {
+      "text": "TEMP:27.3\r\n",
+      "receivedAt": 1789873654607
+    },
+    {
+      "text": "TEMP:27.3\r\n",
+      "receivedAt": 1789873655103
+    },
+    {
+      "text": "TEMP:27.3\r\n",
+      "receivedAt": 1789873655614
+    },
+    {
+      "text": "TEMP:27.3\r\n",
+      "receivedAt": 1789873656122
+    },
+    {
+      "text": "TEMP:27.3\r\n",
+      "receivedAt": 1789873656601
+    },
+    {
+      "text": "TEMP:27.3\r\n",
+      "receivedAt": 1789873657112
+    },
+    {
+      "text": "TEMP:27.3\r\n",
+      "receivedAt": 1789873657642
+    },
+    {
+      "text": "TEMP:27.3\r\n",
+      "receivedAt": 1789873658106
+    },
+    {
+      "text": "TEMP:27.2\r\n",
+      "receivedAt": 1789873658617
+    },
+    {
+      "text": "TEMP:27.2\r\n",
+      "receivedAt": 1789873659130
+    },
+    {
+      "text": "TEMP:27.2\r\n",
+      "receivedAt": 1789873659598
+    }
+  ],
+  "port": "COM7",
+  "rts": false,
+  "baud": 9600,
+  "condition": "User-confirmed stationary indoor target; no reference thermometer or active heating reported",
+  "sensor": "MLX90614 via ESP32 and JDY-31; existing firmware; already filtered legacy TEMP frames",
+  "limitations": [
+    "No reference-temperature accuracy calibration",
+    "No cooking/movement labels",
+    "No firmware sequence or device timestamp",
+    "Desktop Windows SPP, not Android Bluetooth validation"
+  ]
+}
