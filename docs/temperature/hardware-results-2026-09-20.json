@@ -1,0 +1,72 @@
+{
+  "source": "real_hardware_bluetooth",
+  "port": "COM7",
+  "condition": "User reports stationary indoor target; no reference thermometer",
+  "samples": 90,
+  "rejected": 2,
+  "protocolVersions": [
+    1
+  ],
+  "minC": 26.8,
+  "maxC": 29,
+  "medianIntervalMs": 510,
+  "maxIntervalMs": 546,
+  "observedRateHz": 2.0008542973404375,
+  "qualityCounts": {
+    "suspect": 11,
+    "usable": 79
+  },
+  "phaseCounts": {
+    "unknown": 21,
+    "steady": 69
+  },
+  "lastAssessment": {
+    "schemaVersion": 1,
+    "quality": "usable",
+    "phase": "steady",
+    "phaseLabel": "温度稳定",
+    "risk": "observing",
+    "temperature": 27.2,
+    "slope": -0.0048059385298445745,
+    "forecast": [],
+    "reasons": [
+      "近段温变 -0.00 ℃/秒",
+      "缺少明确步骤温区，仅判断温度趋势"
+    ],
+    "suggestion": null,
+    "modelVersion": "rules-v1",
+    "alert": null,
+    "updatedAt": 1789873659598,
+    "epoch": 0
+  },
+  "simulatedSilenceCheck": {
+    "injection": "Advance engine clock 5001ms without more samples; not physical disconnection",
+    "quality": "invalid",
+    "risk": "unknown",
+    "suggestion": null
+  },
+  "wasm": {
+    "environment": "Desktop Chromium headless, not Android phone",
+    "browserVersion": "146.0.7680.153",
+    "samples": 100,
+    "wasmP95Ms": 0.30000001192092896,
+    "maxAbsError": 5.960464477539062e-07,
+    "externalNetworkRequests": 0
+  },
+  "experimentalPredictionAccepted": false,
+  "reconnect": {
+    "durationSeconds": 10,
+    "validFrames": 20,
+    "scope": "Windows SPP reopened; not Android reconnection test"
+  },
+  "usb": {
+    "initialSeconds": 20,
+    "initialCompleteDebugLines": 40,
+    "parallelCompleteDebugLines": 90,
+    "parallelUnexpectedLines": 8435,
+    "freshReadAfterHostBufferFlushSeconds": 10,
+    "freshCompleteDebugLines": 20,
+    "note": "Unexpected repeated text on reopen, excluded from temperature input; root cause not established. No device commands written."
+  },
+  "firmwareFlashed": false
+}

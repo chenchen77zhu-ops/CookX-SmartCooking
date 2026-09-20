@@ -11,5 +11,5 @@ export function adaptCookingContext(recipe = {}, step = {}, index = 0) {
     method: typeof step?.method === 'string' ? step.method : 'unknown', targetRange }
 }
 export const PHASES = ['preheat', 'drop', 'recovery', 'steady', 'cooling', 'unknown']
-export const PHASE_LABELS = { preheat: '预热', drop: '降温过渡', recovery: '回温', steady: '稳定加热', cooling: '冷却', unknown: '不确定' }
+export const PHASE_LABELS = { preheat: '预热', drop: '降温过渡', recovery: '回温', steady: '温度稳定', cooling: '冷却', unknown: '不确定' }
 export const QUALITY_LABELS = { usable: '测量可用', suspect: '测量待确认', invalid: '测量失效' }
