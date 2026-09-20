@@ -10,11 +10,13 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
    if(!['127.0.0.1','localhost'].includes(url.hostname)){external.push(url.origin);return route.abort()}
    return route.continue()
  })
- await page.goto(process.env.COOKX_BASE_URL||'http://127.0.0.1:5173')
+ await page.goto((process.env.COOKX_BASE_URL||'http://127.0.0.1:4173')+'/#/login',{waitUntil:'networkidle'})
+ const assets=path.resolve(__dirname,'../../frontend/dist/assets')
+ const workerFile=fs.readdirSync(assets).find(name=>/^inference\.worker-.*\.js$/.test(name))
+ assert.ok(workerFile,'Build the frontend before running production WASM parity')
  const fixture=JSON.parse(fs.readFileSync(path.join(__dirname,'parity-fixture.json'),'utf8'))
- const result=await page.evaluate(async fixture=>{
-   const m=await import('/src/temperature/inference.worker.js?worker')
-   const worker=new m.default(),latencies=[]
+ const result=await page.evaluate(async ({fixture,workerPath})=>{
+   const worker=new Worker(workerPath,{type:'module'}),latencies=[]
    let index=0
    return new Promise((resolve,reject)=>{
      const timeout=setTimeout(()=>{worker.terminate();reject(new Error('Timeout'))},20000)
@@ -31,7 +33,7 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
      }
      worker.postMessage({type:'init',baseUrl:location.origin+'/temperature/'})
    })
- },fixture)
+ },{fixture,workerPath:'/assets/'+workerFile})
  const values=[...result.data.logits,...result.data.forecast,result.data.qualityLogit]
  const expected=fixture.outputs.flat(3)
  const error=Math.max(...values.map((v,i)=>Math.abs(v-expected[i])))

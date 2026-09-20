@@ -42,12 +42,12 @@ def train(kind, data, val, epochs, seed):
     best,best_loss=None,float("inf")
     rng=np.random.default_rng(seed)
     history=[]
+    quantiles=x.new_tensor([.1,.5,.9])
     for epoch in range(epochs):
         model.train(); losses=[]
         for ix in np.array_split(rng.permutation(len(x)),max(1,int(np.ceil(len(x)/128)))):
             logits,forecast,quality=model(x[ix])
             error=f[ix,:3,None]-forecast
-            quantiles=torch.tensor([.1,.5,.9])
             pin=torch.maximum(quantiles*error,(quantiles-1)*error)
             mask=f[ix,3:,None]
             loss=nn.functional.cross_entropy(logits,y[ix],weight=weights) + 5*(pin*mask).sum()/mask.sum().clamp_min(1)/3 + .3*nn.functional.binary_cross_entropy_with_logits(quality[:,0],q[ix])

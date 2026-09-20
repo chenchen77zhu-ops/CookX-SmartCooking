@@ -1,0 +1,15 @@
+{
+  "environment": "Desktop Chromium with isolated loopback API",
+  "externalProviders": "YOLO and cloud substituted; no real recognition, speech or recipe quality claim",
+  "checks": [
+    "login",
+    "inventory-read",
+    "legacy-unknown-ui",
+    "inventory-add-persistence",
+    "recommendation-ui-with-real-algorithm",
+    "freshfusion-api-with-real-algorithm",
+    "recipe-to-cooking",
+    "timer-during-provider-outage"
+  ],
+  "uncaughtErrors": []
+}

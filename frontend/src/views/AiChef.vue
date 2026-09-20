@@ -786,6 +786,8 @@ const runStep = async () => {
   console.log(`[Voice] runStep version=${requestVersion} step=${stepNumber}`);
 
   timeLeft.value = Number(step.time_estimate) || 60;
+  // Cooking time must continue even when the optional speech service fails.
+  startStepTimer();
 
   // ✅ 核心修复 1：播报前彻底注销识别器，防止它在后台偷偷重启
   if (recognition) {
@@ -874,7 +876,6 @@ const runStep = async () => {
     }
 
     console.log(`[Voice] play version=${requestVersion} step=${stepNumber}`);
-    voicePlaybackState.value = 'playing';
     await audio.play();
 
     if (discardStaleVoiceRequest(requestVersion)) {
@@ -882,8 +883,7 @@ const runStep = async () => {
       return;
     }
 
-    // 3. 启动计时器
-    startStepTimer();
+    voicePlaybackState.value = 'playing';
 
     void preloadNextStep(stepIndex);
   } catch (e) {

@@ -68,11 +68,15 @@ python research/temperature/evaluate_public.py
 
 需要 Node 可执行文件在 PATH 中。训练固定种子 42，完整过程种子分组；100 个训练过程、24 个验证、30 个测试、30 个额外参数域测试。生成的大数据文件在 gitignore 中；模型、配置与结果入库。缺少公开数据时来源核验脚本明确记录失败，不伪造下载或评估成功。
 
-浏览器测试先运行 `npm run dev`，安装 Playwright（或将 `COOKX_PLAYWRIGHT` 指向已安装模块），可用 `COOKX_CHROME` 指定测试浏览器：
+浏览器测试先运行 `npm run build` 和 `npm run preview -- --host 127.0.0.1`，安装 Playwright（或将 `COOKX_PLAYWRIGHT` 指向已安装模块），可用 `COOKX_CHROME` 指定测试浏览器：
 ```shell
-node research/temperature/browser-smoke.cjs
+COOKX_BASE_URL=http://127.0.0.1:4173 node research/temperature/browser-smoke.cjs
 node research/temperature/browser-parity.cjs
 ```
+
+完整页面/API 联调：安装 `requirements-test.txt`，单独启动 `python tests/browser_server.py`，再运行 `node research/temperature/browser-application.cjs`。测试服务器仅监听本机，使用临时用户/库存文件，云端菜谱、语音及 YOLO 使用测试替身；推荐和 FreshFusion 执行真实算法。Windows PowerShell 用 `$env:COOKX_BASE_URL="http://127.0.0.1:4173"` 设置地址。
+
+导出记录中的 `timeBase` 区分设备 Unix 时间与仿真相对时间；上下文和纠正事件使用同一会话时间线。停止回放后，“导出本次”对应新的设备会话，“导出保存记录”用于已保存的回放。
 
 Android 构建使用 JDK 21、SDK 36、build-tools 35、Gradle 8.14.3。设置本机 JAVA_HOME/ANDROID_HOME 后，在 `frontend/android` 运行 `gradlew assembleDebug`。中文路径在 Windows Android/ESP32 工具中可能受限；使用 ASCII 输出目录或 ASCII 工作副本。仓库不保存本机 SDK 路径或工具链。
 

@@ -768,11 +768,12 @@ async def consume_ingredients(used_items: List[str], user_id: str):
 
     # 执行扣减逻辑
     new_inventory = []
+    used_names = {normalize_inventory_name(name) for name in used_items}
     for item in inventory_data:
         # 匹配名称（统一转小写去空格）
-        name_key = item["name"].strip().lower()
+        name_key = normalize_inventory_name(item["name"])
 
-        if name_key in [i.strip().lower() for i in used_items]:
+        if name_key in used_names:
             # 如果在消耗名单里，数量减 1
             item["quantity"] = int(item.get("quantity", 1)) - 1
             # 如果减完后数量大于 0，保留；否则不加入 new_inventory (即删除)

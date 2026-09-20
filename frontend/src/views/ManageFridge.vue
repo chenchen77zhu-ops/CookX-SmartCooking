@@ -170,6 +170,7 @@
 </template>
 
 <script setup>
+import { calculateDaysUntilExpiry } from '../services/inventoryExpiry.js'
 import { ref, computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
@@ -584,22 +585,7 @@ const getFoodInfo = (nameFromBackend) => {
 }
 
 // 计算剩余保质期天数
-const calculateDaysUntilExpiry = (item) => {
-  if (!item.add_time) return Number(item.shelf_life) || 7;
 
-  const addDate = new Date(item.add_time);
-
-  // ✅ 核心点：这里必须使用传入的 item 里的实时 shelf_life
-  const lifeDays = Number(item.shelf_life) || 7;
-
-  const expiryDate = new Date(addDate.getTime() + lifeDays * 24 * 60 * 60 * 1000);
-  const now = new Date();
-
-  const diffTime = expiryDate - now;
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-  return diffDays > 0 ? diffDays : 0;
-};
 
 const categoryAliases = {
   vegetable: 'vegetable', vegetables: 'vegetable', '蔬菜': 'vegetable',
@@ -745,6 +731,7 @@ const categoryName = (category) => categories.find(item => item.id === category)
 
 const expiryStatus = (item) => {
   const days = calculateDaysUntilExpiry(item)
+  if (!Number.isFinite(days)) return { className: 'unknown', label: '待补充', description: '保质期信息不足' }
   if (days <= 0) return { className: 'expired', label: '已过期', description: '已过期' }
   if (days <= 2) return { className: 'urgent', label: `${days}天`, description: `${days} 天后过期` }
   if (days <= 5) return { className: 'soon', label: `${days}天`, description: `${days} 天后过期` }

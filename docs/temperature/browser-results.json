@@ -12,7 +12,9 @@
     "step-navigation",
     "model-failure-fallback",
     "audio-pause-resume",
-    "timer-during-inference"
+    "timer-during-inference",
+    "timer-with-speech-error",
+    "timer-with-empty-speech"
   ],
   "screenshot": "tmp/temperature-mobile.png"
 }

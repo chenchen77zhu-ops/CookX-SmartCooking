@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "predev": "node scripts/prepare-temperature-assets.mjs",
     "prebuild": "node scripts/prepare-temperature-assets.mjs",
-    "test": "node --test src/services/temperatureStream.test.js src/temperature/*.test.js"
+    "test": "node --test src/services/*.test.js src/temperature/*.test.js"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.1",
