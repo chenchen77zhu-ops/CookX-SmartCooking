@@ -2,7 +2,7 @@
   "environment": "Desktop Chromium headless, not Android phone",
   "browserVersion": "146.0.7680.153",
   "samples": 100,
-  "wasmP95Ms": 0.39999999990686774,
+  "wasmP95Ms": 0.30000001192092896,
   "maxAbsError": 9.5367431640625e-7,
   "externalNetworkRequests": 0
 }

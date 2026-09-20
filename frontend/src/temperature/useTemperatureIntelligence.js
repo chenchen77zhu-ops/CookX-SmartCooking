@@ -1,4 +1,4 @@
-import { ref, shallowRef, onUnmounted } from 'vue'
+import { ref, shallowRef, onScopeDispose } from 'vue'
 import { createTemperatureEngine } from './engine.js'
 import { buildFeatures } from './features.js'
 import { acceptPrediction } from './prediction.js'
@@ -9,7 +9,13 @@ export function useTemperatureIntelligence(storageKey = 'cookx-temperature-sessi
   const modelState = ref('规则判断'), experimental = ref(false), replaying = ref(false), storageMessage = ref('')
   let worker = null, busy = false, ready = false, requestId = 0, generation = 0, lastInference = -Infinity
   let replayTimer = null, replayClock = 0, lastSave = 0, modelTimer = null, context = {}, anchor = null
-  let session = {schemaVersion:1,source:'device',startedAt:Date.now(),samples:[],assessments:[],predictions:[],events:[],contexts:[]}
+  let modelVersion = null
+  const clock = () => replaying.value ? replayClock : Date.now()
+  const assetUrl = file => new URL((import.meta.env?.BASE_URL ?? '/')+'temperature/'+file,location.href).href
+  const newSession = (source, at, activeContext) => ({schemaVersion:1,source,startedAt:Date.now(),
+    timeBase:source==='simulation'?'relative_ms':'unix_ms',timelineStartedAt:at,modelVersion,
+    samples:[],assessments:[],predictions:[],events:[],contexts:[{at,context:structuredClone(activeContext)}]})
+  let session = newSession('device',Date.now(),context)
   const persist = () => {
     if (!session.samples.length && !session.events.length) return
     try { localStorage.setItem(storageKey,JSON.stringify(session));storageMessage.value='' }
@@ -27,18 +33,19 @@ export function useTemperatureIntelligence(storageKey = 'cookx-temperature-sessi
       modelTimer=setTimeout(()=>disableModel('模型加载超时，规则判断'),15000)
       worker.onerror=()=>disableModel('模型不可用，规则判断')
       worker.onmessage=({data})=>{
-        if(data.type==='ready') {clearTimeout(modelTimer);ready=true;session.modelVersion=data.manifest.modelVersion;modelState.value='实验模型就绪（仿真训练）'}
+        if(data.type==='ready') {clearTimeout(modelTimer);ready=true;modelVersion=data.manifest.modelVersion;session.modelVersion=modelVersion;modelState.value='实验模型就绪（仿真训练）'}
         if(data.type==='error') { console.warn('[Temperature model]',data.message); disableModel('模型不可用，规则判断') }
         if(data.type==='prediction') {
           clearTimeout(modelTimer);busy=false
           if(data.id!==requestId || !experimental.value) return
           const time=replaying.value?replayClock:Date.now()
-          prediction.value=acceptPrediction(data,engine.getSnapshot(),engine.getWindow().epoch,time)
+          const accepted=acceptPrediction(data,engine.getSnapshot(),engine.getWindow().epoch,time)
+          prediction.value=accepted?{...accepted,at:data.at}:null
           if(prediction.value) { session.predictions.push({at:data.at,epoch:data.epoch,latencyMs:data.latencyMs,...prediction.value});session.predictions=session.predictions.slice(-2400) }
           modelState.value='实验模型（仿真训练） · '+data.latencyMs.toFixed(0)+' ms'
         }
       }
-      worker.postMessage({type:'init',baseUrl:new URL(import.meta.env.BASE_URL+'temperature/',location.href).href})
+      worker.postMessage({type:'init',baseUrl:assetUrl('')})
     } catch {disableModel('模型不可用，规则判断')}
   }
   const setExperimental = enabled => {
@@ -47,24 +54,25 @@ export function useTemperatureIntelligence(storageKey = 'cookx-temperature-sessi
     else { disableModel('规则判断');requestId++ }
   }
   const invalidate = (reason='等待数据') => {
-    generation++;requestId++;prediction.value=null;anchor=null
+    generation++;requestId++;prediction.value=null;anchor=null;lastInference=-Infinity
     assessment.value=engine.reset(reason)
   }
   const setContext = next => {
     if(JSON.stringify(context)===JSON.stringify(next)) return
     context=next;engine.setContext(next);prediction.value=null;requestId++
-    session.contexts.push({at:Date.now(),context:next})
+    session.contexts.push({at:clock(),context:structuredClone(next)})
     assessment.value=engine.getSnapshot()
   }
   const confirm = (type, at=replaying.value?replayClock:Date.now()) => {
+    if(!['ingredient_added','probe_moved','heat_off'].includes(type) || !Number.isFinite(at)) return
     engine.confirm(type,at);prediction.value=null;requestId++;session.events.push({type,at})
     assessment.value=engine.getSnapshot()
   }
   const receive = (input, source='device') => {
     if (source==='device' && replaying.value) return
     if (session.source !== source) {
-      persist();session={schemaVersion:1,source,startedAt:Date.now(),samples:[],assessments:[],predictions:[],events:[],contexts:[{at:Date.now(),context}]}
-      history.value=[];invalidate('数据来源已切换');engine.setContext(context)
+      persist();session=newSession(source,input.updatedAt ?? Date.now(),context)
+      history.value=[];engine.setContext(context);invalidate('数据来源已切换')
     }
     let sample={...input,source,valid:input.valid!==false && Number.isFinite(input.temperature)}
     if(source==='device' && Number.isFinite(input.deviceTimeMs)) {
@@ -92,21 +100,26 @@ export function useTemperatureIntelligence(storageKey = 'cookx-temperature-sessi
     }
   }
   const stopReplay = () => {
+    const wasReplaying=replaying.value
+    if(wasReplaying) persist()
     clearInterval(replayTimer);replayTimer=null;replaying.value=false;history.value=[]
-    invalidate('回放已结束，等待真实设备数据');engine.setContext(context);lastInference=-Infinity
+    if(wasReplaying) session=newSession('device',Date.now(),context)
+    engine.setContext(context);invalidate('回放已结束，等待真实设备数据')
+    replayClock=0
   }
   const startReplay = async () => {
     stopReplay()
     const version=generation
     try {
-      const response=await fetch(new URL(import.meta.env.BASE_URL+'temperature/replay.json',location.href))
+      const response=await fetch(assetUrl('replay.json'))
       if(!response.ok) throw new Error('回放文件不可用')
       const data=await response.json()
       if(version!==generation) return
-      if(data.source!=='physics_simulation' || !Array.isArray(data.samples)) throw new Error('回放来源不正确')
+      if(data.source!=='physics_simulation' || !Array.isArray(data.samples) || !data.samples.length || !data.samples.every(s=>Number.isFinite(s.updatedAt)) || !Array.isArray(data.events)) throw new Error('回放来源不正确')
       persist()
-      session={schemaVersion:1,source:'simulation',startedAt:Date.now(),samples:[],assessments:[],predictions:[],events:[],contexts:[{at:0,context:data.context}]}
-      replaying.value=true;engine.setContext(data.context);let index=0
+      replayClock=data.samples[0].updatedAt
+      session=newSession('simulation',replayClock,data.context ?? {})
+      replaying.value=true;engine.setContext(data.context ?? {});invalidate('仿真回放，等待连续数据');let index=0
       // One simulated second per wall second, no claimed hardware connection.
       replayTimer=setInterval(()=>{
         if(index>=data.samples.length){stopReplay();return}
@@ -114,7 +127,7 @@ export function useTemperatureIntelligence(storageKey = 'cookx-temperature-sessi
         for(const event of data.events.filter(e=>e.index===index)) confirm(event.type,replayClock)
         receive(data.samples[index++],'simulation')
       },500)
-    } catch {modelState.value='回放加载失败';stopReplay()}
+    } catch {if(version!==generation)return;stopReplay();storageMessage.value='回放加载失败，请重试'}
   }
   const exportSession = (saved=false) => {
     let data=session
@@ -127,10 +140,10 @@ export function useTemperatureIntelligence(storageKey = 'cookx-temperature-sessi
   const tick=setInterval(()=>{
     if(!replaying.value) {
       assessment.value=engine.expire(Date.now())
-      if(assessment.value.quality==='invalid') prediction.value=null
+      if(assessment.value.quality==='invalid' || (prediction.value && Date.now()-prediction.value.at>2500)) prediction.value=null
     }
   },1000)
-  onUnmounted(()=>{persist();clearInterval(tick);clearInterval(replayTimer);disableModel('规则判断');generation++})
+  onScopeDispose(()=>{persist();clearInterval(tick);clearInterval(replayTimer);disableModel('规则判断');generation++})
   return {assessment,history,prediction,modelState,experimental,replaying,storageMessage,
     receive,invalidate,setContext,confirm,setExperimental,startReplay,stopReplay,exportSession}
 }

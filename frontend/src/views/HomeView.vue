@@ -196,6 +196,7 @@
 </template>
 
 <script setup>
+import { calculateDaysUntilExpiry } from '../services/inventoryExpiry.js'
 import { computed, onMounted, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
@@ -240,21 +241,7 @@ const greeting = computed(() => {
   return '晚上好'
 })
 
-const calculateDaysUntilExpiry = (item) => {
-  const providedDays = Number(item.days_left ?? item.daysUntilExpiry)
-  if (Number.isFinite(providedDays)) return providedDays
-  if (item.expiration_date) {
-    const expirationDate = new Date(item.expiration_date)
-    if (!Number.isNaN(expirationDate.getTime())) {
-      return Math.ceil((expirationDate - new Date()) / 86400000)
-    }
-  }
-  if (!item.add_time) return Number(item.shelf_life) || 7
-  const addDate = new Date(item.add_time)
-  if (Number.isNaN(addDate.getTime())) return Number(item.shelf_life) || 7
-  const expiryDate = new Date(addDate.getTime() + (Number(item.shelf_life) || 7) * 86400000)
-  return Math.max(0, Math.ceil((expiryDate - new Date()) / 86400000))
-}
+
 
 const inventoryKindCount = computed(() => new Set(
   inventory.value.map(item => String(item.name || '').trim().toLowerCase()).filter(Boolean)

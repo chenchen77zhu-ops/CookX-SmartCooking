@@ -4,13 +4,19 @@ on:
     paths:
       - 'frontend/**'
       - 'firmware/**'
+      - 'app/**'
+      - 'tests/**'
+      - 'requirements*.txt'
       - 'research/temperature/**'
       - '.github/workflows/temperature.yml'
   push:
-    branches: [main, feat/temperature-intelligence]
+    branches: [main, feat/temperature-intelligence, fix/latest-software-acceptance]
     paths:
       - 'frontend/**'
       - 'firmware/**'
+      - 'app/**'
+      - 'tests/**'
+      - 'requirements*.txt'
       - 'research/temperature/**'
       - '.github/workflows/temperature.yml'
 permissions:
@@ -61,3 +67,61 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install numpy==2.4.4
       - run: python -m unittest discover -s research/temperature -p "test_*.py"
+  backend:
+    runs-on: ubuntu-latest
+    env:
+      DEEPSEEK_API_KEY: test-placeholder-not-a-real-key
+      DASHSCOPE_API_KEY: test-placeholder-not-a-real-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements-test.txt
+      - run: python -m pytest tests -q
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Production browser dependencies
+        run: |
+          npm ci --prefix frontend --registry=https://registry.npmjs.org
+          npm run build --prefix frontend
+          npm install --prefix "$RUNNER_TEMP/cookx-browser" playwright@1.62.1 --registry=https://registry.npmjs.org
+          node "$RUNNER_TEMP/cookx-browser/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Browser and API acceptance
+        env:
+          COOKX_BASE_URL: http://127.0.0.1:4173
+        run: |
+          export COOKX_PLAYWRIGHT="$RUNNER_TEMP/cookx-browser/node_modules/playwright"
+          python tests/browser_server.py > /tmp/cookx-backend.log 2>&1 &
+          BACKEND_PID=$!
+          npm run preview --prefix frontend -- --host 127.0.0.1 > /tmp/cookx-frontend.log 2>&1 &
+          FRONTEND_PID=$!
+          trap 'kill "$BACKEND_PID" "$FRONTEND_PID" 2>/dev/null || true' EXIT
+          python - <<'PY'
+          import time, urllib.request
+          for address in ['http://127.0.0.1:8000/', 'http://127.0.0.1:4173/']:
+              for attempt in range(60):
+                  try:
+                      with urllib.request.urlopen(address, timeout=1) as response:
+                          assert response.status == 200
+                      break
+                  except Exception:
+                      time.sleep(.5)
+              else:
+                  raise RuntimeError('Acceptance server unavailable: '+address)
+          PY
+          node research/temperature/browser-parity.cjs
+          node research/temperature/browser-smoke.cjs
+          node research/temperature/browser-application.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: CookX-acceptance-evidence
+          path: |
+            docs/temperature/*results.json
+            tmp/temperature-mobile.png
+            /tmp/cookx-backend.log
+            /tmp/cookx-frontend.log
