@@ -6,10 +6,10 @@ import math
 import shutil
 import tempfile
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from collections import Counter
-from fastapi import FastAPI, UploadFile, File, HTTPException, Query
+from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Request
 from fastapi import Response
 from fastapi import Body
 from fastapi.responses import StreamingResponse
@@ -27,6 +27,7 @@ from app.services.recommendation_service import (
     filter_eligible_recipes, load_recipes, recommend_recipes,
     safe_inventory_names, validate_weights,
 )
+from app.services.freshness_service import calculate_freshfusion
 from app.models.user import (
     create_user, authenticate_user, update_user, delete_user,
     find_user_by_username, find_user_by_phone, get_all_users
@@ -57,6 +58,16 @@ class RecommendationRequest(BaseModel):
     weights: Optional[Dict[str, float]] = None
     preferences: Optional[Dict[str, Any]] = None
 
+class FreshnessEvaluationRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    ingredient_name: str = Field(..., min_length=1)
+    purchase_time: Optional[str] = None
+    add_time: Optional[str] = None
+    shelf_life: Optional[float] = None
+    expiry_date: Optional[str] = None
+    storage_type: Optional[str] = None
+
 # 开启跨域
 app.add_middleware(
     CORSMiddleware,
@@ -71,18 +82,7 @@ model = YOLO('app/models/best.pt')
 
 # 挂载静态资源
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
-SHELF_LIFE_MAP = {
-    'beef': 3,
-    'chicken': 2,
-    'egg': 15,
-    'carrot': 10,
-    'potato': 20,
-    'onion': 30,
-    'chili': 7,
-    'garlic': 30,
-    'kimchi': 60,
-    'leek': 3
-}
+
 NAME_MAP = {
     'beef': '牛肉',
     'carrot': '胡萝卜',
@@ -252,7 +252,7 @@ def _inventory_storage_method(item):
         item.get("storage_method")
         or item.get("storage_type")
         or item.get("storage")
-        or "冷藏"
+        or ""
     ).strip().lower()
 
 
@@ -357,20 +357,22 @@ def merge_inventory_items(inventory_data, items, current_time=None):
             continue
 
         incoming_quantity = int(incoming.get("quantity", 1))
-        incoming_shelf_life = int(incoming.get("shelf_life", 7))
         new_item = {
             "id": str(uuid.uuid4())[:8],
             "name": name,
             "quantity": incoming_quantity,
             "add_time": batch_time.isoformat(),
-            "storage_type": (
-                incoming.get("storage_method")
-                or incoming.get("storage_type")
-                or incoming.get("storage")
-                or "冷藏"
-            ),
-            "shelf_life": incoming_shelf_life,
         }
+        storage_type = incoming.get("storage_method") or incoming.get("storage_type") or incoming.get("storage")
+        if storage_type is not None and str(storage_type).strip():
+            new_item["storage_type"] = storage_type
+        if incoming.get("shelf_life") is not None:
+            shelf_life = _finite_number(incoming.get("shelf_life"))
+            if shelf_life is not None and shelf_life > 0:
+                new_item["shelf_life"] = int(shelf_life) if shelf_life.is_integer() else shelf_life
+        for traceable_field in ("purchase_time", "purchase_date", "expiry_date", "visual_freshness"):
+            if incoming.get(traceable_field) is not None:
+                new_item[traceable_field] = incoming[traceable_field]
         for field in MERGEABLE_INVENTORY_MEASUREMENTS:
             value = _finite_number(incoming.get(field))
             if value is not None:
@@ -526,11 +528,13 @@ async def analyze_fridge(file: UploadFile = File(...)):
             }
         # -------------------------------------------------------
 
-        # DEPRECATED/TODO: 仅供旧识别界面兼容；该名称哈希值不是真实鲜度。
-        # 后续由 FreshFusion 鲜度智融引擎替换。多目标推荐算法严禁读取此字段。
+        # Recognition has no traceable purchase/storage/visual freshness data yet.
+        # Keep the legacy string field, but derive it from FreshFusion's explicit
+        # unknown result instead of inventing a value from the ingredient name.
         for item in detected_items:
-            name_hash = sum(ord(c) for c in item["name"])
-            item["freshness"] = ['新鲜', '较新鲜', '一般'][name_hash % 3]
+            detail = calculate_freshfusion({"ingredient_name": item["name"]})
+            item["freshness"] = detail["freshness_label"]
+            item["freshness_detail"] = detail
 
         # 4. 第四步：清理临时文件（可选）
         # os.remove(temp_path)
@@ -619,6 +623,63 @@ async def multi_objective_recommendations(request: RecommendationRequest):
         "filtered_recipe_count": filtered_count,
         "recommendations": recommendations,
     }
+
+@app.post("/api/freshness/evaluate")
+async def evaluate_freshness(request: FreshnessEvaluationRequest):
+    """Evaluate one item without persisting or enriching it with fabricated data."""
+    evaluated_at = datetime.now(timezone.utc)
+    payload = request.model_dump(exclude_none=True)
+    payload["name"] = payload.pop("ingredient_name")
+    result = calculate_freshfusion(payload, reference_time=evaluated_at)
+    public_visual_note = "当前尚无服务端可信视觉鲜度结果，V未参与融合。"
+    result["data_quality_notes"] = list(dict.fromkeys([*result["data_quality_notes"], public_visual_note]))
+    return {"evaluated_at": evaluated_at.isoformat().replace("+00:00", "Z"), **result}
+
+
+@app.get("/api/users/{user_id}/inventory/freshness")
+async def evaluate_inventory_freshness(user_id: str, request: Request):
+    """Evaluate inventory in stable file order; never writes the inventory file."""
+    for forbidden_parameter in ("reference_time", "visual_freshness"):
+        if forbidden_parameter in request.query_params:
+            raise HTTPException(status_code=422, detail=f"不允许客户端提供{forbidden_parameter}")
+    if not any(user.get("id") == user_id for user in get_all_users()):
+        raise HTTPException(status_code=404, detail="用户不存在")
+    inventory_path = os.path.join(USER_DATA_BASE, user_id, "inventory.json")
+    inventory: List[Dict[str, Any]] = []
+    if os.path.exists(inventory_path):
+        try:
+            with open(inventory_path, "r", encoding="utf-8") as inventory_file:
+                loaded = json.load(inventory_file)
+            if not isinstance(loaded, list):
+                raise ValueError("inventory must be an array")
+            inventory = loaded
+        except (OSError, json.JSONDecodeError, ValueError) as exc:
+            raise HTTPException(status_code=500, detail="用户库存数据无法读取") from exc
+
+    evaluated_at = datetime.now(timezone.utc)
+    evaluated_at_iso = evaluated_at.isoformat().replace("+00:00", "Z")
+    public_visual_note = "当前尚无服务端可信视觉鲜度结果，V未参与融合。"
+    evaluated = []
+    for item in inventory:
+        public_item = dict(item)
+        public_item.pop("visual_freshness", None)
+        detail = calculate_freshfusion(public_item, reference_time=evaluated_at)
+        detail["data_quality_notes"] = list(dict.fromkeys([*detail["data_quality_notes"], public_visual_note]))
+        evaluated.append({"item_id": item.get("id"), "name": item.get("name"), **detail})
+    return {
+        "algorithm_version": "freshfusion_v1",
+        "user_id": user_id,
+        "evaluated_at": evaluated_at_iso,
+        "generated_at": evaluated_at_iso,
+        "sort_order": "inventory_file_order",
+        "total_count": len(evaluated),
+        "evaluable_count": sum(item["fresh_score"] is not None for item in evaluated),
+        "unknown_count": sum(item["fresh_score"] is None for item in evaluated),
+        "expired_count": sum(item["expired"] for item in evaluated),
+        "expiring_soon_count": sum(item["expiring_soon"] for item in evaluated),
+        "items": evaluated,
+    }
+
 
 @app.get("/api/recommend-recipe")
 async def recommend_recipe(user_prompt: str, user_id: str, save_history: bool = True):
@@ -740,9 +801,8 @@ async def get_inventory(user_id: str):  # ✅ 必须有这个参数
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
-        # Windows 不允许替换仍被当前进程打开的文件，归并与写回必须在读取句柄关闭后执行。
-        for item in data:
-            item.setdefault("shelf_life", SHELF_LIFE_MAP.get(item["name"].lower(), 7))
+        # Do not fabricate a shelf life for legacy rows. Missing values remain
+        # explicit so FreshFusion can return data-unavailable instead of a false score.
         merged_data = merge_duplicate_inventory_batches(data)
         if merged_data != data:
             _write_inventory_atomic(path, merged_data)

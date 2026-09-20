@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import json
 import math
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
+
+from app.services.freshness_service import calculate_time_freshness
 
 
 ALGORITHM_VERSION = "multi_objective_v1"
@@ -68,29 +70,6 @@ def _number(value: Any) -> Optional[float]:
     return result if math.isfinite(result) and result >= 0 else None
 
 
-def _parse_datetime(value: Any) -> Optional[datetime]:
-    if not value:
-        return None
-    text = str(value).strip().replace("Z", "+00:00")
-    try:
-        parsed = datetime.fromisoformat(text)
-    except ValueError:
-        return None
-    if parsed.tzinfo is not None:
-        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
-    return parsed
-
-
-def _expiry(item: Dict[str, Any]) -> Optional[Tuple[datetime, datetime]]:
-    explicit = _parse_datetime(item.get("expiry_date"))
-    base = _parse_datetime(item.get("purchase_time") or item.get("add_time"))
-    if explicit:
-        return (base or explicit, explicit)
-    shelf_life = _number(item.get("shelf_life"))
-    if base and shelf_life is not None:
-        return base, base + timedelta(days=shelf_life)
-    return None
-
 
 def _inventory_index(inventory: Iterable[Dict[str, Any]], now: datetime) -> Dict[str, List[Dict[str, Any]]]:
     indexed: Dict[str, List[Dict[str, Any]]] = {}
@@ -99,10 +78,10 @@ def _inventory_index(inventory: Iterable[Dict[str, Any]], now: datetime) -> Dict
         name = normalize_ingredient(item.get("name"))
         if not name:
             continue
-        time_range = _expiry(item)
+        time_result = calculate_time_freshness(item, reference_time=now)
         item["_normalized_name"] = name
-        item["_time_range"] = time_range
-        item["_expired"] = bool(time_range and time_range[1] < now)
+        item["_time_freshness"] = time_result
+        item["_expired"] = time_result["expired"]
         indexed.setdefault(name, []).append(item)
     return indexed
 
@@ -287,15 +266,12 @@ def score_recipe(
     expiring_names: List[str] = []
     for name in sorted(set(matched)):
         for item in _available_batches(indexed, name):
-            time_range = item["_time_range"]
-            if not time_range:
+            time_result = item["_time_freshness"]
+            if time_result["score"] is None:
                 continue
-            start, expiry = time_range
-            lifetime = max((expiry - start).total_seconds(), 1)
-            remaining = max((expiry - current_time).total_seconds(), 0)
-            urgency = clamp(1 - remaining / lifetime)
+            urgency = clamp(1 - time_result["score"])
             timed_urgencies.append((name, urgency))
-            if remaining <= 3 * 86400:
+            if time_result["expiring_soon"]:
                 expiring_names.append(name)
     f_score = None if not timed_urgencies else clamp(
         sum(value for _, value in timed_urgencies) / len(timed_urgencies)

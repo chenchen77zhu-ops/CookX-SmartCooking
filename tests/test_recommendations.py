@@ -187,7 +187,7 @@ def test_new_api_does_not_call_deepseek_or_qwen(monkeypatch, tmp_path):
 def test_new_algorithm_does_not_use_legacy_hash_freshness():
     source = inspect.getsource(service)
     assert "name_hash" not in source
-    assert "freshness" not in source
+    assert "sum(ord" not in source
     assert "random" not in source
 
 
