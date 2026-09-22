@@ -6,7 +6,7 @@ export function createCookingSession(user, {storage, now=Date.now, makeId=()=>gl
   try {
     const saved=JSON.parse(storage?.getItem(sessionKey(user)) || 'null')
     if(saved) {
-      if(saved.schemaVersion!==1 || saved.user!==user || !Array.isArray(saved.timers) || !Number.isInteger(saved.stepIndex) || saved.stepIndex<0 || saved.stepIndex>=saved.recipe?.steps?.length || saved.timers.length!==saved.recipe.steps.length || !saved.timers.every(t=>t && Number.isFinite(t.remainingMs) && t.remainingMs>=0 && (t.deadline===null || Number.isFinite(t.deadline)) && Number.isInteger(t.round)))throw new Error('invalid snapshot')
+      if(!['active','completed'].includes(saved.status) || typeof saved.id!=='string' || !Number.isInteger(saved.recipeVersion) || !Array.isArray(saved.adjustments) || !Array.isArray(saved.reminders) || saved.schemaVersion!==1 || saved.user!==user || !Array.isArray(saved.timers) || !Number.isInteger(saved.stepIndex) || saved.stepIndex<0 || saved.stepIndex>=saved.recipe?.steps?.length || saved.timers.length!==saved.recipe.steps.length || !saved.timers.every(t=>t && Number.isFinite(t.remainingMs) && t.remainingMs>=0 && (t.deadline===null || Number.isFinite(t.deadline)) && Number.isInteger(t.round)))throw new Error('invalid snapshot')
       state={...saved,recipe:normalizeRecipe(saved.recipe)}
     }
   } catch {warning='本地烹饪记录损坏或版本不兼容，请重新选择菜谱'}
