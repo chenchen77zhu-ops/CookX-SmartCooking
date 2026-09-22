@@ -15,10 +15,12 @@ export function normalizeRecipe(input) {
     if (duration != null && duration !== '' && (typeof duration==='boolean' || !Number.isFinite(Number(duration)) || Number(duration)<0 || Number(duration)>86400)) throw new Error(`第 ${index+1} 步时长无效（秒）`)
     return {...step,id:`step-${index+1}`,text:text.trim(),time_estimate:duration==null||duration===''?null:Number(duration)}
   })
-  return {...recipe,schemaVersion:1,dish_name:recipe.dish_name.trim(),steps,
+  const normalized={...recipe,schemaVersion:1,dish_name:recipe.dish_name.trim(),steps,
     ingredients_list:Array.isArray(recipe.ingredients_list)?recipe.ingredients_list.filter(x=>x && typeof x==='object' && typeof x.item==='string'):[],
     used_ingredients:Array.isArray(recipe.used_ingredients)?recipe.used_ingredients.filter(x=>typeof x==='string' && x.trim()):[],
     missing:Array.isArray(recipe.missing)?recipe.missing.filter(x=>typeof x==='string'):[]}
+  // Detach nested Vue proxies as well as the top-level recipe before storing a session.
+  try{return JSON.parse(JSON.stringify(normalized))}catch{throw new Error('菜谱包含无法保存的数据，请重新生成')}
 }
 export function safeHistory(rows) {
   if (!Array.isArray(rows)) return []
