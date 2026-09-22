@@ -397,6 +397,10 @@ button { font: inherit; }
   .action-bar { grid-template-columns: 220px minmax(0, 1fr); }
 }
 
+@media (max-width: 759px) {
+  .food-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
 @media (max-width: 380px) {
   .capture-confirm-page { padding-right: 11px; padding-left: 11px; }
   .back-button span { display: none; }
