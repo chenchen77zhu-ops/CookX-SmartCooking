@@ -13,7 +13,7 @@
       <p>购买时间：{{ original.purchase_time || original.purchase_date || '未知' }}</p>
       <p>到期时间：{{ original.expiry_date || '未知' }}</p>
       <p>入库时间（服务端原值）：{{ original.add_time || '未知' }}</p>
-      <p>日期修改、清空已有字段和小数保质期编辑待后端 A3 支持；未修改字段保持原值。</p>
+      <p>本批暂不开放日期修改、字段清空与小数保质期编辑；未修改字段保持原值。</p>
     </template>
   </fieldset>
 </template>
