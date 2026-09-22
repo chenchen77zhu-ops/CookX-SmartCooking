@@ -96,7 +96,7 @@
         <div v-if="!inventory.length" class="empty-actions"><button type="button" @click="showAddDialog = true"><el-icon><Plus /></el-icon>添加食材</button></div>
       </section>
 
-      <MultiObjectiveRecommendations @manage-inventory="showAddDialog = true" />
+      <MultiObjectiveRecommendations :inventory-revision="inventoryRevision" :inventory-ready="inventoryReady" :user-id="currentUserId" @manage-inventory="showAddDialog = true" />
 
       <section v-if="inventory.length > 0" class="recommend-section">
         <div class="main-title"><span><el-icon><KnifeFork /></el-icon>AI 生成灵感</span><small>由大模型生成新的菜谱方案</small></div>
@@ -167,6 +167,7 @@
 </template>
 
 <script setup>
+import { saveDraft, recognitionItem } from '../services/recognitionDraft.js'
 import InventoryFields from '../components/InventoryFields.vue'
 import InventoryWriteStatus from '../components/InventoryWriteStatus.vue'
 import { blankItem, serializeItem } from '../services/inventoryFields.js'
@@ -228,6 +229,10 @@ const recognizedItemCount = ref(0)
 const currentUserId = ref(null)
 const inventoryLoading = ref(true)
 const inventoryError = ref(false)
+const inventoryRevision = ref(0)
+const inventoryReady = ref(false)
+let uploadUserId = null
+let quickVersion = 0
 let recognitionTimer = null
 let recognitionSuccessTimer = null
 let userWaitTimer = null
@@ -306,6 +311,8 @@ const resetRecognitionState = () => {
 }
 
 const beforeRecognitionUpload = (file) => {
+  uploadUserId = currentUserId.value
+  if (!uploadUserId) return false
   if (isRecognizing.value) return false
   console.log('CookX upload file', {
     name: file?.name,
@@ -742,6 +749,11 @@ const fetchInventory = async (requestedUserId = currentUserId.value) => {
     return
   }
   freshnessLoader.reset()
+  inventoryReady.value = false
+  inventoryRevision.value++
+  quickVersion++
+  quickRecipes.value = []
+  recLoading.value = false
   const requestVersion = ++inventoryRequestVersion
   inventoryLoading.value = true
   inventoryError.value = false
@@ -762,6 +774,7 @@ const fetchInventory = async (requestedUserId = currentUserId.value) => {
       ...item,
       daysUntilExpiry: calculateDaysUntilExpiry(item)
     }));
+    inventoryReady.value = true
     lastUpdatedAt.value = new Date();
     freshnessLoader.load(requestedUserId, inventory.value);
     if (inventory.value.length > 0) fetchQuickRecipes();
@@ -785,6 +798,7 @@ const goToChef = (dishName) => {
 const fetchQuickRecipes = async () => {
   const userId = currentUserId.value
   if (!userId || inventory.value.length === 0) return;
+  const version = ++quickVersion
   recLoading.value = true;
 
   try {
@@ -793,9 +807,10 @@ const fetchQuickRecipes = async () => {
         user_id: userId,
         user_prompt: "根据库存推荐1个中文菜名。只需JSON格式: {\"dish_name\":\"菜名\",\"used_main\":\"主要食材\"}",
         save_history: false
-      }
+      }, timeout: 15000
     });
 
+    if (version !== quickVersion || userId !== currentUserId.value) return
     if (res.data.status === 'success' && res.data.recipe) {
       quickRecipes.value = [res.data.recipe];
     }
@@ -804,7 +819,7 @@ const fetchQuickRecipes = async () => {
     // 💡 调试小技巧：如果报错，弹窗显示具体原因
     // ElMessage.error("推荐失败: " + e.message);
   } finally {
-    recLoading.value = false;
+    if (version === quickVersion) recLoading.value = false;
   }
 };
 
@@ -816,6 +831,8 @@ async function persistForm(editing) {
   try {
     const payload = hasPendingWrite(userId) ? null : serializeItem(editing ? editingItem.value : newItem.value, editing ? editingOriginal.value : null)
     if (payload && editing && !Object.keys(payload).length) { editDialogVisible.value = false; return }
+    inventoryReady.value = false; inventoryRevision.value++
+    quickVersion++; quickRecipes.value = []
     await saveInventory(userId, editing ? payload : payload && [payload], editing ? editingOriginal.value.id : null)
     if (currentUserId.value !== userId) return
     pendingWrite.value = false
@@ -858,7 +875,7 @@ const removeItem = async (id) => {
       await fetchInventory();
 
       // 可选：同时刷新下方的灵感菜谱，因为食材变了
-      await fetchQuickRecipes();
+
     } else {
       ElMessage.error(res.data.message || '移除失败');
     }
@@ -871,6 +888,7 @@ const removeItem = async (id) => {
 }
 
 const handleUploadSuccess = (response) => {
+  if (uploadUserId !== currentUserId.value) { resetRecognitionState(); return }
   const data = response?.data ?? response;
   if (!data) {
     clearRecognitionTimer();
@@ -880,10 +898,10 @@ const handleUploadSuccess = (response) => {
   }
   if (data.status === "success" && data.detected && data.detected.length > 0) {
     // 将识别结果转换为临时数据格式，包含存储方式
-    const itemsWithStorage = data.detected.map(item => ({ ...blankItem(), ...item, purchase_time: '', expiry_date: '' }));
+    const itemsWithStorage = data.detected.map(recognitionItem);
 
     // 存储到 localStorage 以便在确认页使用
-    localStorage.setItem('tempIdentifiedItems', JSON.stringify(itemsWithStorage));
+    try { saveDraft(uploadUserId, itemsWithStorage) } catch { handleRecognitionError(new Error('识别草稿保存失败，请检查本地存储')); return }
 
     clearRecognitionTimer();
     recognizedItemCount.value = data.detected.length;
@@ -901,6 +919,9 @@ const handleUploadSuccess = (response) => {
 watch(currentUserId, (id, previousId) => {
   inventoryRequestVersion++
   freshnessLoader.reset()
+  inventoryReady.value = false
+  quickVersion++; quickRecipes.value = []
+  resetRecognitionState()
   if (id !== previousId) { inventory.value = []; newItem.value = blankItem(); editingItem.value = {}; showAddDialog.value = false; editDialogVisible.value = false; saveError.value = '' }
   pendingWrite.value = id ? hasPendingWrite(id) : false
   if (!id) {
@@ -918,6 +939,7 @@ onMounted(() => {
 });
 onBeforeUnmount(() => {
   freshnessLoader.dispose()
+  quickVersion++
   inventoryRequestVersion += 1
   if (userWaitTimer) clearTimeout(userWaitTimer)
   window.removeEventListener('storage', handleStoredUserChange)

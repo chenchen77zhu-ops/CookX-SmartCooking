@@ -117,6 +117,8 @@ jobs:
           node research/temperature/browser-smoke.cjs
           node research/temperature/browser-application.cjs
           node frontend/scripts/browser-p2.cjs
+          node frontend/scripts/browser-p2-flow.cjs
+          node frontend/scripts/browser-p2-writes.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -124,5 +126,6 @@ jobs:
           path: |
             docs/temperature/*results.json
             tmp/temperature-mobile.png
+            tmp/p2/
             /tmp/cookx-backend.log
             /tmp/cookx-frontend.log

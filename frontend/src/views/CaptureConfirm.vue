@@ -29,6 +29,8 @@
 
             <div class="food-card-body">
               <InventoryFields v-model="identifiedItems[index]" :disabled="saving || pendingWrite" />
+              <FreshnessCard v-if="item.freshness_detail" :detail="item.freshness_detail" status="success" />
+              <p v-else>识别结果仅供确认名称，鲜度数据不足，入库后重新评估。</p>
               <div class="card-footer">
                 <div class="freshness-copy"><span>新鲜度</span><el-tag :type="getFreshnessType(item.freshness)" size="small">{{ item.freshness || '数据不足' }}</el-tag></div>
                 <button type="button" class="delete-button" aria-label="删除该识别结果" :disabled="saving || pendingWrite" @click="removeItem(index)"><el-icon><Delete /></el-icon>删除</button>
@@ -80,11 +82,13 @@
 </template>
 
 <script setup>
+import FreshnessCard from '../components/FreshnessCard.vue'
+import { loadDraft, saveDraft, clearDraft, readUserId } from '../services/recognitionDraft.js'
 import InventoryFields from '../components/InventoryFields.vue'
 import InventoryWriteStatus from '../components/InventoryWriteStatus.vue'
 import { serializeItem } from '../services/inventoryFields.js'
 import { saveInventory, hasPendingWrite } from '../api/inventoryWrites.js'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { ArrowLeft, Calendar, CircleCheckFilled, Delete, InfoFilled, KnifeFork, Picture, RefreshRight, Tickets } from '@element-plus/icons-vue'
@@ -221,14 +225,14 @@ const recognizeAgain = () => { router.push({ path: '/home', query: { tab: 'Manag
 const confirmSave = async () => {
   if (saving.value || !identifiedItems.value.length) return
   const userId = currentUserId.value
-  if (!userId || JSON.parse(localStorage.getItem('user') || '{}').id !== userId) return router.push('/login')
+  if (!userId || readUserId() !== userId) return router.push('/login')
   saving.value = true; saveError.value = ''
   try {
     const payload = hasPendingWrite(userId) ? null : identifiedItems.value.map(item => serializeItem(item))
     await saveInventory(userId, payload)
-    if (JSON.parse(localStorage.getItem('user') || '{}').id !== userId) return
+    if (readUserId() !== userId) return
     pendingWrite.value = false
-    localStorage.removeItem('tempIdentifiedItems')
+    clearDraft(userId)
     ElMessage.success('已重新读取库存并确认保存')
     router.push('/home?tab=Manage')
   } catch (error) {
@@ -237,20 +241,29 @@ const confirmSave = async () => {
   } finally { saving.value = false }
 }
 
-onMounted(() => {
-  currentUserId.value = JSON.parse(localStorage.getItem('user') || '{}').id
-  pendingWrite.value = hasPendingWrite(currentUserId.value)
-  const tempItems = localStorage.getItem('tempIdentifiedItems')
-  if (tempItems) {
-    try {
-      identifiedItems.value = JSON.parse(tempItems)
-    } catch (error) {
-      console.error('解析识别结果失败:', error)
-      ElMessage.error('识别数据加载失败')
-    }
-  } else {
-    ElMessage.warning('没有找到识别结果')
+function syncDraftUser() {
+  const user = readUserId()
+  if (user !== currentUserId.value) {
+    currentUserId.value = user
+    identifiedItems.value = user ? loadDraft(user) : []
+    pendingWrite.value = user ? hasPendingWrite(user) : false
+    saveError.value = ''
   }
+}
+const userChanged = event => { if (!event.key || event.key === 'user') syncDraftUser() }
+watch(identifiedItems, items => {
+  if (!saving.value && currentUserId.value === readUserId() && currentUserId.value) {
+    try { saveDraft(currentUserId.value, items) } catch { saveError.value = '草稿无法保存在本机，请保持此页打开' }
+  }
+}, {deep:true})
+onMounted(() => {
+  syncDraftUser()
+  window.addEventListener('storage', userChanged)
+  document.addEventListener('visibilitychange', syncDraftUser)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('storage', userChanged)
+  document.removeEventListener('visibilitychange', syncDraftUser)
 })
 </script>
 
