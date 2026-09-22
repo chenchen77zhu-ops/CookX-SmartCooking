@@ -10,7 +10,8 @@ export function createDeviceHub({listen,readState,now=Date.now,limit=2000}) {
   try{
    handles.push(await listen('temperatureData',({chunk})=>{record('raw-frame',{chunk:String(chunk).slice(0,4096)});parser.append(chunk)}))
    handles.push(await listen('connectionStateChanged',connection))
-   handles.push(await listen('deviceFound',data=>emit('deviceFound',data)))
+   handles.push(await listen('deviceFound',data=>{record('device-found',data);emit('deviceFound',data)}))
+   handles.push(await listen('discoveryFinished',data=>{record('discovery-finished',data);emit('discoveryFinished',data)}))
    handles.push(await listen('dataReceived',data=>emit('dataReceived',data)))
    await reconcile()
   }catch(error){for(const handle of handles)await handle.remove();handles=[];starting=null;throw error}

@@ -176,6 +176,7 @@
         <span>{{ bluetoothScanText }}</span>
         <el-button size="small" :loading="temperatureScanning" @click="startTemperatureScan">重新扫描</el-button>
       </div>
+      <p class="temperature-dialog-help">扫描最多约 25 秒。已配对设备也会列出，但是否在线需点击连接确认。</p>
       <div class="bluetooth-device-list">
         <button
           v-for="device in sortedTemperatureDevices"
@@ -185,7 +186,7 @@
           @click="temperatureDeviceAddress = device.address"
         >
           <span><b>{{ device.name || '未知蓝牙设备' }}</b><small>{{ device.address }}</small></span>
-          <em>{{ device.isJdy31 ? 'CookX 设备' : 'Classic Bluetooth' }}</em>
+          <em>{{ device.bondState === 12 ? '已配对 · 可尝试连接' : device.isJdy31 ? 'CookX 设备' : 'Classic Bluetooth' }}</em>
         </button>
         <p v-if="!sortedTemperatureDevices.length" class="temperature-dialog-help">{{ temperatureScanning ? '正在扫描附近的 JDY-31…' : '暂未发现设备，请确认模块已上电。' }}</p>
       </div>
@@ -445,6 +446,7 @@ const bluetoothErrorMessage = (error) => {
     BLUETOOTH_DISABLED: '请开启手机蓝牙后继续',
     PERMISSION_DENIED: '请允许 CookX 使用附近设备权限',
     SCAN_FAILED: '蓝牙扫描启动失败，请稍后重试',
+    SCAN_BUSY: '正在连接、已连接或正在扫描，请先结束当前操作',
     DEVICE_NOT_FOUND: '请选择扫描到的 JDY-31 设备',
     CONNECT_FAILED: '无法连接 JDY-31，请确认模块已上电并靠近手机',
     CONNECTION_LOST: 'CookX Sense 连接已断开',
@@ -462,7 +464,14 @@ const startTemperatureScan = async () => {
     const bluetooth = await getBluetoothState()
     if (bluetooth.status === 'unsupported') return
     if (!bluetooth.enabled) throw Object.assign(new Error('请开启手机蓝牙后继续'), { code: 'BLUETOOTH_DISABLED' })
-    await scanTemperatureDevices()
+    const result = await scanTemperatureDevices()
+    for (const device of result.devices || []) {
+      const index = temperatureDevices.value.findIndex(item => item.address === device.address)
+      if (index >= 0) temperatureDevices.value.splice(index, 1, device)
+      else temperatureDevices.value.push(device)
+    }
+    temperatureScanning.value = result.status === 'scanning'
+    if (result.warning === 'SCAN_FAILED') ElMessage.warning('附近扫描未能启动；可以选择已配对的 JDY-31 尝试连接。')
   } catch (error) {
     temperatureScanning.value = false
     ElMessage.error(bluetoothErrorMessage(error))
