@@ -146,33 +146,31 @@
       </section>
     </div>
 
-    <el-dialog v-model="showAddDialog" title="添加食材" width="92%" center>
-       <el-form :model="newItem" label-width="70px">
-          <el-form-item label="名称"><el-input v-model="newItem.name" placeholder="如：牛肉" /></el-form-item>
-          <el-form-item label="数量"><el-input-number v-model="newItem.quantity" :min="1" /></el-form-item>
-          <el-form-item label="保质期"><el-input-number v-model="newItem.shelf_life" :min="1" /> 天</el-form-item>
-       </el-form>
+    <el-dialog v-model="showAddDialog" title="添加食材" width="92%" center :close-on-click-modal="!saving" :close-on-press-escape="!saving" :show-close="!saving">
+       <InventoryFields v-model="newItem" :disabled="saving || pendingWrite" />
+       <InventoryWriteStatus :user="currentUserId" :message="saveError" :pending="pendingWrite" :disabled="saving" @released="pendingWrite = false; saveError = ''" />
        <template #footer>
-         <el-button @click="showAddDialog = false">取消</el-button>
-         <el-button type="primary" @click="saveNewItem">确认添加</el-button>
+         <el-button :disabled="saving" @click="showAddDialog = false">取消</el-button>
+         <el-button type="primary" :loading="saving" @click="saveNewItem">确认添加</el-button>
        </template>
     </el-dialog>
 
-    <el-dialog v-model="editDialogVisible" title="修改信息" width="92%" center>
-       <el-form :model="editingItem" label-width="70px">
-          <el-form-item label="名称"><el-input v-model="editingItem.name" /></el-form-item>
-          <el-form-item label="数量"><el-input-number v-model="editingItem.quantity" :min="1" /></el-form-item>
-          <el-form-item label="保质期"><el-input-number v-model="editingItem.shelf_life" :min="1" /> 天</el-form-item>
-       </el-form>
+    <el-dialog v-model="editDialogVisible" title="修改信息" width="92%" center :close-on-click-modal="!saving" :close-on-press-escape="!saving" :show-close="!saving">
+       <InventoryFields v-model="editingItem" editing :original="editingOriginal" :disabled="saving || pendingWrite" />
+       <InventoryWriteStatus :user="currentUserId" :message="saveError" :pending="pendingWrite" :disabled="saving" @released="pendingWrite = false; saveError = ''" />
        <template #footer>
-         <el-button @click="editDialogVisible = false">取消</el-button>
-         <el-button type="primary" @click="saveEdit">保存修改</el-button>
+         <el-button :disabled="saving" @click="editDialogVisible = false">取消</el-button>
+         <el-button type="primary" :loading="saving" @click="saveEdit">保存修改</el-button>
        </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
+import InventoryFields from '../components/InventoryFields.vue'
+import InventoryWriteStatus from '../components/InventoryWriteStatus.vue'
+import { blankItem, serializeItem } from '../services/inventoryFields.js'
+import { saveInventory, hasPendingWrite } from '../api/inventoryWrites.js'
 import FreshnessCard from '../components/FreshnessCard.vue'
 import { getInventoryFreshness } from '../api/freshness.js'
 import { createFreshnessLoader, emptyFreshness, freshnessStatus } from '../services/inventoryFreshness.js'
@@ -215,6 +213,10 @@ const searchKeyword = ref('')
 const activeCategory = ref('all')
 const editDialogVisible = ref(false)
 const editingItem = ref({})
+const editingOriginal = ref({})
+const saving = ref(false)
+const saveError = ref('')
+const pendingWrite = ref(false)
 const quickRecipes = ref([])
 const recLoading = ref(false)
 const showAddDialog = ref(false)
@@ -353,18 +355,12 @@ const filteredInventory = computed(() => {
   });
 });
 
-const newItem = ref({
-  name: '',
-  quantity: 1,
-  storage_type: '冷藏',
-  shelf_life: 7
-})
-
-const editItem = (item) => {
-  editingItem.value = { ...item };
-  // 转换显示名称
-  editingItem.value.name = getFoodInfo(item.name).cn;
-  editDialogVisible.value = true;
+const newItem = ref(blankItem())
+const editItem = item => {
+  editingOriginal.value = { ...item }
+  editingItem.value = { ...blankItem(), ...item, name: getFoodInfo(item.name).cn }
+  saveError.value = ''
+  editDialogVisible.value = true
 }
 
 // 分类筛选
@@ -780,63 +776,10 @@ const fetchInventory = async (requestedUserId = currentUserId.value) => {
   }
 };
 
-// 1. 打开编辑弹窗
-const openEditDialog = (item) => {
-  // ✅ 核心点：必须使用结构赋值 {...item} 拷贝一份数据
-  // 否则你在弹窗里改字，背景卡片会跟着变，用户点取消也回不去了
-  editingItem.value = { ...item };
-  editDialogVisible.value = true;
-};
-
-// 2. 提交编辑到后端
-const confirmEdit = async () => {
-  const userId = currentUserId.value
-  if (!userId) return;
-
-  try {
-    // 调用后端更新接口
-    const res = await axios.put(
-      `${API_BASE_URL}/inventory/${editingItem.value.id}`,
-      editingItem.value, // 发送修改后的对象
-      {
-        params: { user_id: userId }
-      }
-    );
-
-    if (res.data.status === 'success') {
-      ElMessage.success('修改成功');
-      editDialogVisible.value = false;
-      await fetchInventory(); // 刷新列表
-    } else {
-      ElMessage.error(res.data.message || '修改失败');
-    }
-  } catch (error) {
-    console.error("编辑失败:", error);
-    ElMessage.error('网络错误，无法保存');
-  }
-};
-
 const goToChef = (dishName) => {
   if (!dishName) return;
   // 向父组件 (App.vue) 发送事件，通知它切换页面并传递菜名
   emit('consult-recipe', dishName);
-}
-
-const saveToInventory = async () => {
-  const userId = currentUserId.value
-  if (!userId || tempItems.value.length === 0) return
-
-  try {
-    await axios.post(`${API_BASE_URL}/add-to-inventory`, tempItems.value, {
-      params: { user_id: userId }
-    })
-
-    showConfirm.value = false
-    ElMessage.success('已存入您的私人冰箱')
-    fetchInventory() // 刷新列表
-  } catch (error) {
-    ElMessage.error('入库失败')
-  }
 }
 
 const fetchQuickRecipes = async () => {
@@ -866,41 +809,29 @@ const fetchQuickRecipes = async () => {
 };
 
 
-// 保存编辑
-const saveEdit = async () => {
+async function persistForm(editing) {
   const userId = currentUserId.value
-  if (!userId) return
+  if (!userId || saving.value) return
+  saving.value = true; saveError.value = ''
   try {
-    const enName = convertCnToEn(editingItem.value.name);
-
-    // ✅ 构造要发送的数据体，确保包含 shelf_life
-    const submitData = {
-      name: enName,
-      quantity: editingItem.value.quantity,
-      storage_type: editingItem.value.storage_type,
-      shelf_life: Number(editingItem.value.shelf_life) // 强制转为数字发送
-    };
-
-    const res = await axios.put(
-      `${API_BASE_URL}/inventory/${editingItem.value.id}`,
-      submitData,
-      {
-        params: { user_id: userId }
-      }
-    );
-
-    if (res.data.status === 'success') {
-      ElMessage.success('保鲜期已更新');
-      editDialogVisible.value = false;
-
-      // ✅ 关键：必须重新获取后端最新的数据
-      // 只要 inventory.value 变了，你的计算属性 filteredInventory 就会自动重算天数
-      await fetchInventory();
-    }
+    const payload = hasPendingWrite(userId) ? null : serializeItem(editing ? editingItem.value : newItem.value, editing ? editingOriginal.value : null)
+    if (payload && editing && !Object.keys(payload).length) { editDialogVisible.value = false; return }
+    await saveInventory(userId, editing ? payload : payload && [payload], editing ? editingOriginal.value.id : null)
+    if (currentUserId.value !== userId) return
+    pendingWrite.value = false
+    if (editing) editDialogVisible.value = false
+    else { showAddDialog.value = false; newItem.value = blankItem() }
+    ElMessage.success('已重新读取库存并确认保存')
+    await fetchInventory()
   } catch (error) {
-    ElMessage.error('修改失败');
-  }
-};
+    if (currentUserId.value === userId) {
+      saveError.value = error.response?.data?.message || error.message || '保存失败，请保留表单重试'
+      pendingWrite.value = hasPendingWrite(userId)
+    }
+  } finally { saving.value = false }
+}
+const saveEdit = () => persistForm(true)
+const saveNewItem = () => persistForm(false)
 
 // 修改 ManageFridge.vue 中的 removeItem 函数
 const removeItem = async (id) => {
@@ -939,21 +870,6 @@ const removeItem = async (id) => {
   }
 }
 
-// 手动添加新食材
-const saveNewItem = async () => {
-  const userId = currentUserId.value
-  if (!newItem.value.name || !userId) return ElMessage.warning('请填写名称');
-  try {
-    // ✅ 修正 3：发送 Body 必须是列表，参数放在 params
-    await axios.post(`${API_BASE_URL}/add-to-inventory`, [newItem.value], {
-      params: { user_id: userId }
-    });
-    ElMessage.success('已加入私人冰箱');
-    showAddDialog.value = false;
-    fetchInventory();
-  } catch (e) { ElMessage.error('存入失败'); }
-};
-
 const handleUploadSuccess = (response) => {
   const data = response?.data ?? response;
   if (!data) {
@@ -964,13 +880,8 @@ const handleUploadSuccess = (response) => {
   }
   if (data.status === "success" && data.detected && data.detected.length > 0) {
     // 将识别结果转换为临时数据格式，包含存储方式
-    const itemsWithStorage = data.detected.map(item => ({
-      name: item.name,
-      quantity: item.quantity || 1,
-      storage_type: '冷藏', // 默认冷藏
-      shelf_life: 7 // 默认 7 天
-    }));
-    
+    const itemsWithStorage = data.detected.map(item => ({ ...blankItem(), ...item, purchase_time: '', expiry_date: '' }));
+
     // 存储到 localStorage 以便在确认页使用
     localStorage.setItem('tempIdentifiedItems', JSON.stringify(itemsWithStorage));
 
@@ -990,7 +901,8 @@ const handleUploadSuccess = (response) => {
 watch(currentUserId, (id, previousId) => {
   inventoryRequestVersion++
   freshnessLoader.reset()
-  if (id !== previousId) inventory.value = []
+  if (id !== previousId) { inventory.value = []; newItem.value = blankItem(); editingItem.value = {}; showAddDialog.value = false; editDialogVisible.value = false; saveError.value = '' }
+  pendingWrite.value = id ? hasPendingWrite(id) : false
   if (!id) {
     inventoryLoading.value = true
     return

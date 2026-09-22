@@ -5,9 +5,10 @@ const assert = require('node:assert/strict'), fs = require('node:fs')
  const browser = await chromium.launch({headless:true,...(process.env.COOKX_CHROME ? {executablePath:process.env.COOKX_CHROME} : {})})
  try {
   const page = await browser.newPage({viewport:{width:390,height:844}}), errors=[]
+  page.setDefaultTimeout(12000)
   page.on('pageerror', e=>errors.push(e.message))
   await page.addInitScript(()=>localStorage.setItem('user',JSON.stringify({id:'p2-test',username:'测试'})))
-  let failure=0
+  let failure=0, writeFailure=true, writes=0
   const inventory=[{id:'zero',name:'鸡蛋',quantity:2},{id:'unknown',name:'牛肉',quantity:1}]
   await page.route('**/api/**',async route=>{
    const path = new URL(route.request().url()).pathname
@@ -16,6 +17,13 @@ const assert = require('node:assert/strict'), fs = require('node:fs')
     return route.fulfill({json:{evaluated_at:'2026-09-22T01:00:00Z',items:[
      {item_id:'unknown',fresh_score:null,component_scores:{T:null,S:null,V:null,H:null},reasons:['缺少日期'],disclaimer:'辅助判断，不能替代食品安全检测'},
      {item_id:'zero',fresh_score:0,freshness_label:'风险较高',expired:true,confidence_score:0,component_scores:{T:0,S:0,V:null,H:null},effective_weights:{T:0.7,S:0.3},reasons:['已超过到期时间'],data_quality_notes:['未提供视觉依据'],disclaimer:'辅助判断，不能替代食品安全检测'}]}})
+   }
+   if(path.endsWith('/add-to-inventory')) {
+    writes++
+    if(writeFailure) return route.fulfill({json:{status:'error',message:'测试写入失败'}})
+    const items=route.request().postDataJSON()
+    inventory.push(...items.map((item,index)=>({...item,id:'new-'+index,add_time:'2026-09-22T09:00:00'})))
+    return route.fulfill({json:{status:'success'}})
    }
    if(path.endsWith('/inventory')) return route.fulfill({json:inventory})
    return route.fulfill({json:{status:'success',data:[],items:[]}})
@@ -40,6 +48,28 @@ const assert = require('node:assert/strict'), fs = require('node:fs')
   await card.scrollIntoViewIfNeeded()
   fs.mkdirSync('tmp/p2',{recursive:true})
   await page.screenshot({path:'tmp/p2/freshness-mobile.png',fullPage:true})
+  await page.getByRole('button',{name:'添加食材',exact:true}).first().click()
+  const dialog=page.getByRole('dialog',{name:'添加食材'})
+  assert.equal(await dialog.getByLabel('储存方式',{exact:true}).inputValue(),'')
+  assert.equal(await dialog.getByLabel('保质期（天，可未知）',{exact:true}).inputValue(),'')
+  await dialog.getByPlaceholder('如：牛肉').fill('测试白菜')
+  await dialog.getByLabel('购买时间（本地，可未知）',{exact:true}).fill('2099-01-01T00:00')
+  await dialog.getByRole('button',{name:'确认添加',exact:true}).click()
+  await dialog.getByText('购买时间不能晚于当前时间',{exact:true}).waitFor()
+  assert.equal(writes,0)
+  await dialog.getByLabel('购买时间（本地，可未知）',{exact:true}).fill('2025-01-01T10:00')
+  await dialog.getByRole('button',{name:'确认添加',exact:true}).click()
+  await dialog.getByText('测试写入失败',{exact:true}).waitFor()
+  assert.equal(await dialog.getByPlaceholder('如：牛肉').inputValue(),'测试白菜')
+  writeFailure=false
+  await dialog.getByRole('button',{name:'确认添加',exact:true}).click()
+  await dialog.waitFor({state:'hidden'})
+  assert.equal(writes,2)
+  assert.match(inventory.at(-1).purchase_time,/Z$/)
+  assert.equal(inventory.at(-1).storage_type,undefined)
+  await page.getByRole('button',{name:'编辑食材'}).first().click()
+  await page.getByText(/日期修改、清空已有字段/).waitFor()
+  await page.getByRole('dialog',{name:'修改信息'}).screenshot({path:'tmp/p2/inventory-form-mobile.png',animations:'disabled'})
   assert.deepEqual(errors,[])
   console.log(JSON.stringify({suite:'p2-fixture-ui',checks:['zero','unknown','500','422','business-error','retry','mobile'],uncaughtErrors:errors}))
  } finally { await browser.close() }

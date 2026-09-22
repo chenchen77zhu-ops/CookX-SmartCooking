@@ -23,6 +23,8 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
   for(const name of ['番茄','鸡蛋']) {
    await page.getByRole('button',{name:'添加食材',exact:true}).first().click()
    await page.getByPlaceholder('如：牛肉').fill(name)
+   await page.getByLabel('储存方式',{exact:true}).selectOption('冷藏')
+   await page.getByLabel('保质期（天，可未知）',{exact:true}).fill('7')
    await page.getByRole('button',{name:'确认添加',exact:true}).click()
    await page.getByRole('dialog',{name:'添加食材'}).waitFor({state:'hidden'})
   }

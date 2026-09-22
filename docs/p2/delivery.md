@@ -6,7 +6,7 @@
 |---|---|---|---|
 | B1 鲜度卡片 | feat/p2-freshness-ui | main 基线 | 已验收（本地软件） |
 | B2 鲜度依据 | feat/p2-freshness-details | 20392f0 (B1) | 已验收（本地软件） |
-| B3 库存字段 | feat/p2-inventory-fields | B2 | 待开发 |
+| B3 库存字段 | feat/p2-inventory-fields | 9318fd6 (B2) | 待联调（已支持路径通过） |
 | B4 页面闭环 | feat/p2-inventory-flow | B3 | 待开发 |
 
 采用串联草稿 PR，不更新远端 main，不自动合并。本地集成分支不推送。
@@ -16,3 +16,5 @@
 B1：35 项前端测试通过、生产构建通过；390px Chromium 测试替身验证 0 分、未知、HTTP 500/422、200 业务失败、重试和库存保留。截图 tmp/p2/freshness-mobile.png。
 
 B2：分项以服务端 0–1 原值展示，有效权重只读。缺失分项显示数据不足，不生成 V/H。移动端原生 details 可键盘展开。35 项前端测试、构建和浏览器回归通过。
+
+B3：39 项前端测试、构建、移动端表单与失败重试通过；隔离真实后端的登录、库存保存回读、FreshFusion、推荐、计时浏览器验收通过。待 A3 日期编辑、清空与批次语义；详见 a3-contract.md。
