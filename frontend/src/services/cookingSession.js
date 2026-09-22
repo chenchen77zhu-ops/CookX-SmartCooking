@@ -23,6 +23,7 @@ export function createCookingSession(user, {storage, now=Date.now, makeId=()=>gl
   function start(recipe, replace=false) {
     const normalized=normalizeRecipe(recipe)
     if(state?.status==='active'&&!replace)throw new Error('已有未完成烹饪，请先确认替换')
+    if(state?.status==='completed'){try{const key=`cookx:cooking-history:v1:${user}`,history=JSON.parse(storage?.getItem(key)||'[]');storage?.setItem(key,JSON.stringify([...history.filter(s=>s.id!==state.id),state].slice(-50)))}catch{throw new Error('完成记录归档失败，请导出或释放本地空间后再开始')}}
     state={schemaVersion:1,user,id:makeId(),recipe:normalized,recipeVersion:1,stepIndex:0,status:'active',startedAt:now(),adjustments:[],reminders:[],consumption:'not_requested',timers:normalized.steps.map(()=>({visited:false,remainingMs:0,deadline:null,round:0}))}
     enter(0)
   }

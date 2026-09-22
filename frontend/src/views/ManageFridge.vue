@@ -947,6 +947,9 @@ onBeforeUnmount(() => {
   clearRecognitionTimer();
   if (recognitionSuccessTimer) clearTimeout(recognitionSuccessTimer);
 });
+const consumptionChanged=event=>{if(event.detail?.user===currentUserId.value)fetchInventory()}
+onMounted(()=>window.addEventListener('cookx:inventory-changed',consumptionChanged))
+onBeforeUnmount(()=>window.removeEventListener('cookx:inventory-changed',consumptionChanged))
 </script>
 
 <style scoped>

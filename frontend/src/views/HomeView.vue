@@ -309,6 +309,9 @@ const handleStartCooking = (recipe) => {
 const handleBack = () => {
   currentView.value = currentView.value === CookingMode ? AiChef : ManageFridge
 }
+const consumptionChanged=event=>{if(event.detail?.user===readUserId())fetchInventory()}
+onMounted(()=>window.addEventListener('cookx:inventory-changed',consumptionChanged))
+onBeforeUnmount(()=>window.removeEventListener('cookx:inventory-changed',consumptionChanged))
 </script>
 
 <style scoped>

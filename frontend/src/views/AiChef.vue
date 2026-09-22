@@ -34,13 +34,13 @@
           <p>从菜谱推荐到语音步骤指导，让每一步都更从容。</p>
         </div>
 
-        <div v-if="activeReminders.length" class="active-tasks">
-          <span v-for="reminder in activeReminders" :key="reminder.id"><el-icon><Timer /></el-icon>{{ reminder.dishName }} 计时中</span>
-        </div>
+
       </div>
     </header>
 
     <main class="chef-content">
+      <CookingCompletion v-if="completionVisible && session" :key="session.id" :session="session" :engine="cookingStore.engine" @changed="completionChanged" @close="completionVisible=false" />
+      <button v-if="session?.status === 'completed' && !completionVisible" @click="completionVisible=true">查看完成与库存核对</button>
       <p v-if="sessionMessage" role="status">{{ sessionMessage }}</p>
       <section v-if="!navigationVisible && session?.status === 'active'" class="chef-state-card"><p>发现未完成的烹饪，计时按实际经过时间核对。</p><button @click="restoreCooking">恢复烹饪</button></section>
       <section v-if="recipeError" class="chef-state-card" role="alert"><p>{{ recipeError }}</p><button type="button" @click="sendMessage(lastRecipePrompt)">重新生成菜谱</button></section>
@@ -72,7 +72,6 @@
               <span v-for="meta in currentStepMeta" :key="meta.label"><b>{{ meta.label }}</b>{{ meta.value }}</span>
             </div>
             <aside v-if="currentStepTip" class="step-tip"><el-icon><Bell /></el-icon><span><b>CookX 提醒</b>{{ currentStepTip }}</span></aside>
-            <button v-if="currentStepDuration >= 60" type="button" class="reminder-button" @click="setReminder(currentStep, activeRecipe.dish_name)"><el-icon><AlarmClock /></el-icon>为本步设置提醒</button>
             <p v-if="voiceMessage" role="status">{{ voiceMessage }}</p>
             <button type="button" @click="runCloudStep">重试在线播报</button>
             <VoiceCommands @before-listen="silenceSpeech" @command="executeVoiceCommand" />
@@ -80,6 +79,7 @@
               <button @click="pauseTimer">暂停计时</button><button @click="resumeTimer">继续计时</button>
               <label>手动计时（秒）<input v-model="timerSeconds" type="number" min="1" max="86400" /></label><button @click="setManualTimer">开始计时</button>
             </div>
+            <CookingReminders :key="session.id" :store="cookingStore" :assessment="thermalAssessment" :replaying="thermalReplaying" @changed="refreshSession" />
             <CookingAdjustments :key="session.id" :session="session" :engine="cookingStore.engine" @changed="refreshSession" />
             <div class="step-switcher">
               <button type="button" :disabled="currentStepIdx === 0" @click="prevStep"><el-icon><ArrowLeft /></el-icon>上一步</button>
@@ -197,6 +197,9 @@
 </template>
 
 <script setup>
+import CookingReminders from '../components/CookingReminders.vue'
+import CookingCompletion from '../components/CookingCompletion.vue'
+import {reconcileTimer} from '../services/cookingNotifications.js'
 import CookingAdjustments from '../components/CookingAdjustments.vue'
 import VoiceCommands from '../components/VoiceCommands.vue'
 import { speakSystem, stopSystemSpeech, stopListening } from '../services/systemVoice.js'
@@ -241,8 +244,7 @@ let recipeRequestVersion = 0, recipeController, pageActive = true
 const chatBox = ref(null)
 const recipeInput = ref(null)
 const messages = ref([])
-const userStr = localStorage.getItem('user');
-const userId = JSON.parse(userStr || '{}').id;
+const userId = readUserId();
 const thermal = useTemperatureIntelligence('cookx-temperature-session-' + (userId ?? 'guest'))
 const { assessment: thermalAssessment, history: thermalHistory, prediction: thermalPrediction, modelState: thermalModelState, experimental: thermalExperimental, replaying: thermalReplaying, storageMessage: thermalStorageMessage } = thermal
 // --- 导航与提醒状态 ---
@@ -264,7 +266,8 @@ const isCookingPaused = computed(()=>session.value?.timers[currentStepIdx.value]
 const voicePlaybackState = ref('idle')
 const voiceCurrentTime = ref(0)
 const voiceDuration = ref(0)
-const activeReminders = ref([])
+const completionVisible=ref(false)
+const completionChanged=()=>{refreshSession();reconcileTimer(cookingStore);if(session.value?.status==='completed'){stopNavigation();navigationVisible.value=false}}
 let timer = null
 const voiceMessage=ref('')
 let currentAudio = null // 当前正在播放的音频对象
@@ -883,38 +886,9 @@ const runCloudStep = async () => {
   }
 };
 
-const setLongTimeReminder = (step, dishName) => {
-  const seconds = step.time_estimate
-  const minutes = Math.floor(seconds / 60)
-
-  ElNotification({
-    title: '定时提醒已开启',
-    message: `将在 ${minutes} 分钟后大声提醒您：${step.text.substring(0, 10)}...`,
-    type: 'success'
-  })
-
-  // 启动后台 setTimeout (即使关闭弹窗也会执行)
-  setTimeout(() => {
-    // 1. 播放闹钟铃声
-    const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3")
-    audio.loop = true
-    audio.play()
-
-    // 2. 弹出强提醒弹窗
-    ElMessageBox.alert(
-      `时间到啦！请进行下一步操作：${step.text}`,
-      `⏰ [${dishName}] 提醒`,
-      {
-        confirmButtonText: '关闭闹钟',
-        callback: () => audio.pause()
-      }
-    )
-  }, seconds * 1000)
-}
-
 const nextStep = async () => {
   if(isLastStep.value) {
-    try{await ElMessageBox.confirm('确认完成本次烹饪？库存不会自动扣减。','完成烹饪',{confirmButtonText:'确认完成',cancelButtonText:'继续烹饪'});cookingStore.engine.finish();refreshSession();stopNavigation();navigationVisible.value=false}catch{}
+    completionVisible.value=true;silenceSpeech()
     return
   }
   voiceRequestVersion++;stopCurrentAudio();cookingStore.engine.move(1);refreshSession();runStep()
@@ -1007,27 +981,6 @@ const executeVoiceCommand = command => {
   if(!navigationVisible.value || readUserId()!==userId)return
   const actions={next:nextStep,previous:prevStep,repeat:replayCurrentStep,pauseTimer,resumeTimer,startTimer:()=>{if(currentStepDuration.value>0){timerSeconds.value=currentStepDuration.value;setManualTimer()}else voiceMessage.value='本步未提供时长，请填写手动计时秒数并确认开始'},temperature:()=>{voiceMessage.value=currentTemperature.value===null?'暂无有效实时温度，请检查设备与测量状态':`${thermalReplaying.value?'回放数据':'当前测量'}：${currentTemperature.value.toFixed(1)}℃；${temperatureLevel.value.status}`}}
   actions[command]?.()
-}
-
-const setReminder = (step, dishName) => {
-  const seconds = step.time_estimate || 0
-  const reminder = {
-    id: Date.now(), dishName, stepText: getStepText(step),
-    timer: setTimeout(() => triggerAlarm(reminder), seconds * 1000)
-  }
-  activeReminders.value.push(reminder)
-  ElNotification.success({ title: '提醒已设置', message: `${Math.floor(seconds/60)}分钟后提醒` })
-}
-
-const triggerAlarm = (reminder) => {
-  const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3")
-  audio.loop = true; audio.play()
-  ElMessageBox.confirm(`[${reminder.dishName}] 阶段完成！内容：${reminder.stepText}`, '⏰ 时间到', {
-    confirmButtonText: '确定', showCancelButton: false, type: 'warning'
-  }).then(() => {
-    audio.pause()
-    activeReminders.value = activeReminders.value.filter(r => r.id !== reminder.id)
-  })
 }
 
 onUnmounted(stopNavigation)

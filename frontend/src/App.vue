@@ -68,6 +68,8 @@
 </template>
 
 <script setup>
+import {initializeNotifications} from './services/cookingNotifications.js'
+onMounted(initializeNotifications)
 import { suspendCookingStores } from './services/cookingStore.js'
 import { readUserId } from './services/recognitionDraft.js'
 import { watch, computed, onBeforeUnmount, onMounted, ref } from 'vue'
