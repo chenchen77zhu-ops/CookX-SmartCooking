@@ -16,7 +16,7 @@
           <dt>{{ part.key }} {{ part.label }}</dt>
           <dd>{{ hasScore(detail.component_scores?.[part.key]) ? `${detail.component_scores[part.key]}（0–1）` : '数据不足' }}；有效权重：{{ hasScore(detail.effective_weights?.[part.key]) && detail.effective_weights[part.key] > 0 ? `${Math.round(detail.effective_weights[part.key] * 100)}%` : '未参与' }}</dd>
         </template></dl>
-        <p>权重和分项直接来自服务端；未提供的视觉与环境数据不作推测。</p>
+        <p>权重和分项直接来自服务端；未提供的视觉与历史数据不作推测。</p>
         <p v-for="note in [...(detail.confidence_reasons || []), ...(detail.data_quality_notes || [])]" :key="note">{{ note }}</p>
         <p>起始时间：{{ formatTime(detail.time_details?.start_time) }}</p>
         <p>到期时间：{{ formatTime(detail.time_details?.expiry_time) }}</p>
@@ -32,7 +32,7 @@
 import { computed } from 'vue'
 import { hasScore, freshnessStatus } from '../services/inventoryFreshness.js'
 const props = defineProps({ detail: Object, status: String, evaluatedAt: String })
-const parts = [{key:'T',label:'时间'},{key:'S',label:'储存'},{key:'V',label:'视觉'},{key:'H',label:'环境'}]
+const parts = [{key:'T',label:'时间'},{key:'S',label:'储存'},{key:'V',label:'视觉'},{key:'H',label:'历史'}]
 const summary = computed(() => freshnessStatus(props.detail))
 const formatTime = value => value && Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString('zh-CN') : '未知'
 </script>
