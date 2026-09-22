@@ -73,6 +73,9 @@
             </div>
             <aside v-if="currentStepTip" class="step-tip"><el-icon><Bell /></el-icon><span><b>CookX 提醒</b>{{ currentStepTip }}</span></aside>
             <button v-if="currentStepDuration >= 60" type="button" class="reminder-button" @click="setReminder(currentStep, activeRecipe.dish_name)"><el-icon><AlarmClock /></el-icon>为本步设置提醒</button>
+            <p v-if="voiceMessage" role="status">{{ voiceMessage }}</p>
+            <button type="button" @click="runCloudStep">重试在线播报</button>
+            <VoiceCommands @before-listen="silenceSpeech" @command="executeVoiceCommand" />
             <div class="timer-controls">
               <button @click="pauseTimer">暂停计时</button><button @click="resumeTimer">继续计时</button>
               <label>手动计时（秒）<input v-model="timerSeconds" type="number" min="1" max="86400" /></label><button @click="setManualTimer">开始计时</button>
@@ -193,6 +196,8 @@
 </template>
 
 <script setup>
+import VoiceCommands from '../components/VoiceCommands.vue'
+import { speakSystem, stopSystemSpeech, stopListening } from '../services/systemVoice.js'
 import { getCookingStore, suspendCookingStores } from '../services/cookingStore.js'
 import { normalizeRecipe, safeHistory } from '../services/recipeAdapter.js'
 import { readUserId } from '../services/recognitionDraft.js'
@@ -259,7 +264,7 @@ const voiceCurrentTime = ref(0)
 const voiceDuration = ref(0)
 const activeReminders = ref([])
 let timer = null
-let recognition = null
+const voiceMessage=ref('')
 let currentAudio = null // 当前正在播放的音频对象
 let currentAudioBlobUrl = null
 let voiceRequestVersion = 0
@@ -763,7 +768,8 @@ const startStepTimer = () => {if(timer)clearInterval(timer);timer=setInterval(()
 onMounted(()=>{if(cookingStore.ready && session.value?.status==='active')restoreCooking()})
 
 // 修改 runStep 函数
-const runStep = async () => {
+const runCloudStep = async () => {
+  await stopSystemSpeech(); await stopListening()
   const requestVersion = ++voiceRequestVersion
   stopCurrentAudio()
 
@@ -777,17 +783,6 @@ const runStep = async () => {
 
   // Cooking time must continue even when the optional speech service fails.
   startStepTimer();
-
-  // ✅ 核心修复 1：播报前彻底注销识别器，防止它在后台偷偷重启
-  if (recognition) {
-    try {
-      recognition.onend = null;
-      recognition.onerror = null;
-      recognition.stop();
-      isListening.value = false;
-      console.log("🔇 准备播报，已物理切断麦克风");
-    } catch(e) { console.log("麦克风停止中...") }
-  }
 
   // 2. 请求并播放语音
   let blobUrl = null;
@@ -848,14 +843,14 @@ const runStep = async () => {
     audio.onended = () => {
       if (currentAudio === audio) {
         stopCurrentAudio();
-        if (requestVersion === voiceRequestVersion) initVoiceRecognition();
+        
       }
     };
 
     audio.onerror = () => {
       if (currentAudio === audio) {
         stopCurrentAudio();
-        if (requestVersion === voiceRequestVersion) initVoiceRecognition();
+        
       }
     };
 
@@ -874,7 +869,7 @@ const runStep = async () => {
 
     voicePlaybackState.value = 'playing';
 
-    void preloadNextStep(stepIndex);
+    // Online speech is requested only by the explicit fallback button.
   } catch (e) {
     if (discardStaleVoiceRequest(requestVersion)) {
       if (audio || blobUrl) discardStepAudio(audio, blobUrl);
@@ -882,7 +877,7 @@ const runStep = async () => {
     }
     stopCurrentAudio();
     console.error("语音播报全链路失败:", e);
-    initVoiceRecognition();
+    voiceMessage.value='在线播报不可用，步骤与计时不受影响';
   }
 };
 
@@ -925,6 +920,7 @@ const nextStep = async () => {
 const prevStep = () => {if(currentStepIdx.value>0){voiceRequestVersion++;stopCurrentAudio();cookingStore.engine.move(-1);refreshSession();runStep()}}
 const replayCurrentStep = () => runStep()
 const toggleVoicePlayback = async () => {
+  if(voicePlaybackState.value==='playing' && !currentAudio){await stopSystemSpeech();voicePlaybackState.value='paused';voiceMessage.value='系统播报已暂停，再次播放将从本步开头播报';return}
   if(voicePlaybackState.value==='playing' && currentAudio){currentAudio.pause();voicePlaybackState.value='paused';return}
   if(voicePlaybackState.value==='paused' && currentAudio){try{await currentAudio.play();voicePlaybackState.value='playing'}catch{runStep()}return}
   runStep()
@@ -995,74 +991,21 @@ const orderDelivery = (dishName) => {
   }).catch(() => {});
 };
 
-// --- 语音识别与定时器 ---
-const initVoiceRecognition = () => {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) return;
-
-  if (recognition) {
-     try { recognition.stop(); } catch(e) {}
-  }
-
-  recognition = new SpeechRecognition();
-  recognition.continuous = true;
-  recognition.lang = 'zh-CN';
-
-  recognition.onstart = () => {
-    isListening.value = true;
-    console.log("🎙️ 麦克风已就绪...");
-  };
-
-  recognition.onresult = (event) => {
-    const text = event.results[event.results.length - 1][0].transcript.trim();
-    console.log("👂 听到了:", text);
-    if (text.includes("下一步") || text.includes("下一位")) {
-      nextStep();
-    }
-  };
-
-  recognition.onerror = (event) => {
-    console.warn("语音识别详情错误:", event.error);
-    if (event.error === 'aborted') {
-      // ✅ 如果是由于系统原因被切断，不要立即重启，设为 False
-      isListening.value = false;
-    }
-  };
-
-  // 只有在弹窗还开着的情况下，非主动停止才尝试重启
-  recognition.onend = () => {
-    if (navigationVisible.value && isListening.value) {
-      setTimeout(() => {
-        try { recognition.start(); } catch(e) {}
-      }, 1000); // 延迟1秒重启，给硬件喘息时间
-    } else {
-      isListening.value = false;
-    }
-  };
-
-  try {
-    recognition.start();
-  } catch (e) {
-    console.error("启动失败:", e);
-  }
-};
-
-const stopNavigation = () => {
-  voiceRequestVersion++
-  stopCurrentAudio()
-  clearPreloadedVoice()
-
-  if (timer) { clearInterval(timer); timer = null; }
-
-  if (recognition) {
-    console.log("正在销毁识别实例...");
-    isListening.value = false; // 先设为 false 防止 onend 自动重启
-    recognition.onend = null;
-    recognition.onerror = null;
-    try { recognition.stop(); } catch(e) {}
-    recognition = null;
-  }
-};
+const silenceSpeech = () => {voiceRequestVersion++;stopCurrentAudio();stopSystemSpeech();stopListening();voicePlaybackState.value='idle'}
+const stopNavigation = () => {silenceSpeech();clearPreloadedVoice();if(timer){clearInterval(timer);timer=null}}
+const foregroundVoice = () => {if(document.hidden)silenceSpeech()}
+onMounted(()=>document.addEventListener('visibilitychange',foregroundVoice))
+onUnmounted(()=>document.removeEventListener('visibilitychange',foregroundVoice))
+const runStep = async () => {
+  const version=++voiceRequestVersion;stopCurrentAudio();voiceMessage.value='';voicePlaybackState.value='loading'
+  try{await speakSystem(`第${currentStepIdx.value+1}步：${currentStepText.value}`,state=>{if(version===voiceRequestVersion){voicePlaybackState.value=state==='error'?'idle':state;if(state==='error')voiceMessage.value='系统播报失败，可手动重试在线播报'}})}
+  catch(error){if(version===voiceRequestVersion){voicePlaybackState.value='idle';voiceMessage.value=error.message}}
+}
+const executeVoiceCommand = command => {
+  if(!navigationVisible.value || readUserId()!==userId)return
+  const actions={next:nextStep,previous:prevStep,repeat:replayCurrentStep,pauseTimer,resumeTimer,startTimer:()=>{if(currentStepDuration.value>0){timerSeconds.value=currentStepDuration.value;setManualTimer()}else voiceMessage.value='本步未提供时长，请填写手动计时秒数并确认开始'},temperature:()=>{voiceMessage.value=currentTemperature.value===null?'暂无有效实时温度，请检查设备与测量状态':`${thermalReplaying.value?'回放数据':'当前测量'}：${currentTemperature.value.toFixed(1)}℃；${temperatureLevel.value.status}`}}
+  actions[command]?.()
+}
 
 const setReminder = (step, dishName) => {
   const seconds = step.time_estimate || 0
