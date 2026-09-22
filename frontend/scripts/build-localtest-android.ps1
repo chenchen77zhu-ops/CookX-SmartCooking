@@ -2,6 +2,9 @@ param([string]$OutputDirectory = '', [switch]$SkipWebBuild)
 $ErrorActionPreference = 'Stop'
 $frontendRoot = Split-Path $PSScriptRoot -Parent
 $repoRoot = Split-Path $frontendRoot -Parent
+# Record authoring state before Capacitor regenerates platform files/line endings.
+$commit = (& git -C $repoRoot rev-parse HEAD).Trim()
+$dirty = !!(& git -C $repoRoot status --porcelain)
 if (!$OutputDirectory) { $OutputDirectory = Join-Path $repoRoot 'tmp/localtest-delivery' }
 $OutputDirectory = [IO.Path]::GetFullPath($OutputDirectory)
 New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
@@ -42,8 +45,6 @@ try {
  if (!$env:GRADLE_USER_HOME) { $env:GRADLE_USER_HOME=Join-Path $env:TEMP 'cookx-gradle-user' }
  & (Join-Path $stage 'android/gradlew.bat') -p (Join-Path $stage 'android') assembleDebug testDebugUnitTest --no-daemon 2>&1 | Tee-Object -FilePath (Join-Path $OutputDirectory 'android-build.log')
  if ($LASTEXITCODE -ne 0) { throw 'Android build failed' }
- $commit = (& git -C $repoRoot rev-parse HEAD).Trim()
- $dirty = !!(& git -C $repoRoot status --porcelain)
  $apkName = "CookX-localtest-$($commit.Substring(0,7))-debug.apk"
  $destination = Join-Path $OutputDirectory $apkName
  Copy-Item -LiteralPath (Join-Path $stage 'android/app/build/outputs/apk/debug/app-debug.apk') -Destination $destination
