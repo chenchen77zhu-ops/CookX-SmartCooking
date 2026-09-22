@@ -4,7 +4,7 @@
     <!-- 1. 路由展示区域 -->
     <router-view v-slot="{ Component }">
       <transition name="fade" mode="out-in">
-        <component :is="Component" :key="$route.fullPath" />
+        <component :is="Component" :key="$route.fullPath + authRevision" />
       </transition>
     </router-view>
 
@@ -80,8 +80,9 @@ const router = useRouter()
 const route = useRoute()
 const showNativeSplash = ref(Capacitor.isNativePlatform())
 let splashTimer = null
+const authRevision=ref(0)
 let cookingUser=readUserId()
-const syncCookingUser=()=>{const next=readUserId();if(next!==cookingUser){suspendCookingStores();window.dispatchEvent(new CustomEvent('cookx:user-changed',{detail:{previous:cookingUser,current:next}}));cookingUser=next}}
+const syncCookingUser=()=>{const next=readUserId();if(next!==cookingUser){suspendCookingStores();authRevision.value++;window.dispatchEvent(new CustomEvent('cookx:user-changed',{detail:{previous:cookingUser,current:next}}));cookingUser=next}}
 watch(()=>route.fullPath,syncCookingUser)
 onMounted(()=>window.addEventListener('storage',syncCookingUser))
 onBeforeUnmount(()=>window.removeEventListener('storage',syncCookingUser))
