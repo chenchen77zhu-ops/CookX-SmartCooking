@@ -72,6 +72,7 @@ const path = require('node:path')
  // Reload to eliminate preloaded audio before testing provider outages.
  for(const mode of ['error','empty']) {
    speechMode=mode
+   await page.evaluate(()=>localStorage.removeItem('cookx:cooking:v1:987654'))
    await page.reload()
    await page.getByPlaceholder('告诉 CookX 你想做什么…').fill('测试菜谱')
    await page.getByPlaceholder('告诉 CookX 你想做什么…').press('Enter')

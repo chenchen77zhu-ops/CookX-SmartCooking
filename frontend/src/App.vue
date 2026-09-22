@@ -68,7 +68,9 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { suspendCookingStores } from './services/cookingStore.js'
+import { readUserId } from './services/recognitionDraft.js'
+import { watch, computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { Capacitor } from '@capacitor/core'
 import { House, Box, Bowl, User } from '@element-plus/icons-vue'
@@ -78,6 +80,11 @@ const router = useRouter()
 const route = useRoute()
 const showNativeSplash = ref(Capacitor.isNativePlatform())
 let splashTimer = null
+let cookingUser=readUserId()
+const syncCookingUser=()=>{const next=readUserId();if(next!==cookingUser){suspendCookingStores();window.dispatchEvent(new CustomEvent('cookx:user-changed',{detail:{previous:cookingUser,current:next}}));cookingUser=next}}
+watch(()=>route.fullPath,syncCookingUser)
+onMounted(()=>window.addEventListener('storage',syncCookingUser))
+onBeforeUnmount(()=>window.removeEventListener('storage',syncCookingUser))
 
 onMounted(() => {
   if (showNativeSplash.value) splashTimer = window.setTimeout(() => { showNativeSplash.value = false }, 850)

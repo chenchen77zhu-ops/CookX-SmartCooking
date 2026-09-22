@@ -41,6 +41,8 @@
     </header>
 
     <main class="chef-content">
+      <p v-if="sessionMessage" role="status">{{ sessionMessage }}</p>
+      <section v-if="!navigationVisible && session?.status === 'active'" class="chef-state-card"><p>发现未完成的烹饪，计时按实际经过时间核对。</p><button @click="restoreCooking">恢复烹饪</button></section>
       <section v-if="recipeError" class="chef-state-card" role="alert"><p>{{ recipeError }}</p><button type="button" @click="sendMessage(lastRecipePrompt)">重新生成菜谱</button></section>
       <template v-if="navigationVisible && activeSteps.length">
         <section class="cooking-grid">
@@ -71,10 +73,14 @@
             </div>
             <aside v-if="currentStepTip" class="step-tip"><el-icon><Bell /></el-icon><span><b>CookX 提醒</b>{{ currentStepTip }}</span></aside>
             <button v-if="currentStepDuration >= 60" type="button" class="reminder-button" @click="setReminder(currentStep, activeRecipe.dish_name)"><el-icon><AlarmClock /></el-icon>为本步设置提醒</button>
+            <div class="timer-controls">
+              <button @click="pauseTimer">暂停计时</button><button @click="resumeTimer">继续计时</button>
+              <label>手动计时（秒）<input v-model="timerSeconds" type="number" min="1" max="86400" /></label><button @click="setManualTimer">开始计时</button>
+            </div>
             <div class="step-switcher">
               <button type="button" :disabled="currentStepIdx === 0" @click="prevStep"><el-icon><ArrowLeft /></el-icon>上一步</button>
               <span>第 {{ currentStepIdx + 1 }} / {{ activeSteps.length }} 步</span>
-              <button type="button" class="next" :disabled="isLastStep" @click="nextStep">下一步<el-icon><ArrowRight /></el-icon></button>
+              <button type="button" class="next" @click="nextStep">{{ isLastStep ? '完成烹饪' : '下一步' }}<el-icon><ArrowRight /></el-icon></button>
             </div>
           </article>
 
@@ -187,6 +193,7 @@
 </template>
 
 <script setup>
+import { getCookingStore, suspendCookingStores } from '../services/cookingStore.js'
 import { normalizeRecipe, safeHistory } from '../services/recipeAdapter.js'
 import { readUserId } from '../services/recognitionDraft.js'
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
@@ -233,11 +240,20 @@ const thermal = useTemperatureIntelligence('cookx-temperature-session-' + (userI
 const { assessment: thermalAssessment, history: thermalHistory, prediction: thermalPrediction, modelState: thermalModelState, experimental: thermalExperimental, replaying: thermalReplaying, storageMessage: thermalStorageMessage } = thermal
 // --- 导航与提醒状态 ---
 const navigationVisible = ref(false)
-const activeRecipe = ref({ steps: [] })
-const currentStepIdx = ref(0)
-const timeLeft = ref(0)
+const cookingStore=getCookingStore(userId)
+const session=cookingStore.state
+const tick=ref(Date.now())
+const activeRecipe=computed(()=>session.value?.recipe || {steps:[]})
+const currentStepIdx=computed(()=>session.value?.stepIndex || 0)
+const timeLeft=computed(()=>{tick.value;return Math.ceil(cookingStore.engine.remaining()/1000)})
+const timerSeconds=ref(60)
+const sessionMessage=ref(cookingStore.engine.warning)
+const refreshSession=()=>{cookingStore.refresh();tick.value=Date.now();sessionMessage.value=cookingStore.engine.warning}
+const pauseTimer=()=>{cookingStore.engine.pause();refreshSession()}
+const resumeTimer=()=>{cookingStore.engine.resume();refreshSession()}
+const setManualTimer=()=>{try{cookingStore.engine.setTimer(Number(timerSeconds.value));refreshSession()}catch(error){ElMessage.warning(error.message)}}
 const isListening = ref(false)
-const isCookingPaused = ref(false)
+const isCookingPaused = computed(()=>session.value?.timers[currentStepIdx.value]?.deadline==null)
 const voicePlaybackState = ref('idle')
 const voiceCurrentTime = ref(0)
 const voiceDuration = ref(0)
@@ -729,39 +745,29 @@ const sendMessage = async (val = null) => {
   } finally {if(version===recipeRequestVersion){loading.value=false;await scrollToBottom()}}
 }
 const recipeUserChanged = () => {
-  if(readUserId()!==userId){recipeRequestVersion++;recipeController?.abort();messages.value=[];recipeError.value='';loading.value=false;stopNavigation();navigationVisible.value=false}
+  if(readUserId()!==userId){suspendCookingStores();recipeRequestVersion++;recipeController?.abort();messages.value=[];recipeError.value='';loading.value=false;stopNavigation();navigationVisible.value=false}
 }
 onMounted(()=>window.addEventListener('storage',recipeUserChanged))
 onUnmounted(()=>{pageActive=false;recipeRequestVersion++;recipeController?.abort();window.removeEventListener('storage',recipeUserChanged)})
 
 // --- 导航与消耗逻辑 ---
-const startNavigation = (recipe) => {
-  try { recipe=normalizeRecipe(recipe) } catch(error) {recipeError.value=error.message;return}
-  clearPreloadedVoice()
-  activeRecipe.value = recipe
-  currentStepIdx.value = 0
-  isCookingPaused.value = false
-  navigationVisible.value = true
-  initVoiceRecognition()
-  runStep()
+const restoreCooking = () => {cookingStore.ready=true;navigationVisible.value=true;refreshSession();startStepTimer()}
+const startNavigation = async recipe => {
+  try {
+    recipe=normalizeRecipe(recipe)
+    if(session.value?.status==='active')await ElMessageBox.confirm('开始新的菜谱将替换当前烹饪记录，是否继续？','替换烹饪',{confirmButtonText:'替换',cancelButtonText:'保留当前'})
+    clearPreloadedVoice();cookingStore.engine.start(recipe,true);cookingStore.ready=true;refreshSession();navigationVisible.value=true;startStepTimer();runStep()
+  } catch(error) {if(error!=='cancel'&&error!=='close')recipeError.value=error.message}
 }
-
-const startStepTimer = () => {
-  if (timer) clearInterval(timer)
-  timer = setInterval(() => {
-    if (!isCookingPaused.value && timeLeft.value > 0) timeLeft.value--
-  }, 1000)
-}
+const startStepTimer = () => {if(timer)clearInterval(timer);timer=setInterval(()=>{tick.value=Date.now()},250)}
+onMounted(()=>{if(cookingStore.ready && session.value?.status==='active')restoreCooking()})
 
 // 修改 runStep 函数
 const runStep = async () => {
   const requestVersion = ++voiceRequestVersion
   stopCurrentAudio()
-  isCookingPaused.value = false
 
   // 1. 物理级清理计时器
-  if (timer) { clearInterval(timer); timer = null; }
-
   const step = activeRecipe.value.steps[currentStepIdx.value];
   if (!step) return;
   const stepIndex = currentStepIdx.value;
@@ -769,7 +775,6 @@ const runStep = async () => {
   voicePlaybackState.value = 'loading';
   console.log(`[Voice] runStep version=${requestVersion} step=${stepNumber}`);
 
-  timeLeft.value = Number(step.time_estimate) || 0;
   // Cooking time must continue even when the optional speech service fails.
   startStepTimer();
 
@@ -911,76 +916,17 @@ const setLongTimeReminder = (step, dishName) => {
 }
 
 const nextStep = async () => {
-  voiceRequestVersion++
-  stopCurrentAudio()
-  isCookingPaused.value = false
-  if (timer) { clearInterval(timer); timer = null; }
-
-  if (currentStepIdx.value < activeRecipe.value.steps.length - 1) {
-    currentStepIdx.value++
-    runStep()
-  } else {
-    try {
-      const used = activeRecipe.value.used_ingredients || []
-      if (used.length > 0) {
-        if (!userId) {
-          ElMessage.error('登录状态已失效，请重新登录')
-          navigationVisible.value = false
-          return
-        }
-        await axios.post(`${API_BASE_URL}/consume-ingredients`, used, {
-          params: { user_id: userId }
-        })
-      }
-      ElMessage.success("烹饪完成，库存已更新！")
-    } catch (e) { console.error(e) }
-    stopNavigation()
-    navigationVisible.value = false
+  if(isLastStep.value) {
+    try{await ElMessageBox.confirm('确认完成本次烹饪？库存不会自动扣减。','完成烹饪',{confirmButtonText:'确认完成',cancelButtonText:'继续烹饪'});cookingStore.engine.finish();refreshSession();stopNavigation();navigationVisible.value=false}catch{}
+    return
   }
+  voiceRequestVersion++;stopCurrentAudio();cookingStore.engine.move(1);refreshSession();runStep()
 }
-
-const prevStep = () => {
-  if (currentStepIdx.value > 0) {
-    voiceRequestVersion++
-    stopCurrentAudio()
-    isCookingPaused.value = false
-    if (timer) { clearInterval(timer); timer = null; }
-    currentStepIdx.value--
-    runStep()
-  }
-}
-
-const replayCurrentStep = () => {
-  isCookingPaused.value = false
-  runStep()
-}
-
+const prevStep = () => {if(currentStepIdx.value>0){voiceRequestVersion++;stopCurrentAudio();cookingStore.engine.move(-1);refreshSession();runStep()}}
+const replayCurrentStep = () => runStep()
 const toggleVoicePlayback = async () => {
-  if (!navigationVisible.value) return
-  if (voicePlaybackState.value === 'playing') {
-    isCookingPaused.value = true
-    if (timer) { clearInterval(timer); timer = null }
-    if (currentAudio) {
-      try { currentAudio.pause() } catch (error) { console.warn('暂停语音失败:', error) }
-    }
-    voicePlaybackState.value = 'paused'
-    return
-  }
-
-  if (voicePlaybackState.value === 'paused' && currentAudio) {
-    try {
-      isCookingPaused.value = false
-      await currentAudio.play()
-      voicePlaybackState.value = 'playing'
-      startStepTimer()
-    } catch (error) {
-      console.warn('继续语音失败，重新播报当前步骤:', error)
-      runStep()
-    }
-    return
-  }
-
-  isCookingPaused.value = false
+  if(voicePlaybackState.value==='playing' && currentAudio){currentAudio.pause();voicePlaybackState.value='paused';return}
+  if(voicePlaybackState.value==='paused' && currentAudio){try{await currentAudio.play();voicePlaybackState.value='playing'}catch{runStep()}return}
   runStep()
 }
 
@@ -1105,7 +1051,6 @@ const stopNavigation = () => {
   voiceRequestVersion++
   stopCurrentAudio()
   clearPreloadedVoice()
-  isCookingPaused.value = false
 
   if (timer) { clearInterval(timer); timer = null; }
 
@@ -1145,6 +1090,9 @@ onUnmounted(cleanupTemperatureDevice)
 </script>
 
 <style scoped>
+.timer-controls { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0; }
+.timer-controls button,.timer-controls input { padding:8px; border:1px solid #cddbd3; border-radius:8px; background:#fff; color:#234c3b; }
+.timer-controls input { width:80px; }
 .ai-chef-container {
   height: calc(100vh - 70px);
   display: flex;
