@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { blankItem, serializeItem, isoFromLocal, localDateTime, verifyMutation, inventoryErrorMessage } from './inventoryFields.js'
+import { blankItem, serializeItem, isoFromLocal, localDateTime, verifyMutation, inventoryErrorMessage, inventoryEditForm } from './inventoryFields.js'
 test('unknown metadata is omitted, never defaulted',()=>{
  const data=serializeItem({...blankItem(),name:'牛肉'})
  assert.deepEqual(data,{name:'牛肉',quantity:1})
@@ -15,11 +15,14 @@ test('dates convert local wall clock to UTC without accepting invalid dates',()=
  for(const quantity of [0,-1,1.5,'']) assert.throws(()=>serializeItem({...blankItem(),name:'牛肉',quantity}),/数量/)
  for(const shelf_life of [0,-1,'NaN']) assert.throws(()=>serializeItem({...blankItem(),name:'牛肉',shelf_life}),/保质期/)
 })
-test('edit sends only changed supported fields and preserves unknown server fields',()=>{
- const original={name:'tomato',quantity:2,shelf_life:2.5,storage_type:'冷藏',purchase_time:'2025-01-01',unknown:7}
- assert.deepEqual(serializeItem({...original,name:'番茄',quantity:3,purchase_time:'bad'},original),{quantity:3})
- assert.throws(()=>serializeItem({...original,shelf_life:1.5},original),/整数天/)
- assert.throws(()=>serializeItem({...original,storage_type:''},original),/A3/)
+test('edit preserves untouched date precision, supports fractions and explicit null',()=>{
+ const original={id:'x',name:'tomato',quantity:2,shelf_life:2.5,storage_type:'冷藏',purchase_time:'2025-01-01T01:02:03.456+08:00',add_time:'2025-01-01T02:00:00+08:00',unknown:7}
+ const form=inventoryEditForm(original)
+ assert.deepEqual(serializeItem({...form,name:'番茄',quantity:3},original),{quantity:3})
+ assert.deepEqual(serializeItem({...form,shelf_life:1.5,storage_type:''},original),{shelf_life:1.5,storage_type:null})
+ assert.deepEqual(serializeItem({...form,purchase_time:''},original),{purchase_time:null})
+ assert.throws(()=>serializeItem({...form,purchase_time:''},{...original,purchase_date:'2025-01-01'}),/旧购买/)
+ assert.equal(verifyMutation({id:'x',payload:{purchase_time:null}},[{id:'x',purchase_time:null}]),true)
 })
 test('read-back verifies quantity and explicit dates even when backend merges records',()=>{
  const item={name:'番茄',quantity:1,purchase_time:'2025-01-01T00:00:00Z'}

@@ -29,11 +29,22 @@ export function serializeItem(form, original = null, now = Date.now()) {
     result.shelf_life = days
   }
   if (original) {
-    for (const key of ['storage_type', 'shelf_life']) {
-      if (!empty(original[key]) && empty(form[key])) throw new Error('清空已有字段需等待后端 A3 支持')
+    for (const key of ['storage_type','shelf_life']) {
+      if (empty(form[key]) && !empty(original[key])) {
+        if (key === 'storage_type' && (original.storage || original.storage_method)) throw new Error('此记录含旧储存字段，清空需后端兼容处理')
+        result[key] = null
+      }
     }
-    if (result.shelf_life !== undefined && Number(original.shelf_life) !== result.shelf_life && !Number.isInteger(result.shelf_life)) throw new Error('当前编辑接口仅支持整数天，精度升级待 A3 联调')
-    return Object.fromEntries(Object.entries(result).filter(([key, value]) => key === 'name' ? canonicalName(value) !== canonicalName(original[key]) : key === 'quantity' || key === 'shelf_life' ? Number(original[key]) !== value : original[key] !== value))
+    for (const key of ['purchase_time','add_time','expiry_date']) {
+      if ((form[key] || '') === localDateTime(original[key])) continue
+      if (empty(form[key]) && key === 'purchase_time' && original.purchase_date) throw new Error('此记录含旧购买日期，清空需后端兼容处理')
+      result[key] = empty(form[key]) ? null : isoFromLocal(form[key])
+    }
+    const candidate = { ...original, ...result }
+    const purchase = Date.parse(candidate.purchase_time || candidate.purchase_date), added = Date.parse(candidate.add_time), expiry = Date.parse(candidate.expiry_date)
+    if (result.purchase_time && purchase > now) throw new Error('购买时间不能晚于当前时间')
+    if (Number.isFinite(expiry) && ((Number.isFinite(purchase) && expiry <= purchase) || (Number.isFinite(added) && expiry <= added))) throw new Error('到期时间必须晚于购买及入库时间')
+    return Object.fromEntries(Object.entries(result).filter(([key, value]) => value === null ? original[key] != null : key === 'name' ? canonicalName(value) !== canonicalName(original[key]) : key === 'quantity' || key === 'shelf_life' ? Number(original[key]) !== value : original[key] !== value))
   }
   const purchase = isoFromLocal(form.purchase_time), expiry = isoFromLocal(form.expiry_date)
   if (purchase && Date.parse(purchase) > now) throw new Error('购买时间不能晚于当前时间')
@@ -44,7 +55,8 @@ export function serializeItem(form, original = null, now = Date.now()) {
 }
 function sameField(key, actual, expected) {
   if (key === 'name') return canonicalName(actual) === canonicalName(expected)
-  if (key === 'purchase_time' || key === 'expiry_date') return Date.parse(actual) === Date.parse(expected)
+  if (expected === null) return actual === null
+  if (['purchase_time','expiry_date','add_time'].includes(key)) return Date.parse(actual) === Date.parse(expected)
   return actual === expected
 }
 export function verifyMutation(transaction, after) {
@@ -74,4 +86,8 @@ export function inventoryErrorMessage(error) {
   }
   if (typeof data?.detail === 'string') return data.detail
   return data?.message || error?.message || '保存失败，请保留表单重试'
+}
+
+export function inventoryEditForm(item) {
+  return {...blankItem(),...item,...Object.fromEntries(['purchase_time','add_time','expiry_date'].map(key=>[key,localDateTime(item[key])]))}
 }

@@ -170,7 +170,7 @@
 import { saveDraft, recognitionItem } from '../services/recognitionDraft.js'
 import InventoryFields from '../components/InventoryFields.vue'
 import InventoryWriteStatus from '../components/InventoryWriteStatus.vue'
-import { blankItem, serializeItem, inventoryErrorMessage } from '../services/inventoryFields.js'
+import { blankItem, inventoryEditForm, serializeItem, inventoryErrorMessage } from '../services/inventoryFields.js'
 import { saveInventory, hasPendingWrite } from '../api/inventoryWrites.js'
 import FreshnessCard from '../components/FreshnessCard.vue'
 import { getInventoryFreshness } from '../api/freshness.js'
@@ -365,7 +365,7 @@ const filteredInventory = computed(() => {
 const newItem = ref(blankItem())
 const editItem = item => {
   editingOriginal.value = { ...item }
-  editingItem.value = { ...blankItem(), ...item, name: getFoodInfo(item.name).cn }
+  editingItem.value = { ...inventoryEditForm(item), name: getFoodInfo(item.name).cn }
   saveError.value = ''
   editDialogVisible.value = true
 }
