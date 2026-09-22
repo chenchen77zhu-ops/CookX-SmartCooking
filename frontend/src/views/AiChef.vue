@@ -80,6 +80,7 @@
               <button @click="pauseTimer">暂停计时</button><button @click="resumeTimer">继续计时</button>
               <label>手动计时（秒）<input v-model="timerSeconds" type="number" min="1" max="86400" /></label><button @click="setManualTimer">开始计时</button>
             </div>
+            <CookingAdjustments :key="session.id" :session="session" :engine="cookingStore.engine" @changed="refreshSession" />
             <div class="step-switcher">
               <button type="button" :disabled="currentStepIdx === 0" @click="prevStep"><el-icon><ArrowLeft /></el-icon>上一步</button>
               <span>第 {{ currentStepIdx + 1 }} / {{ activeSteps.length }} 步</span>
@@ -196,6 +197,7 @@
 </template>
 
 <script setup>
+import CookingAdjustments from '../components/CookingAdjustments.vue'
 import VoiceCommands from '../components/VoiceCommands.vue'
 import { speakSystem, stopSystemSpeech, stopListening } from '../services/systemVoice.js'
 import { getCookingStore, suspendCookingStores } from '../services/cookingStore.js'

@@ -1,3 +1,4 @@
+import {applyAdjustment,undoAdjustment} from './cookingAdjustments.js'
 import { normalizeRecipe } from './recipeAdapter.js'
 export const sessionKey = user => `cookx:cooking:v1:${user}`
 export function createCookingSession(user, {storage, now=Date.now, makeId=()=>globalThis.crypto.randomUUID()}={}) {
@@ -28,5 +29,7 @@ export function createCookingSession(user, {storage, now=Date.now, makeId=()=>gl
   function move(delta){if(!state||state.status!=='active')return false;const target=state.stepIndex+delta;if(target<0||target>=state.recipe.steps.length)return false;pause();enter(target);return true}
   function setTimer(seconds){if(!Number.isFinite(seconds)||seconds<=0||seconds>86400)throw new Error('计时秒数须大于 0 且不超过 24 小时');if(!state||state.status!=='active')return;const t=state.timers[state.stepIndex];t.remainingMs=seconds*1000;t.deadline=now()+t.remainingMs;t.round++;persist()}
   function finish(){if(!state)return;pause();state.status='completed';state.completedAt=now();persist()}
-  return {get state(){return state},get warning(){return warning},remaining,start,move,pause,resume,setTimer,finish,persist}
+  function adjust(preview){const record=applyAdjustment(state,preview,now());persist();return record}
+  function undo(id){undoAdjustment(state,id,now());persist()}
+  return {adjust,undo,get state(){return state},get warning(){return warning},remaining,start,move,pause,resume,setTimer,finish,persist}
 }
