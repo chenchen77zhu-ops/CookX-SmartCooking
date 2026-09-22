@@ -28,7 +28,7 @@ const assert=require('node:assert/strict')
   await dialog.getByText('已核对库存，解除待确认',{exact:true}).waitFor()
   assert.equal(posts,1)
   await dialog.getByRole('button',{name:'确认添加',exact:true}).click()
-  await dialog.getByText(/status code 500/).waitFor()
+  await dialog.getByText(/read failure/).waitFor()
   assert.equal(posts,1)
   readFailure=false
   await page.reload()
