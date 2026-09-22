@@ -37,7 +37,7 @@
                 <span :class="['expiry-days', expiryStatus(item).className]">{{ expiryStatus(item).label }}</span>
               </button>
             </div>
-            <div v-else class="expiry-empty"><el-icon><KnifeFork /></el-icon><span>暂无临期食材</span></div>
+            <div v-else class="expiry-empty"><el-icon><KnifeFork /></el-icon><span>{{ freshness.status === 'success' ? '未发现已评估的临期项，未知项请补充信息' : '等待鲜度评估' }}</span></div>
           </article>
 
           <article class="health-card">
@@ -49,6 +49,9 @@
     </section>
 
     <main class="inventory-surface">
+      <el-alert v-if="inventoryError" title="库存加载失败，当前显示上次库存；鲜度需重新评估" type="error" :closable="false" />
+      <el-alert v-if="freshness.status === 'error'" :title="freshness.error" type="warning" :closable="false" />
+      <el-button @click="fetchInventory()" :loading="inventoryLoading">刷新库存与鲜度</el-button>
       <section class="inventory-toolbar">
         <el-input v-model="searchKeyword" placeholder="搜索食材名称" :prefix-icon="Search" clearable class="search-input" />
         <button class="compact-add" type="button" @click="showAddDialog = true"><el-icon><Plus /></el-icon><span>添加</span></button>
@@ -75,7 +78,7 @@
           <div class="food-card-body">
             <div class="food-title-row"><h3>{{ getFoodInfo(item.name).cn }}</h3><span :class="`category-${getItemCategory(item)}`">{{ categoryName(getItemCategory(item)) }}</span></div>
             <p class="food-meta">{{ getItemMeasureText(item) }}<span v-if="item.storage_type"> · {{ item.storage_type }}</span></p>
-            <strong :class="['freshness-label', expiryStatus(item).className]">{{ expiryStatus(item).description }}</strong>
+            <FreshnessCard :detail="freshness.items[item.id]" :status="freshness.status" :evaluated-at="freshness.evaluatedAt" />
             <div class="food-footer"><span>添加于 {{ formatDate(item.add_time) }}</span><div class="card-actions"><button type="button" aria-label="编辑食材" @click.stop="editItem(item)"><el-icon><EditPen /></el-icon></button><button type="button" aria-label="删除食材" @click.stop="removeItem(item.id)"><el-icon><Delete /></el-icon></button></div></div>
           </div>
         </article>
@@ -170,6 +173,9 @@
 </template>
 
 <script setup>
+import FreshnessCard from '../components/FreshnessCard.vue'
+import { getInventoryFreshness } from '../api/freshness.js'
+import { createFreshnessLoader, emptyFreshness, freshnessStatus } from '../services/inventoryFreshness.js'
 import { calculateDaysUntilExpiry } from '../services/inventoryExpiry.js'
 import { ref, computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -203,6 +209,8 @@ import doubanjiangImage from '@/assets/images/ingredients/doubanjiang.png'
 
 const router = useRouter()
 const inventory = ref([])
+const freshness = ref(emptyFreshness())
+const freshnessLoader = createFreshnessLoader(getInventoryFreshness, value => { freshness.value = value })
 const searchKeyword = ref('')
 const activeCategory = ref('all')
 const editDialogVisible = ref(false)
@@ -695,21 +703,14 @@ const totalQuantity = computed(() => inventory.value.reduce((total, item) => {
   return total + (Number.isFinite(quantity) ? quantity : 0)
 }, 0))
 
-const expiringItems = computed(() => inventory.value
-  .filter(item => calculateDaysUntilExpiry(item) <= 5)
-  .sort((a, b) => calculateDaysUntilExpiry(a) - calculateDaysUntilExpiry(b)))
-
-const expiringCount = computed(() => new Set(
-  inventory.value
-    .filter(item => calculateDaysUntilExpiry(item) > 0 && calculateDaysUntilExpiry(item) <= 5)
-    .map(item => String(item.name || '').trim().toLowerCase())
-).size)
-
-const expiredCount = computed(() => new Set(
-  inventory.value
-    .filter(item => calculateDaysUntilExpiry(item) <= 0)
-    .map(item => String(item.name || '').trim().toLowerCase())
-).size)
+const expiringItems = computed(() => inventory.value.filter(item => {
+  const detail = freshness.value.items[item.id]
+  return detail?.expired || detail?.critical || detail?.expiring_soon
+}))
+const countKinds = predicate => freshness.value.status === 'success'
+  ? new Set(inventory.value.filter(item => predicate(freshness.value.items[item.id])).map(item => item.name)).size : '—'
+const expiringCount = computed(() => countKinds(d => d && !d.expired && (d.critical || d.expiring_soon)))
+const expiredCount = computed(() => countKinds(d => d?.expired))
 
 const expiringPreview = computed(() => expiringItems.value.slice(0, 3))
 
@@ -729,14 +730,7 @@ const lastUpdatedText = computed(() => {
 
 const categoryName = (category) => categories.find(item => item.id === category)?.name || '其他'
 
-const expiryStatus = (item) => {
-  const days = calculateDaysUntilExpiry(item)
-  if (!Number.isFinite(days)) return { className: 'unknown', label: '待补充', description: '保质期信息不足' }
-  if (days <= 0) return { className: 'expired', label: '已过期', description: '已过期' }
-  if (days <= 2) return { className: 'urgent', label: `${days}天`, description: `${days} 天后过期` }
-  if (days <= 5) return { className: 'soon', label: `${days}天`, description: `${days} 天后过期` }
-  return { className: 'fresh', label: `${days}天`, description: `${days} 天后过期` }
-}
+const expiryStatus = item => freshnessStatus(freshness.value.items[item.id])
 
 const getItemImage = (item) => {
   const imageUrl = item.image_url || item.image || item.thumbnail
@@ -751,6 +745,7 @@ const fetchInventory = async (requestedUserId = currentUserId.value) => {
     inventoryLoading.value = true
     return
   }
+  freshnessLoader.reset()
   const requestVersion = ++inventoryRequestVersion
   inventoryLoading.value = true
   inventoryError.value = false
@@ -758,19 +753,21 @@ const fetchInventory = async (requestedUserId = currentUserId.value) => {
   try {
     const res = await axios.get(`${API_BASE_URL}/inventory`,
     {
-      params: { user_id: requestedUserId }
+      params: { user_id: requestedUserId }, timeout: 15000
     });
     if (requestVersion !== inventoryRequestVersion || requestedUserId !== currentUserId.value) {
       console.log(`[INVENTORY] discard stale response version=${requestVersion} currentVersion=${inventoryRequestVersion}`)
       return
     }
-    const receivedInventory = Array.isArray(res.data) ? res.data : []
+    if (!Array.isArray(res.data)) throw new Error('库存响应异常')
+    const receivedInventory = res.data
     console.log(`[INVENTORY] response user_id=${requestedUserId} version=${requestVersion} status=${res.status} count=${receivedInventory.length}`)
     inventory.value = receivedInventory.map(item => ({
       ...item,
       daysUntilExpiry: calculateDaysUntilExpiry(item)
     }));
     lastUpdatedAt.value = new Date();
+    freshnessLoader.load(requestedUserId, inventory.value);
     if (inventory.value.length > 0) fetchQuickRecipes();
   } catch (error) {
     if (requestVersion !== inventoryRequestVersion || requestedUserId !== currentUserId.value) return
@@ -991,6 +988,9 @@ const handleUploadSuccess = (response) => {
 }
 
 watch(currentUserId, (id, previousId) => {
+  inventoryRequestVersion++
+  freshnessLoader.reset()
+  if (id !== previousId) inventory.value = []
   if (!id) {
     inventoryLoading.value = true
     return
@@ -1005,6 +1005,7 @@ onMounted(() => {
   waitForCurrentUser()
 });
 onBeforeUnmount(() => {
+  freshnessLoader.dispose()
   inventoryRequestVersion += 1
   if (userWaitTimer) clearTimeout(userWaitTimer)
   window.removeEventListener('storage', handleStoredUserChange)
