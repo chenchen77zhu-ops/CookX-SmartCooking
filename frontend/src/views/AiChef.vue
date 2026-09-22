@@ -911,13 +911,14 @@ const setLongTimeReminder = (step, dishName) => {
 }
 
 const nextStep = async () => {
+  silenceSpeech()
   if(isLastStep.value) {
     try{await ElMessageBox.confirm('确认完成本次烹饪？库存不会自动扣减。','完成烹饪',{confirmButtonText:'确认完成',cancelButtonText:'继续烹饪'});cookingStore.engine.finish();refreshSession();stopNavigation();navigationVisible.value=false}catch{}
     return
   }
   voiceRequestVersion++;stopCurrentAudio();cookingStore.engine.move(1);refreshSession();runStep()
 }
-const prevStep = () => {if(currentStepIdx.value>0){voiceRequestVersion++;stopCurrentAudio();cookingStore.engine.move(-1);refreshSession();runStep()}}
+const prevStep = () => {if(currentStepIdx.value>0){silenceSpeech();voiceRequestVersion++;stopCurrentAudio();cookingStore.engine.move(-1);refreshSession();runStep()}}
 const replayCurrentStep = () => runStep()
 const toggleVoicePlayback = async () => {
   if(voicePlaybackState.value==='playing' && !currentAudio){await stopSystemSpeech();voicePlaybackState.value='paused';voiceMessage.value='系统播报已暂停，再次播放将从本步开头播报';return}
@@ -997,6 +998,7 @@ const foregroundVoice = () => {if(document.hidden)silenceSpeech()}
 onMounted(()=>document.addEventListener('visibilitychange',foregroundVoice))
 onUnmounted(()=>document.removeEventListener('visibilitychange',foregroundVoice))
 const runStep = async () => {
+  stopListening()
   const version=++voiceRequestVersion;stopCurrentAudio();voiceMessage.value='';voicePlaybackState.value='loading'
   try{await speakSystem(`第${currentStepIdx.value+1}步：${currentStepText.value}`,state=>{if(version===voiceRequestVersion){voicePlaybackState.value=state==='error'?'idle':state;if(state==='error')voiceMessage.value='系统播报失败，可手动重试在线播报'}})}
   catch(error){if(version===voiceRequestVersion){voicePlaybackState.value='idle';voiceMessage.value=error.message}}
