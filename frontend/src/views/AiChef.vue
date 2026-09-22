@@ -50,7 +50,7 @@
           <article :class="['current-step-card', 'panel-card', { 'is-voice-active': isVoicePlaying }]">
             <div class="panel-heading">
               <span><el-icon><Food /></el-icon>当前步骤</span>
-              <b v-if="currentStepDuration"><el-icon><Timer /></el-icon>剩余 {{ formatTime(timeLeft) }}</b><b v-else>时长未提供</b>
+              <b v-if="currentStepDuration || session?.timers[currentStepIdx]?.round > 0"><el-icon><Timer /></el-icon>剩余 {{ formatTime(timeLeft) }}</b><b v-else>时长未提供</b>
             </div>
             <div class="step-count">第 <strong>{{ currentStepIdx + 1 }}</strong> / {{ activeSteps.length }} 步</div>
             <h2>{{ currentStepTitle }}</h2>
