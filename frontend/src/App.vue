@@ -68,6 +68,8 @@
 </template>
 
 <script setup>
+import {initializeTemperatureDevice} from './services/temperatureDevice.js'
+onMounted(()=>initializeTemperatureDevice().catch(()=>{}))
 import {initializeNotifications} from './services/cookingNotifications.js'
 onMounted(initializeNotifications)
 import { suspendCookingStores } from './services/cookingStore.js'

@@ -1,6 +1,9 @@
 package com.smartcooking.app;
 
 import android.Manifest;
+import android.app.Activity;
+import androidx.activity.result.ActivityResult;
+import com.getcapacitor.annotation.ActivityCallback;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
@@ -84,6 +87,29 @@ public class TemperatureBluetoothPlugin extends Plugin {
         mainHandler.post(this::registerReceiverOnce);
     }
 
+    private boolean exportingDiagnostics;
+    @PluginMethod public void exportDiagnostics(PluginCall call) {
+        if (exportingDiagnostics) { call.reject("正在导出，请勿重复操作"); return; }
+        String json = call.getString("json", "");
+        if (json.isEmpty() || json.length() > 16000000) { call.reject("诊断内容无效或过大，请分段导出"); return; }
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT); intent.setType("application/json"); intent.addCategory(Intent.CATEGORY_OPENABLE); intent.putExtra(Intent.EXTRA_TITLE, call.getString("filename", "cookx-diagnostics.json"));
+        exportingDiagnostics = true;
+        try { startActivityForResult(call, intent, "diagnosticsSaved"); } catch (Exception error) { exportingDiagnostics = false; call.reject("系统文件保存不可用", error); }
+    }
+    @ActivityCallback private void diagnosticsSaved(PluginCall call, ActivityResult result) {
+        exportingDiagnostics = false;
+        if (call == null) return;
+        if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null || result.getData().getData() == null) { call.reject("已取消导出"); return; }
+        try (OutputStream stream = getContext().getContentResolver().openOutputStream(result.getData().getData())) {
+            if (stream == null) throw new IOException("Cannot open document");
+            stream.write(call.getString("json", "").getBytes(StandardCharsets.UTF_8)); call.resolve();
+        } catch (Exception error) { call.reject("诊断文件保存失败", error); }
+    }
+
+    @PluginMethod public void getDiagnosticsInfo(PluginCall call) {
+        JSObject info = new JSObject(); info.put("manufacturer", Build.MANUFACTURER); info.put("model", Build.MODEL); info.put("androidRelease", Build.VERSION.RELEASE); info.put("sdkInt", Build.VERSION.SDK_INT); try { info.put("appVersion", getContext().getPackageManager().getPackageInfo(getContext().getPackageName(), 0).versionName); } catch (Exception ignored) { info.put("appVersion", "unknown"); } info.put("transport", "Bluetooth Classic SPP"); info.put("permissionsGranted", hasPermissions()); info.put("bluetoothEnabled", safeEnabled()); call.resolve(info);
+    }
+
     @PluginMethod public void checkBluetoothState(PluginCall call) {
         JSObject result = new JSObject();
         result.put("supported", adapter != null);
@@ -95,7 +121,7 @@ public class TemperatureBluetoothPlugin extends Plugin {
 
     @PluginMethod public void requestBluetoothPermissions(PluginCall call) {
         if (hasPermissions()) { call.resolve(permissionResult()); return; }
-        requestAllPermissions(call, "permissionsCallback");
+        requestPermissionForAliases(Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? new String[]{"bluetoothScan", "bluetoothConnect"} : new String[]{"location"}, call, "permissionsCallback");
     }
 
     @PermissionCallback private void permissionsCallback(PluginCall call) {
@@ -254,7 +280,7 @@ public class TemperatureBluetoothPlugin extends Plugin {
     private JSObject stateObject(State value, BluetoothDevice device, String message, String errorCode) { JSObject result = deviceObject(device); result.put("state", value.name().toLowerCase(Locale.ROOT)); result.put("message", message); result.put("errorCode", errorCode); return result; }
     private void fail(PluginCall call, String code, String message, Exception error) { setState(State.ERROR, currentDevice, message, code); if (call != null) call.reject(message, code, error); }
     private boolean ensureReady(PluginCall call) { if (adapter == null) { call.reject("Bluetooth is not supported", "BLUETOOTH_UNSUPPORTED"); return false; } if (!hasPermissions()) { call.reject("Bluetooth permission is required", "PERMISSION_DENIED"); return false; } if (!safeEnabled()) { call.reject("Please enable Bluetooth and try again", "BLUETOOTH_DISABLED"); return false; } return true; }
-    private boolean hasPermissions() { if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) return getPermissionState("bluetoothScan") == PermissionState.GRANTED && getPermissionState("bluetoothConnect") == PermissionState.GRANTED && getPermissionState("location") == PermissionState.GRANTED; return getPermissionState("location") == PermissionState.GRANTED; }
+    private boolean hasPermissions() { if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) return getPermissionState("bluetoothScan") == PermissionState.GRANTED && getPermissionState("bluetoothConnect") == PermissionState.GRANTED; return getPermissionState("location") == PermissionState.GRANTED; }
     private JSObject permissionResult() { JSObject result = new JSObject(); result.put("granted", true); result.put("scanGranted", getPermissionState("bluetoothScan") == PermissionState.GRANTED); result.put("connectGranted", getPermissionState("bluetoothConnect") == PermissionState.GRANTED); result.put("fineLocationGranted", getPermissionState("location") == PermissionState.GRANTED); return result; }
     private boolean safeEnabled() { try { return adapter != null && adapter.isEnabled(); } catch (SecurityException error) { return false; } }
     private void stopDiscoveryInternal() { if (Looper.myLooper() != Looper.getMainLooper()) { mainHandler.post(this::stopDiscoveryInternal); return; } try { if (adapter != null && adapter.isDiscovering()) { boolean cancelled = adapter.cancelDiscovery(); Log.d(TAG, "cancelDiscovery returned=" + cancelled); } } catch (SecurityException error) { Log.w(TAG, "Cannot stop discovery", error); } }

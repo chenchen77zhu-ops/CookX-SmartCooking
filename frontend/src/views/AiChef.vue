@@ -41,6 +41,7 @@
     <main class="chef-content">
       <CookingCompletion v-if="completionVisible && session" :key="session.id" :session="session" :engine="cookingStore.engine" @changed="completionChanged" @close="completionVisible=false" />
       <button v-if="session?.status === 'completed' && !completionVisible" @click="completionVisible=true">查看完成与库存核对</button>
+      <details class="device-diagnostics"><summary>设备状态与诊断</summary><p>{{ temperatureConnectionText }}；恢复页面后等待新测量。后台连续采集能力待真机验证。</p><button @click="openTemperatureDialog">扫描与连接设备</button><button @click="refreshDevice">重新核对设备状态</button><button @click="exportDeviceLog">导出设备诊断</button><p role="status">{{ deviceDiagnosticMessage }}</p></details>
       <p v-if="sessionMessage" role="status">{{ sessionMessage }}</p>
       <section v-if="!navigationVisible && session?.status === 'active'" class="chef-state-card"><p>发现未完成的烹饪，计时按实际经过时间核对。</p><button @click="restoreCooking">恢复烹饪</button></section>
       <section v-if="recipeError" class="chef-state-card" role="alert"><p>{{ recipeError }}</p><button type="button" @click="sendMessage(lastRecipePrompt)">重新生成菜谱</button></section>
@@ -97,7 +98,7 @@
               <div><span>环境温度</span><strong>{{ ambientTemperature === null ? '--' : ambientTemperature.toFixed(1) }}<small>°C</small></strong><p>{{ ambientTemperature === null ? '当前硬件固件未上传环境温度' : '设备环境温度' }}</p></div>
               <div><span>锅面温度</span><strong>{{ currentTemperature === null ? '--' : currentTemperature.toFixed(1) }}<small>°C</small></strong><p>{{ currentTemperature === null ? '等待数据' : temperatureLevel.status }}</p></div>
             </div>
-            <div v-if="temperatureConnected" class="sense-update"><el-icon><CircleCheckFilled /></el-icon><span><b>{{ currentTemperature === null ? '数据暂未更新' : '设备已连接，数据实时更新' }}</b>最后更新 {{ lastTemperatureTime }}</span></div>
+            <div v-if="temperatureConnected" class="sense-update"><el-icon><CircleCheckFilled /></el-icon><span><b>{{ currentTemperature === null ? '数据暂未更新' : '已收到设备读数，请结合测量质量查看' }}</b>最后更新 {{ lastTemperatureTime }}</span></div>
             <div v-else class="sense-empty"><el-icon><Connection /></el-icon><div><b>尚未连接 CookX Sense</b><span>连接设备后可实时查看温度</span></div></div>
             <TemperatureInsight :assessment="thermalAssessment" :history="thermalHistory" :prediction="thermalPrediction"
               :model-state="thermalModelState" :experimental="thermalExperimental" :replaying="thermalReplaying"
@@ -215,6 +216,8 @@ import {
 } from '@element-plus/icons-vue'
 import { ElMessage, ElNotification, ElMessageBox } from 'element-plus'
 import {
+  reconcileTemperatureDevice,
+  exportTemperatureDiagnostics,
   connectTemperatureDevice,
   disconnectTemperatureDevice,
   requestBluetoothPermissions,
@@ -387,6 +390,8 @@ const ambientTemperature = ref(null)
 const lastTemperatureTimestamp = ref(null)
 const temperatureConnected = ref(false)
 const temperatureConnecting = ref(false)
+const temperatureState=ref('idle')
+const deviceDiagnosticMessage=ref('')
 const temperatureAcceptingData = ref(false)
 const temperatureDialogVisible = ref(false)
 const temperatureDeviceAddress = ref(localStorage.getItem('temperatureDeviceAddress') || '')
@@ -398,7 +403,6 @@ const bluetoothScanText = computed(() => temperatureScanning.value ? '正在扫�
 
 const clearTemperatureReading = () => {
   thermal.invalidate()
-  resetTemperatureBuffer()
   if (temperatureStaleTimer) {
     window.clearTimeout(temperatureStaleTimer)
     temperatureStaleTimer = null
@@ -418,8 +422,9 @@ const scheduleTemperatureStaleTimeout = () => {
 }
 
 const temperatureConnectionText = computed(() => {
-  if (temperatureConnecting.value) return '连接中'
-  return temperatureConnected.value ? '已连接' : '未连接'
+ if(temperatureConnecting.value)return '连接中'
+ const labels={'bluetooth-off':'蓝牙关闭','permission-denied':'需要附近设备权限',reconnecting:'正在重连',connecting:'连接中',error:'连接异常',unsupported:'需 Android App'}
+ return labels[temperatureState.value] || (temperatureConnected.value ? (currentTemperature.value===null?'已连接 · 等待新数据':'已连接'):'未连接')
 })
 
 const lastTemperatureTime = computed(() => {
@@ -520,10 +525,19 @@ const disconnectTemperature = async () => {
   }
 }
 
+const refreshDevice = async () => {
+ clearTemperatureReading();temperatureAcceptingData.value=false
+ try{const result=await reconcileTemperatureDevice();if(!pageActive)return;temperatureState.value=result.status==='unsupported'?'unsupported':result.state;temperatureConnected.value=result.state==='connected' && result.connected!==false;temperatureAcceptingData.value=temperatureConnected.value;deviceDiagnosticMessage.value=result.status==='unsupported'?'浏览器不支持 Bluetooth Classic，请使用 Android 安装包。':'状态已核对；等待新的连续测量窗口。'}catch(error){if(pageActive)deviceDiagnosticMessage.value=bluetoothErrorMessage(error)}
+}
+const exportDeviceLog = async()=>{try{await exportTemperatureDiagnostics();deviceDiagnosticMessage.value='诊断文件已导出；包含设备信息、原始温度帧及连接事件。'}catch(error){deviceDiagnosticMessage.value=error.message}}
+const temperatureForeground=()=>{if(document.hidden){temperatureAcceptingData.value=false;clearTemperatureReading()}else refreshDevice()}
+onMounted(()=>{document.addEventListener('visibilitychange',temperatureForeground);window.addEventListener('cookx:foreground',temperatureForeground)})
+onUnmounted(()=>{document.removeEventListener('visibilitychange',temperatureForeground);window.removeEventListener('cookx:foreground',temperatureForeground)})
+
 const registerTemperatureListener = async () => {
   try {
     temperatureListener = await onTemperatureData((data) => {
-      if (!temperatureAcceptingData.value) return
+      if (!pageActive || document.hidden || !temperatureAcceptingData.value) return
       thermal.receive(data)
       ambientTemperature.value = Number.isFinite(data.ambientTemperature) ? data.ambientTemperature : null
       if (data.valid === false) { currentTemperature.value = null; return }
@@ -539,12 +553,17 @@ const registerTemperatureListener = async () => {
       else temperatureDevices.value.push(device)
     })
     temperatureConnectionStateListener = await onTemperatureConnectionStateChanged((connection) => {
+      if(!pageActive)return
+      temperatureState.value=connection.state
+      if(connection.awaitingSample)clearTemperatureReading()
       temperatureScanning.value = connection.state === 'scanning'
       temperatureConnected.value = connection.state === 'connected'
       temperatureAcceptingData.value = temperatureConnected.value
       if (!temperatureConnected.value) clearTemperatureReading()
       if (connection.state === 'error' && connection.message) ElMessage.error(connection.message)
     })
+    if(!pageActive){await cleanupTemperatureDevice();return}
+    await refreshDevice()
   } catch (error) {
     console.error('注册温度监听失败:', error)
     ElMessage.error('无法监听测温设备数据')
@@ -569,11 +588,7 @@ const cleanupTemperatureDevice = async () => {
   temperatureDeviceFoundListener = null
   temperatureConnectionStateListener = null
   await stopTemperatureScan()
-  try {
-    await disconnectTemperatureDevice()
-  } catch (error) {
-    console.warn('清理测温设备连接失败:', error)
-  }
+  // The application owns the connection; page teardown only removes view subscribers.
   temperatureConnected.value = false
 }
 
