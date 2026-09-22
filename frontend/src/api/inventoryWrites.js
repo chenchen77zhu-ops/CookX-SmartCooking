@@ -33,7 +33,7 @@ export async function saveInventory(user, payload, id = null) {
       }
     }
     const rows = await readInventory(user)
-    if (!verifyMutation(transaction, rows)) throw new Error('保存结果未确认：可能发生批次归并或字段未保存。请核对库存并等待 A3 联调，不要重复入库。')
+    if (!verifyMutation(transaction, rows)) throw new Error('保存结果未确认：可能发生批次归并或字段未保存。请核对库存并联系维护者，不要重复入库。')
     localStorage.removeItem(key(user))
     return rows
   } finally { active.delete(user) }

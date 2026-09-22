@@ -1033,6 +1033,12 @@ onUnmounted(cleanupTemperatureDevice)
 </script>
 
 <style scoped>
+.chef-state-card{padding:16px;margin:12px 0;border:1px solid #dce6df;border-radius:16px;background:white;line-height:1.6}
+.timer-controls{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:10px 0;font-size:13px}
+.timer-controls label{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.timer-controls input{width:78px;min-height:40px;padding:6px;border:1px solid #c7d6cb;border-radius:9px;font:inherit;box-sizing:border-box}
+.timer-controls button,.chef-state-card button{min-height:42px;padding:8px 10px;border:1px solid #c7d6cb;border-radius:9px;background:#eff5f0;color:#284b37;font:inherit}
+
 .timer-controls { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0; }
 .timer-controls button,.timer-controls input { padding:8px; border:1px solid #cddbd3; border-radius:8px; background:#fff; color:#234c3b; }
 .timer-controls input { width:80px; }
