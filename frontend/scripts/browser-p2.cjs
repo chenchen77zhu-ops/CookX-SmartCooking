@@ -32,7 +32,7 @@ const assert = require('node:assert/strict'), fs = require('node:fs')
   }
   failure=0;await page.getByRole('button',{name:'刷新库存与鲜度'}).click()
   await card.getByText('FreshScore：0',{exact:false}).waitFor()
-  if(process.env.COOKX_P2_DETAILS) {
+  {
    await card.getByText('查看鲜度依据',{exact:true}).click()
    await card.getByText('V 视觉',{exact:true}).waitFor()
    assert.match(await card.innerText(),/未参与/)

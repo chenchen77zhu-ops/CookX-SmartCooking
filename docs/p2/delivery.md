@@ -5,7 +5,7 @@
 | 功能 | 分支 | 依赖 | 状态 |
 |---|---|---|---|
 | B1 鲜度卡片 | feat/p2-freshness-ui | main 基线 | 已验收（本地软件） |
-| B2 鲜度依据 | feat/p2-freshness-details | B1 | 待开发 |
+| B2 鲜度依据 | feat/p2-freshness-details | 20392f0 (B1) | 已验收（本地软件） |
 | B3 库存字段 | feat/p2-inventory-fields | B2 | 待开发 |
 | B4 页面闭环 | feat/p2-inventory-flow | B3 | 待开发 |
 
@@ -14,3 +14,5 @@
 真实后端路由的隔离测试和浏览器测试替身分开记录；不声称真实云端识别、手机或食品安全验证。
 
 B1：35 项前端测试通过、生产构建通过；390px Chromium 测试替身验证 0 分、未知、HTTP 500/422、200 业务失败、重试和库存保留。截图 tmp/p2/freshness-mobile.png。
+
+B2：分项以服务端 0–1 原值展示，有效权重只读。缺失分项显示数据不足，不生成 V/H。移动端原生 details 可键盘展开。35 项前端测试、构建和浏览器回归通过。
