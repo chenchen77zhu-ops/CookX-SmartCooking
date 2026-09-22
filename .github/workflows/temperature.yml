@@ -119,6 +119,7 @@ jobs:
           node frontend/scripts/browser-p2.cjs
           node frontend/scripts/browser-p2-flow.cjs
           node frontend/scripts/browser-p2-writes.cjs
+          node frontend/scripts/browser-copilot.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -127,5 +128,6 @@ jobs:
             docs/temperature/*results.json
             tmp/temperature-mobile.png
             tmp/p2/
+            tmp/copilot/
             /tmp/cookx-backend.log
             /tmp/cookx-frontend.log

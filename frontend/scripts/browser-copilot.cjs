@@ -1,0 +1,31 @@
+const {chromium}=require(process.env.COOKX_PLAYWRIGHT||'playwright')
+const assert=require('node:assert/strict'),fs=require('node:fs')
+;(async()=>{
+ const browser=await chromium.launch({headless:true,...(process.env.COOKX_CHROME?{executablePath:process.env.COOKX_CHROME}:{})})
+ try {
+  const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[]
+  page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message))
+  await page.addInitScript(()=>{localStorage.setItem('user',JSON.stringify({id:'copilot-test'}));window.SpeechRecognition=undefined;window.webkitSpeechRecognition=undefined})
+  let mode='bad'
+  await page.route('**/api/**',async route=>{
+   const url=route.request().url()
+   if(url.includes('recommend-recipe'))return route.fulfill({json:{status:'success',recipe:mode==='bad'?'{invalid':{dish_name:'测试菜谱',steps:['准备食材',{text:'热锅',time_estimate:60},{text:'放入食材',time_estimate:90}],used_ingredients:[],missing:['盐']}}})
+   if(url.includes('/tts'))return route.fulfill({status:503,json:{detail:'test speech unavailable'}})
+   return route.fulfill({json:[]})
+  })
+  await page.goto((process.env.COOKX_BASE_URL||'http://127.0.0.1:4173')+'/#/home?tab=AiChef')
+  const input=page.getByPlaceholder('告诉 CookX 你想做什么…')
+  await input.fill('测试菜谱');await input.press('Enter')
+  await page.getByText('菜谱 JSON 无法解析，请重新生成',{exact:true}).waitFor()
+  assert.equal(await input.inputValue(),'测试菜谱')
+  mode='valid';await page.getByRole('button',{name:'重新生成菜谱',exact:true}).click()
+  await page.getByRole('button',{name:'开始指导',exact:true}).click()
+  await page.getByText('时长未提供',{exact:true}).waitFor()
+  await page.getByRole('button',{name:'下一步',exact:true}).click()
+  await page.getByText('热锅',{exact:true}).first().waitFor()
+  await page.waitForFunction(()=>document.querySelector('.current-step-card .panel-heading')?.innerText.includes('00:59'))
+  fs.mkdirSync('tmp/copilot',{recursive:true});await page.screenshot({path:'tmp/copilot/cooking-mobile.png',fullPage:true})
+  assert.deepEqual(errors,[])
+  console.log(JSON.stringify({suite:'copilot',checks:['invalid-json','retained-input','retry','unknown-duration','timer-despite-tts-error'],errors}))
+ }finally{await browser.close()}
+})().catch(e=>{console.error(e);process.exit(1)})

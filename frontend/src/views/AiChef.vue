@@ -41,12 +41,13 @@
     </header>
 
     <main class="chef-content">
+      <section v-if="recipeError" class="chef-state-card" role="alert"><p>{{ recipeError }}</p><button type="button" @click="sendMessage(lastRecipePrompt)">重新生成菜谱</button></section>
       <template v-if="navigationVisible && activeSteps.length">
         <section class="cooking-grid">
           <article :class="['current-step-card', 'panel-card', { 'is-voice-active': isVoicePlaying }]">
             <div class="panel-heading">
               <span><el-icon><Food /></el-icon>当前步骤</span>
-              <b v-if="currentStepDuration"><el-icon><Timer /></el-icon>剩余 {{ formatTime(timeLeft) }}</b>
+              <b v-if="currentStepDuration"><el-icon><Timer /></el-icon>剩余 {{ formatTime(timeLeft) }}</b><b v-else>时长未提供</b>
             </div>
             <div class="step-count">第 <strong>{{ currentStepIdx + 1 }}</strong> / {{ activeSteps.length }} 步</div>
             <h2>{{ currentStepTitle }}</h2>
@@ -186,6 +187,8 @@
 </template>
 
 <script setup>
+import { normalizeRecipe, safeHistory } from '../services/recipeAdapter.js'
+import { readUserId } from '../services/recognitionDraft.js'
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import axios from 'axios'
 import {
@@ -218,6 +221,9 @@ const props = defineProps(['pendingDish'])
 const emit = defineEmits(['clear-pending'])
 const userInput = ref('')
 const loading = ref(false)
+const recipeError = ref('')
+const lastRecipePrompt = ref('')
+let recipeRequestVersion = 0, recipeController, pageActive = true
 const chatBox = ref(null)
 const recipeInput = ref(null)
 const messages = ref([])
@@ -563,7 +569,7 @@ const formatTime = (totalSeconds) => {
 const stepPercentage = computed(() => {
   if (!activeRecipe.value?.steps?.length) return 0
   const step = activeRecipe.value.steps[currentStepIdx.value]
-  const total = Math.max(step?.time_estimate || 60, 1)
+  const total = Math.max(step?.time_estimate || 0, 1)
   return Math.floor(((total - timeLeft.value) / total) * 100)
 })
 
@@ -671,8 +677,9 @@ const fetchHistory = async () => {
     const res = await axios.get(`${API_BASE_URL}/chat-history`, {
       params: { user_id: user.id }
     });
-    if (res.data && res.data.length > 0) {
-      messages.value = res.data;
+    if (!pageActive || readUserId() !== user.id || loading.value) return
+    if (Array.isArray(res.data) && res.data.length > 0) {
+      messages.value = safeHistory(res.data);
     } else {
       messages.value = [{ role: 'assistant', content: '你好！我是你的智能厨房助手。' }];
     }
@@ -704,55 +711,32 @@ watch(() => props.pendingDish, (newDish) => {
 }, { immediate: true })
 
 const sendMessage = async (val = null) => {
-  // 1. 获取文本并清空输入框
-  const text = (val && typeof val === 'string') ? val : userInput.value;
-  if (!text || !text.trim() || loading.value) return;
-
-  userInput.value = '';
-
-  // 2. 展示用户气泡
-  messages.value.push({ role: 'user', content: text });
-
-  // 3. 开启加载状态
-  loading.value = true;
-  await scrollToBottom();
-
+  const text=typeof val==='string'?val:userInput.value, requestedUser=readUserId()
+  if (!text?.trim() || !requestedUser) return
+  const version=++recipeRequestVersion
+  recipeController?.abort();recipeController=new AbortController()
+  lastRecipePrompt.value=text;recipeError.value='';loading.value=true
+  messages.value.push({role:'user',content:text})
   try {
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-
-    // 4. 发起标准的 Axios 请求 (不再使用 fetch 流)
-    const res = await axios.get(`${API_BASE_URL}/recommend-recipe`, {
-      params: {
-        user_prompt: text,
-        user_id: user.id,
-        save_history: true
-      }
-    });
-
-    if (res.data.status === 'success') {
-      const recipe = res.data.recipe;
-
-      // 5. 将 AI 回复推入列表
-      messages.value.push({
-        role: 'assistant',
-        content: `为你准备好了：${recipe.dish_name}`,
-        recipe: recipe,
-        missing: recipe.missing || []
-      });
-    } else {
-      messages.value.push({ role: 'assistant', content: res.data.message });
-    }
-  } catch (e) {
-    console.error("请求失败:", e);
-    messages.value.push({ role: 'assistant', content: '抱歉，连接服务器失败。' });
-  } finally {
-    loading.value = false; // 结束加载
-    await scrollToBottom();
-  }
-};
+    const res=await axios.get(`${API_BASE_URL}/recommend-recipe`,{params:{user_id:requestedUser,user_prompt:text,save_history:true},signal:recipeController.signal,timeout:45000})
+    if (!pageActive || version!==recipeRequestVersion || readUserId()!==requestedUser) return
+    if(res.data?.status!=='success')throw new Error(res.data?.message || '菜谱服务未返回成功结果')
+    const recipe=normalizeRecipe(res.data.recipe)
+    messages.value.push({role:'assistant',content:`为你准备好了：${recipe.dish_name}`,recipe,missing:recipe.missing})
+    if(userInput.value===text)userInput.value=''
+  } catch(error) {
+    if(pageActive && version===recipeRequestVersion && readUserId()===requestedUser && error.code!=='ERR_CANCELED') recipeError.value=error.code==='ECONNABORTED'?'菜谱请求超时，请重试':error.message || '菜谱请求失败'
+  } finally {if(version===recipeRequestVersion){loading.value=false;await scrollToBottom()}}
+}
+const recipeUserChanged = () => {
+  if(readUserId()!==userId){recipeRequestVersion++;recipeController?.abort();messages.value=[];recipeError.value='';loading.value=false;stopNavigation();navigationVisible.value=false}
+}
+onMounted(()=>window.addEventListener('storage',recipeUserChanged))
+onUnmounted(()=>{pageActive=false;recipeRequestVersion++;recipeController?.abort();window.removeEventListener('storage',recipeUserChanged)})
 
 // --- 导航与消耗逻辑 ---
 const startNavigation = (recipe) => {
+  try { recipe=normalizeRecipe(recipe) } catch(error) {recipeError.value=error.message;return}
   clearPreloadedVoice()
   activeRecipe.value = recipe
   currentStepIdx.value = 0
@@ -785,7 +769,7 @@ const runStep = async () => {
   voicePlaybackState.value = 'loading';
   console.log(`[Voice] runStep version=${requestVersion} step=${stepNumber}`);
 
-  timeLeft.value = Number(step.time_estimate) || 60;
+  timeLeft.value = Number(step.time_estimate) || 0;
   // Cooking time must continue even when the optional speech service fails.
   startStepTimer();
 

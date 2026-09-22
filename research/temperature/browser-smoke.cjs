@@ -8,7 +8,7 @@ const path = require('node:path')
  try {
  const context=await browser.newContext({viewport:{width:390,height:844},acceptDownloads:true})
  await context.addInitScript(()=>{
-   localStorage.setItem('user',JSON.stringify({id:987654,username:'Local test'}))
+   localStorage.setItem('user',JSON.stringify({id:'987654',username:'Local test'}))
    window.SpeechRecognition=undefined;window.webkitSpeechRecognition=undefined
  })
  const page=await context.newPage(), errors=[]
