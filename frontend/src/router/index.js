@@ -1,3 +1,5 @@
+import {LOCAL_TEST_MODE} from '../config/buildMode.js'
+import {localTestRuntime} from '../localtest/bootstrap.js'
 import { createRouter, createWebHashHistory } from 'vue-router'
 
 const routes = [
@@ -79,6 +81,7 @@ const router = createRouter({
 
 // 路由守卫保持不变...
 router.beforeEach((to, from, next) => {
+  if(LOCAL_TEST_MODE){localStorage.setItem('user',JSON.stringify(localTestRuntime.currentUser()));if(['/login','/register','/account-security'].includes(to.path))return next('/home')}
   const user = localStorage.getItem('user')
   if (to.meta.requiresAuth && !user) {
     next('/login')

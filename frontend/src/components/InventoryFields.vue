@@ -7,16 +7,17 @@
     <label>购买时间（本地，可未知） <input v-model="model.purchase_time" type="datetime-local" /></label>
     <label v-if="editing">入库时间（本地，可未知） <input v-model="model.add_time" type="datetime-local" /></label>
     <label>到期时间（本地，可未知） <input v-model="model.expiry_date" type="datetime-local" /></label>
-    <p v-if="!editing">留空代表未知；入库时间由服务器记录。</p>
+    <p v-if="!editing">{{ LOCAL_TEST_MODE ? '留空代表未知；本地测试版记录手机当前入库时间。' : '留空代表未知；入库时间由服务器记录。' }}</p>
     <template v-else>
       <p>原购买时间：{{ original.purchase_time || original.purchase_date || '未知' }}</p>
       <p>原到期时间：{{ original.expiry_date || '未知' }}</p>
-      <p>入库时间（服务端原值）：{{ original.add_time || '未知' }}</p>
+      <p>{{ LOCAL_TEST_MODE ? '入库时间（本地原值）：' : '入库时间（服务端原值）：' }}{{ original.add_time || '未知' }}</p>
       <p>只保存修改过的字段；清空代表未知。含旧字段的记录需先完成兼容处理。</p>
     </template>
   </fieldset>
 </template>
 <script setup>
+import {LOCAL_TEST_MODE} from '../config/buildMode.js'
 const model = defineModel({ required: true })
 defineProps({ editing: Boolean, disabled: Boolean, original: { type: Object, default: () => ({}) } })
 </script>

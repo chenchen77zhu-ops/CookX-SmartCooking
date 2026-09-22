@@ -111,7 +111,8 @@
       <aside class="fridge-tip"><el-icon><KnifeFork /></el-icon><span><strong>CookX 小贴士：</strong>定期清理过期食材，保持冰箱整洁；合理搭配食材，吃得健康又美味。</span></aside>
     </main>
 
-    <el-upload
+    <button v-if="LOCAL_TEST_MODE" class="recognize-fab" @click="loadRecognitionExample(router)">载入识别示例</button>
+    <el-upload v-if="!LOCAL_TEST_MODE"
       :action="`${API_BASE_URL}/analyze-fridge`"
       :before-upload="beforeRecognitionUpload"
       :on-progress="handleRecognitionProgress"
@@ -167,6 +168,8 @@
 </template>
 
 <script setup>
+import {loadRecognitionExample} from '../localtest/helpers.js'
+import {LOCAL_TEST_MODE} from '../config/buildMode.js'
 import { saveDraft, recognitionItem } from '../services/recognitionDraft.js'
 import InventoryFields from '../components/InventoryFields.vue'
 import InventoryWriteStatus from '../components/InventoryWriteStatus.vue'

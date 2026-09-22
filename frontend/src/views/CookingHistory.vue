@@ -1,6 +1,6 @@
 <template>
   <div class="profile-subpage">
-    <header class="subpage-hero"><div class="subpage-hero-inner"><div class="subpage-topbar"><button class="subpage-back" type="button" @click="router.back()"><el-icon><ArrowLeft /></el-icon></button><span class="subpage-brand">Cook<strong>X</strong></span></div><h1>烹饪与菜谱记录</h1><p>这里展示 AI 已为你生成过的真实菜谱，不代表已完成烹饪。</p></div></header>
+    <header class="subpage-hero"><div class="subpage-hero-inner"><div class="subpage-topbar"><button class="subpage-back" type="button" @click="router.back()"><el-icon><ArrowLeft /></el-icon></button><span class="subpage-brand">Cook<strong>X</strong></span></div><h1>烹饪与菜谱记录</h1><p>{{ LOCAL_TEST_MODE ? '本地预置演练记录，不代表真实 AI 生成或已完成烹饪。' : '这里展示 AI 已为你生成过的真实菜谱，不代表已完成烹饪。' }}</p></div></header>
     <main class="subpage-content">
       <section v-if="loading" class="subpage-card subpage-empty" v-loading="true"><h2>正在同步菜谱记录</h2></section>
       <section v-else-if="errorMessage" class="subpage-card subpage-empty"><span class="subpage-empty-icon"><el-icon><Warning /></el-icon></span><h2>暂时无法加载</h2><p>{{ errorMessage }}</p><button class="subpage-primary-button" type="button" @click="fetchHistory">重新加载</button></section>
@@ -16,6 +16,7 @@
 </template>
 
 <script setup>
+import {LOCAL_TEST_MODE} from '../config/buildMode.js'
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'

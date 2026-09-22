@@ -1,10 +1,11 @@
-﻿import { Capacitor } from '@capacitor/core'
+﻿import {LOCAL_TEST_MODE} from './buildMode.js'
+import { Capacitor } from '@capacitor/core'
 
 const NATIVE_BACKEND_BASE_URL = 'http://192.168.43.49:8000'
 const LOCAL_BACKEND_ORIGIN_PATTERN = /^https?:\/\/(?:127\.0\.0\.1|localhost):8000(?=\/|$)/i
 
 export const IS_NATIVE_APP = Capacitor.isNativePlatform()
-export const BACKEND_BASE_URL = IS_NATIVE_APP ? NATIVE_BACKEND_BASE_URL : ''
+export const BACKEND_BASE_URL = IS_NATIVE_APP && !LOCAL_TEST_MODE ? NATIVE_BACKEND_BASE_URL : ''
 export const API_BASE_URL = `${BACKEND_BASE_URL}/api`
 
 export const resolveBackendUrl = (url) => {

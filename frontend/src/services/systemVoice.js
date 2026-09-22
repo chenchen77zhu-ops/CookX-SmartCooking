@@ -1,3 +1,4 @@
+import {LOCAL_TEST_MODE} from '../config/buildMode.js'
 import { Capacitor, registerPlugin } from '@capacitor/core'
 const native=registerPlugin('CookingVoice')
 let recognition=null, generation=0, utterance=null, speechGeneration=0, speechListener=null
@@ -35,9 +36,9 @@ export async function speakSystem(text,onState=()=>{}) {
    try{await native.speak({text,id:String(own)});onState('playing')}catch(error){listener.remove();throw error}
    return
  }
- if(!window.speechSynthesis)throw new Error('系统播报不可用，可手动重试在线播报')
+ if(!window.speechSynthesis)throw new Error(LOCAL_TEST_MODE?'系统播报不可用，请使用文字或按钮':'系统播报不可用，可手动重试在线播报')
  const voices=window.speechSynthesis.getVoices().filter(v=>/^zh/i.test(v.lang))
- if(!voices.length)throw new Error('没有可用中文系统语音，可手动重试在线播报')
+ if(!voices.length)throw new Error(LOCAL_TEST_MODE?'请在手机安装中文系统语音，或使用文字和按钮':'没有可用中文系统语音，可手动重试在线播报')
  utterance=new SpeechSynthesisUtterance(text);utterance.lang='zh-CN';utterance.voice=voices[0]
  utterance.onend=()=>{if(own===speechGeneration)onState('idle')};utterance.onerror=()=>{if(own===speechGeneration)onState('error')}
  window.speechSynthesis.speak(utterance);onState('playing')

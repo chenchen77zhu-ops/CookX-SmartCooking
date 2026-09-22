@@ -6,7 +6,7 @@
       </button>
       <div class="brand-lockup"><span>Cook</span><strong>X</strong></div>
       <div class="hero-copy">
-        <span class="status-pill"><el-icon><CircleCheckFilled /></el-icon>AI 识别完成</span>
+        <span class="status-pill"><el-icon><CircleCheckFilled /></el-icon>{{ LOCAL_TEST_MODE ? '手动载入示例 · 未识别图片' : 'AI 识别完成' }}</span>
         <h1>识别结果确认</h1>
         <p>请确认识别出的食材及数量，必要时可修改后再加入冰箱</p>
       </div>
@@ -82,6 +82,7 @@
 </template>
 
 <script setup>
+import {LOCAL_TEST_MODE} from '../config/buildMode.js'
 import FreshnessCard from '../components/FreshnessCard.vue'
 import { loadDraft, saveDraft, clearDraft, readUserId } from '../services/recognitionDraft.js'
 import InventoryFields from '../components/InventoryFields.vue'

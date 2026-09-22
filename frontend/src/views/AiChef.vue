@@ -39,6 +39,7 @@
     </header>
 
     <main class="chef-content">
+      <section v-if="LOCAL_TEST_MODE" class="chef-state-card"><p>本地演练：输入任意文字会返回预置练习，未调用 AI。无需点火；可测试步骤、计时、调整和库存核对。</p><button @click="sendMessage('本地操作演练')" :disabled="loading">载入演练菜谱</button></section>
       <CookingCompletion v-if="completionVisible && session" :key="session.id" :session="session" :engine="cookingStore.engine" @changed="completionChanged" @close="completionVisible=false" />
       <button v-if="session?.status === 'completed' && !completionVisible" @click="completionVisible=true">查看完成与库存核对</button>
       <details class="device-diagnostics"><summary>设备状态与诊断</summary><p>{{ temperatureConnectionText }}；恢复页面后等待新测量。后台连续采集能力待真机验证。</p><button @click="openTemperatureDialog">扫描与连接设备</button><button @click="refreshDevice">重新核对设备状态</button><button @click="exportDeviceLog">导出设备诊断</button><p role="status">{{ deviceDiagnosticMessage }}</p></details>
@@ -74,7 +75,7 @@
             </div>
             <aside v-if="currentStepTip" class="step-tip"><el-icon><Bell /></el-icon><span><b>CookX 提醒</b>{{ currentStepTip }}</span></aside>
             <p v-if="voiceMessage" role="status">{{ voiceMessage }}</p>
-            <button type="button" @click="runCloudStep">重试在线播报</button>
+            <button v-if="!LOCAL_TEST_MODE" type="button" @click="runCloudStep">重试在线播报</button>
             <VoiceCommands @before-listen="silenceSpeech" @command="executeVoiceCommand" />
             <div class="timer-controls">
               <button @click="pauseTimer">暂停计时</button><button @click="resumeTimer">继续计时</button>
@@ -157,7 +158,7 @@
                   <div class="recipe-header"><div><span>COOKX RECIPE</span><h3>{{ msg.recipe.dish_name || '美味教程' }}</h3></div><button type="button" @click="startNavigation(msg.recipe)"><el-icon><Microphone /></el-icon>开始指导</button></div>
                   <div v-if="msg.recipe.ingredients_list?.length" class="ing-grid"><span v-for="(ing, i) in msg.recipe.ingredients_list" :key="i"><b>{{ ing.item }}</b>{{ ing.amount }}</span></div>
                   <div class="steps-preview"><p v-for="(step, sIdx) in msg.recipe.steps.slice(0, 3)" :key="sIdx"><i>{{ sIdx + 1 }}</i>{{ getStepText(step) }}</p></div>
-                  <div class="card-actions"><button type="button" @click="goToMarket"><el-icon><Location /></el-icon>买食材</button><button type="button" @click="orderDelivery(msg.recipe.dish_name)"><el-icon><Bicycle /></el-icon>点外卖</button></div>
+                  <div v-if="!LOCAL_TEST_MODE" class="card-actions"><button type="button" @click="goToMarket"><el-icon><Location /></el-icon>买食材</button><button type="button" @click="orderDelivery(msg.recipe.dish_name)"><el-icon><Bicycle /></el-icon>点外卖</button></div>
                 </article>
               </div>
             </div>
@@ -198,6 +199,7 @@
 </template>
 
 <script setup>
+import {LOCAL_TEST_MODE} from '../config/buildMode.js'
 import CookingReminders from '../components/CookingReminders.vue'
 import CookingCompletion from '../components/CookingCompletion.vue'
 import {reconcileTimer} from '../services/cookingNotifications.js'
@@ -991,7 +993,7 @@ onUnmounted(()=>document.removeEventListener('visibilitychange',foregroundVoice)
 const runStep = async () => {
   stopListening()
   const version=++voiceRequestVersion;stopCurrentAudio();voiceMessage.value='';voicePlaybackState.value='loading'
-  try{await speakSystem(`第${currentStepIdx.value+1}步：${currentStepText.value}`,state=>{if(version===voiceRequestVersion){voicePlaybackState.value=state==='error'?'idle':state;if(state==='error')voiceMessage.value='系统播报失败，可手动重试在线播报'}})}
+  try{await speakSystem(`第${currentStepIdx.value+1}步：${currentStepText.value}`,state=>{if(version===voiceRequestVersion){voicePlaybackState.value=state==='error'?'idle':state;if(state==='error')voiceMessage.value=LOCAL_TEST_MODE?'系统播报失败，请使用文字或按钮':'系统播报失败，可手动重试在线播报'}})}
   catch(error){if(version===voiceRequestVersion){voicePlaybackState.value='idle';voiceMessage.value=error.message}}
 }
 const executeVoiceCommand = command => {

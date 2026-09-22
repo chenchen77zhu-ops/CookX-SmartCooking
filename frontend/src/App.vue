@@ -1,6 +1,7 @@
 <template>
   <div class="app-container">
     <CookXSplash :visible="showNativeSplash" />
+    <LocalTestPanel v-if="LOCAL_TEST_MODE" />
     <!-- 1. 路由展示区域 -->
     <router-view v-slot="{ Component }">
       <transition name="fade" mode="out-in">
@@ -68,6 +69,8 @@
 </template>
 
 <script setup>
+import {LOCAL_TEST_MODE} from './config/buildMode.js'
+import LocalTestPanel from './localtest/LocalTestPanel.vue'
 import {initializeTemperatureDevice} from './services/temperatureDevice.js'
 onMounted(()=>initializeTemperatureDevice().catch(()=>{}))
 import {initializeNotifications} from './services/cookingNotifications.js'

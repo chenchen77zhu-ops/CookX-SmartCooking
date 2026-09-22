@@ -24,7 +24,7 @@
             <div class="hero-copy">
               <span class="hero-label">COOKX AI</span>
               <h2>CookX AI 智能推荐</h2>
-              <p>根据冰箱现有食材<br />为你生成今天最合适的菜谱</p>
+              <p><template v-if="LOCAL_TEST_MODE">本地预置操作演练<br />无需服务器，不生成真实菜谱</template><template v-else>根据冰箱现有食材<br />为你生成今天最合适的菜谱</template></p>
               <button class="hero-button" type="button" @click="openAiChef">
                 立即推荐 <el-icon><ArrowRight /></el-icon>
               </button>
@@ -76,7 +76,7 @@
             </div>
             <button class="expiry-row" type="button" @click="openInventory">
               <el-icon><AlarmClock /></el-icon>
-              <span v-if="expiringNames.length">建议优先食用：{{ expiringNames.join(' · ') }}</span>
+              <span v-if="expiringNames.length">{{ LOCAL_TEST_MODE ? '示例临期项（不作食用建议）：' : '建议优先食用：' }}{{ expiringNames.join(' · ') }}</span>
               <span v-else>{{ freshness.status === 'error' ? '鲜度暂不可用，请进入冰箱重试' : '暂无已评估的临期项；未知与过期项请查看冰箱详情' }}</span>
               <el-icon class="row-arrow"><ArrowRight /></el-icon>
             </button>
@@ -196,6 +196,7 @@
 </template>
 
 <script setup>
+import {LOCAL_TEST_MODE} from '../config/buildMode.js'
 import { getInventoryFreshness } from '../api/freshness.js'
 import { createFreshnessLoader, emptyFreshness } from '../services/inventoryFreshness.js'
 import { readUserId } from '../services/recognitionDraft.js'

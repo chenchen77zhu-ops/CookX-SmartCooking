@@ -45,12 +45,12 @@
           <span class="row-icon"><el-icon><Star /></el-icon></span><span class="row-copy"><b>我的收藏</b><small>查看我收藏的菜谱</small></span><el-icon class="row-arrow"><ArrowRight /></el-icon>
         </button>
         <button type="button" class="function-row" @click="openPage('/cooking-history')">
-          <span class="row-icon warm"><el-icon><Clock /></el-icon></span><span class="row-copy"><b>烹饪记录</b><small>查看真实 AI 菜谱生成记录</small></span><el-icon class="row-arrow"><ArrowRight /></el-icon>
+          <span class="row-icon warm"><el-icon><Clock /></el-icon></span><span class="row-copy"><b>烹饪记录</b><small>{{ LOCAL_TEST_MODE ? '查看本地演练记录' : '查看真实 AI 菜谱生成记录' }}</small></span><el-icon class="row-arrow"><ArrowRight /></el-icon>
         </button>
         <button type="button" class="function-row" @click="openPage('/preferences')">
           <span class="row-icon"><el-icon><Setting /></el-icon></span><span class="row-copy"><b>偏好设置</b><small>口味、辣度与食材禁忌</small></span><el-icon class="row-arrow"><ArrowRight /></el-icon>
         </button>
-        <button type="button" class="function-row" @click="openPage('/account-security')">
+        <button v-if="!LOCAL_TEST_MODE" type="button" class="function-row" @click="openPage('/account-security')">
           <span class="row-icon"><el-icon><Lock /></el-icon></span><span class="row-copy"><b>账号与安全</b><small>账号资料与注销管理</small></span><el-icon class="row-arrow"><ArrowRight /></el-icon>
         </button>
         <button type="button" class="function-row" @click="openNotificationDrawer">
@@ -61,7 +61,8 @@
         </button>
       </section>
 
-      <button type="button" class="logout-button" @click="handleLogout"><el-icon><SwitchButton /></el-icon>退出登录</button>
+      <p v-if="LOCAL_TEST_MODE">请在顶部测试工具切换或重置本地账号。</p>
+      <button v-if="!LOCAL_TEST_MODE" type="button" class="logout-button" @click="handleLogout"><el-icon><SwitchButton /></el-icon>退出登录</button>
       <p class="profile-brand-note">CookX · 感知每一度 · 智烹每一步</p>
     </main>
 
@@ -158,7 +159,7 @@
         <el-form-item label="头像">
           <div class="avatar-upload-section">
             <el-avatar :size="100" :src="getFullAvatarUrl(editForm.avatar)"><el-icon><UserFilled /></el-icon></el-avatar>
-            <el-upload
+            <el-upload v-if="!LOCAL_TEST_MODE"
               class="avatar-uploader"
               :auto-upload="false"
               :show-file-list="false"
@@ -196,6 +197,7 @@
 </template>
 
 <script setup>
+import {LOCAL_TEST_MODE} from '../config/buildMode.js'
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'

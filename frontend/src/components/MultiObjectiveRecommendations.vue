@@ -4,7 +4,7 @@
       <div>
         <span class="section-kicker">SMART RECOMMENDATION</span>
         <h2 id="smart-recommendations-title">智能菜谱推荐</h2>
-        <p>根据当前库存、食材临期情况和饮食偏好综合排序</p>
+        <p>{{ LOCAL_TEST_MODE ? '本地固定推荐示例，未执行推荐算法' : '根据当前库存、食材临期情况和饮食偏好综合排序' }}</p>
       </div>
       <button
         type="button"
@@ -20,7 +20,7 @@
     <p v-if="viewState === 'stale'" role="status">库存已变化，旧推荐已失效；等待库存刷新后重新推荐。</p>
     <div v-if="viewState === 'initial'" class="state-panel initial-state">
       <span class="state-icon"><el-icon><DataAnalysis /></el-icon></span>
-      <div><h3>从真实库存中寻找更合适的一餐</h3><p>算法只会推荐至少匹配一项安全关键食材的标准菜谱。</p></div>
+      <div><h3>{{ LOCAL_TEST_MODE ? '获取预置操作演练' : '从真实库存中寻找更合适的一餐' }}</h3><p>{{ LOCAL_TEST_MODE ? '用于演练页面衔接，不代表真实推荐效果。' : '算法只会推荐至少匹配一项安全关键食材的标准菜谱。' }}</p></div>
     </div>
 
     <div v-else-if="viewState === 'loading'" class="state-panel" role="status" aria-live="polite">
@@ -124,6 +124,7 @@
 </template>
 
 <script setup>
+import {LOCAL_TEST_MODE} from '../config/buildMode.js'
 import { onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Box, DataAnalysis, Refresh, User, WarningFilled } from '@element-plus/icons-vue'
@@ -240,7 +241,7 @@ const fetchRecommendations = async () => {
   }
 }
 
-const formatScore = value => Number.isFinite(Number(value)) ? Number(value).toFixed(2) : '--'
+const formatScore = value => LOCAL_TEST_MODE ? '示例' : Number.isFinite(Number(value)) ? Number(value).toFixed(2) : '--'
 const formatPercent = value => Number.isFinite(Number(value)) ? `${Math.round(Number(value) * 100)}%` : '数据不足'
 const metricLabel = key => metricLabels[key] || key
 const scoreMetrics = item => ['I', 'F', 'P', 'W', 'M'].map(key => {
