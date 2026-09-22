@@ -82,7 +82,7 @@
 <script setup>
 import InventoryFields from '../components/InventoryFields.vue'
 import InventoryWriteStatus from '../components/InventoryWriteStatus.vue'
-import { serializeItem } from '../services/inventoryFields.js'
+import { serializeItem, inventoryErrorMessage } from '../services/inventoryFields.js'
 import { saveInventory, hasPendingWrite } from '../api/inventoryWrites.js'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -232,7 +232,7 @@ const confirmSave = async () => {
     ElMessage.success('已重新读取库存并确认保存')
     router.push('/home?tab=Manage')
   } catch (error) {
-    saveError.value = error.response?.data?.message || error.message || '保存失败'
+    saveError.value = inventoryErrorMessage(error)
     pendingWrite.value = hasPendingWrite(userId)
   } finally { saving.value = false }
 }
