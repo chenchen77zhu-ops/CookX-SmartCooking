@@ -9,6 +9,8 @@ const path = require('node:path')
  const context=await browser.newContext({viewport:{width:390,height:844},acceptDownloads:true})
  await context.addInitScript(()=>{
    localStorage.setItem('user',JSON.stringify({id:'987654',username:'Local test'}))
+   // This suite tests fresh sessions; lifecycle flushes may persist on pagehide.
+   localStorage.removeItem('cookx:cooking:v1:987654')
    window.SpeechRecognition=undefined;window.webkitSpeechRecognition=undefined
  })
  const page=await context.newPage(), errors=[]

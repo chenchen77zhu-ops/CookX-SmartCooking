@@ -1003,6 +1003,10 @@ onUnmounted(cleanupTemperatureDevice)
 </script>
 
 <style scoped>
+.device-diagnostics{margin:12px 0;padding:16px;border:1px solid #dce6df;border-radius:16px;background:#fff;color:#315340;font-size:13px;line-height:1.7}
+.device-diagnostics summary{cursor:pointer;font-weight:600}
+.device-diagnostics button{min-height:42px;padding:8px 10px;margin:4px 4px 4px 0;border:1px solid #c7d6cb;border-radius:9px;background:#eff5f0;color:#284b37;font:inherit}
+
 .timer-controls { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0; }
 .timer-controls button,.timer-controls input { padding:8px; border:1px solid #cddbd3; border-radius:8px; background:#fff; color:#234c3b; }
 .timer-controls input { width:80px; }
