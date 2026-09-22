@@ -65,3 +65,13 @@ export function verifyMutation(transaction, after) {
     return count(after) - count(transaction.before) === quantity
   })
 }
+
+export function inventoryErrorMessage(error) {
+  const data = error?.response?.data
+  if (Array.isArray(data?.detail)) {
+    const labels = { name:'名称', quantity:'数量', purchase_time:'购买时间', expiry_date:'到期时间', shelf_life:'保质期', storage_type:'储存方式', add_time:'入库时间' }
+    return data.detail.map(issue => `${labels[issue.loc?.at(-1)] || issue.loc?.at(-1) || '字段'}：${issue.msg || '输入无效'}`).join('；')
+  }
+  if (typeof data?.detail === 'string') return data.detail
+  return data?.message || error?.message || '保存失败，请保留表单重试'
+}

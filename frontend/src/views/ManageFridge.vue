@@ -170,7 +170,7 @@
 import { saveDraft, recognitionItem } from '../services/recognitionDraft.js'
 import InventoryFields from '../components/InventoryFields.vue'
 import InventoryWriteStatus from '../components/InventoryWriteStatus.vue'
-import { blankItem, serializeItem } from '../services/inventoryFields.js'
+import { blankItem, serializeItem, inventoryErrorMessage } from '../services/inventoryFields.js'
 import { saveInventory, hasPendingWrite } from '../api/inventoryWrites.js'
 import FreshnessCard from '../components/FreshnessCard.vue'
 import { getInventoryFreshness } from '../api/freshness.js'
@@ -842,7 +842,7 @@ async function persistForm(editing) {
     await fetchInventory()
   } catch (error) {
     if (currentUserId.value === userId) {
-      saveError.value = error.response?.data?.message || error.message || '保存失败，请保留表单重试'
+      saveError.value = inventoryErrorMessage(error)
       pendingWrite.value = hasPendingWrite(userId)
     }
   } finally { saving.value = false }

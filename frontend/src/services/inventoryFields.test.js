@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { blankItem, serializeItem, isoFromLocal, localDateTime, verifyMutation } from './inventoryFields.js'
+import { blankItem, serializeItem, isoFromLocal, localDateTime, verifyMutation, inventoryErrorMessage } from './inventoryFields.js'
 test('unknown metadata is omitted, never defaulted',()=>{
  const data=serializeItem({...blankItem(),name:'牛肉'})
  assert.deepEqual(data,{name:'牛肉',quantity:1})
@@ -28,4 +28,9 @@ test('read-back verifies quantity and explicit dates even when backend merges re
  assert.equal(verifyMutation({before,payload:[item]},[{id:'a',...item,quantity:3,purchase_time:'2025-02-01T00:00:00Z'}]),false)
  assert.equal(verifyMutation({id:'a',payload:{quantity:4}},[{id:'a',quantity:3}]),false)
  assert.equal(verifyMutation({before:[],payload:[item,item]},[{...item,quantity:1}]),false)
+})
+
+test('API validation and missing-record messages remain actionable',()=>{
+ assert.match(inventoryErrorMessage({response:{data:{detail:[{loc:['body',0,'expiry_date'],msg:'must be later than add_time'}]}}}),/^到期时间：/)
+ assert.equal(inventoryErrorMessage({response:{data:{detail:'库存项目不存在'}}}),'库存项目不存在')
 })
