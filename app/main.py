@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from ultralytics import YOLO
 from PIL import Image
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 from datetime import datetime, timedelta
 # 导入你自己的服务模块
 from app.services.deepseek_service import get_recipe_suggestion
@@ -27,7 +27,11 @@ from app.services.recommendation_service import (
     filter_eligible_recipes, load_recipes, recommend_recipes,
     safe_inventory_names, validate_weights,
 )
-from app.services.freshness_service import calculate_freshfusion
+from app.services.freshness_service import (
+    calculate_freshfusion,
+    normalize_storage_type,
+    parse_datetime_safely,
+)
 from app.models.user import (
     create_user, authenticate_user, update_user, delete_user,
     find_user_by_username, find_user_by_phone, get_all_users
@@ -67,6 +71,137 @@ class FreshnessEvaluationRequest(BaseModel):
     shelf_life: Optional[float] = None
     expiry_date: Optional[str] = None
     storage_type: Optional[str] = None
+
+
+PURCHASE_TIME_FUTURE_TOLERANCE = timedelta(minutes=5)
+
+
+def _validated_inventory_quantity(value: Any) -> int:
+    if isinstance(value, bool):
+        raise ValueError("quantity必须为正整数")
+    try:
+        number = int(value)
+        numeric = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("quantity必须为正整数") from exc
+    if number <= 0 or not math.isfinite(numeric) or numeric != number:
+        raise ValueError("quantity必须为正整数")
+    return number
+
+
+def _validated_inventory_shelf_life(value: Any) -> Optional[float]:
+    if value is None:
+        return None
+    number = _finite_number(value)
+    if number is None or number <= 0:
+        raise ValueError("shelf_life必须为大于0的天数")
+    return int(number) if number.is_integer() else number
+
+
+def _validated_iso_datetime(field_name: str, value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    if not isinstance(value, str) or parse_datetime_safely(value) is None:
+        raise ValueError(f"{field_name}必须为合法ISO 8601时间")
+    return value
+
+
+def _validate_inventory_temporal_fields(values: Dict[str, Any]) -> Dict[str, Any]:
+    purchase = parse_datetime_safely(values.get("purchase_time"))
+    added = parse_datetime_safely(values.get("add_time"))
+    expiry = parse_datetime_safely(values.get("expiry_date"))
+    now = datetime.now(timezone.utc)
+    if purchase and purchase > now + PURCHASE_TIME_FUTURE_TOLERANCE:
+        raise ValueError("purchase_time不能明显晚于服务端当前时间")
+    if expiry and added and expiry <= added:
+        raise ValueError("expiry_date必须晚于add_time")
+    if expiry and purchase and expiry <= purchase:
+        raise ValueError("expiry_date必须晚于purchase_time")
+    return values
+
+
+class InventoryCreateItem(BaseModel):
+    model_config = {"extra": "allow"}
+
+    name: str = Field(..., min_length=1)
+    quantity: int = 1
+    add_time: Optional[str] = None
+    purchase_time: Optional[str] = None
+    shelf_life: Optional[float] = None
+    expiry_date: Optional[str] = None
+    storage_type: Optional[str] = None
+
+    @field_validator("quantity", mode="before")
+    @classmethod
+    def validate_quantity(cls, value):
+        return _validated_inventory_quantity(value)
+
+    @field_validator("shelf_life", mode="before")
+    @classmethod
+    def validate_shelf_life(cls, value):
+        return _validated_inventory_shelf_life(value)
+
+    @field_validator("add_time", "purchase_time", "expiry_date", mode="before")
+    @classmethod
+    def validate_time(cls, value, info):
+        return _validated_iso_datetime(info.field_name, value)
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_storage_alias(cls, values):
+        if not isinstance(values, dict):
+            return values
+        storage = values.get("storage_type") or values.get("storage_method") or values.get("storage")
+        if storage is not None:
+            if normalize_storage_type(storage) is None:
+                raise ValueError("storage_type不是项目支持的储存方式或兼容别名")
+            values = dict(values)
+            values["storage_type"] = storage
+        return values
+
+    @model_validator(mode="after")
+    def validate_time_relationships(self):
+        _validate_inventory_temporal_fields(self.model_dump())
+        return self
+
+
+class InventoryUpdateItem(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    name: Optional[str] = Field(None, min_length=1)
+    quantity: Optional[int] = None
+    add_time: Optional[str] = None
+    purchase_time: Optional[str] = None
+    shelf_life: Optional[float] = None
+    expiry_date: Optional[str] = None
+    storage_type: Optional[str] = None
+
+    @field_validator("quantity", mode="before")
+    @classmethod
+    def validate_quantity(cls, value):
+        return None if value is None else _validated_inventory_quantity(value)
+
+    @field_validator("shelf_life", mode="before")
+    @classmethod
+    def validate_shelf_life(cls, value):
+        return _validated_inventory_shelf_life(value)
+
+    @field_validator("add_time", "purchase_time", "expiry_date", mode="before")
+    @classmethod
+    def validate_time(cls, value, info):
+        return _validated_iso_datetime(info.field_name, value)
+
+    @field_validator("storage_type")
+    @classmethod
+    def validate_storage_type(cls, value):
+        if value is not None and normalize_storage_type(value) is None:
+            raise ValueError("storage_type不是项目支持的储存方式或兼容别名")
+        return value
+
+    @model_validator(mode="after")
+    def validate_time_relationships(self):
+        _validate_inventory_temporal_fields(self.model_dump(exclude_unset=True))
+        return self
 
 # 开启跨域
 app.add_middleware(
@@ -266,7 +401,14 @@ def get_inventory_batch_key(item):
         shelf_life = int(item["shelf_life"])
     except (TypeError, ValueError):
         return None
-    return name, added_date.isoformat(), _inventory_storage_method(item), shelf_life
+    return (
+        name,
+        added_date.isoformat(),
+        _inventory_storage_method(item),
+        shelf_life,
+        item.get("purchase_time") or item.get("purchase_date"),
+        item.get("expiry_date"),
+    )
 
 
 def _finite_number(value):
@@ -323,6 +465,7 @@ def merge_duplicate_inventory_batches(items):
     protected_fields = {
         "id", "name", "quantity", "add_time", "shelf_life",
         "storage_method", "storage_type", "storage",
+        "purchase_time", "purchase_date", "expiry_date",
         *MERGEABLE_INVENTORY_MEASUREMENTS,
     }
 
@@ -349,7 +492,7 @@ def merge_duplicate_inventory_batches(items):
 
 def merge_inventory_items(inventory_data, items, current_time=None):
     """新增库存与历史数据共用同一批次 key 和归并函数。"""
-    batch_time = current_time or datetime.now()
+    batch_time = current_time or datetime.now(timezone.utc)
 
     for incoming in items:
         name = normalize_inventory_name(incoming.get("name", "未知"))
@@ -357,11 +500,12 @@ def merge_inventory_items(inventory_data, items, current_time=None):
             continue
 
         incoming_quantity = int(incoming.get("quantity", 1))
+        generated_add_time = batch_time.isoformat().replace("+00:00", "Z")
         new_item = {
             "id": str(uuid.uuid4())[:8],
             "name": name,
             "quantity": incoming_quantity,
-            "add_time": batch_time.isoformat(),
+            "add_time": incoming.get("add_time") or generated_add_time,
         }
         storage_type = incoming.get("storage_method") or incoming.get("storage_type") or incoming.get("storage")
         if storage_type is not None and str(storage_type).strip():
@@ -373,6 +517,7 @@ def merge_inventory_items(inventory_data, items, current_time=None):
         for traceable_field in ("purchase_time", "purchase_date", "expiry_date", "visual_freshness"):
             if incoming.get(traceable_field) is not None:
                 new_item[traceable_field] = incoming[traceable_field]
+        _validate_inventory_temporal_fields(new_item)
         for field in MERGEABLE_INVENTORY_MEASUREMENTS:
             value = _finite_number(incoming.get(field))
             if value is not None:
@@ -407,9 +552,15 @@ def _write_inventory_atomic(path, data):
             os.remove(temp_path)
 
 
+def _require_existing_user(user_id: str) -> None:
+    if not any(str(user.get("id")) == str(user_id) for user in get_all_users()):
+        raise HTTPException(status_code=404, detail="用户不存在")
+
+
 @app.post("/api/add-to-inventory")
-async def add_to_inventory(items: List[dict], user_id: str = Query(...)):
+async def add_to_inventory(items: List[InventoryCreateItem], user_id: str = Query(...)):
     """正式入库：按用户隔离，并强制补全日期"""
+    _require_existing_user(user_id)
     try:
         # 1. 获取该用户的专属路径
         path = get_user_path(user_id, "inventory.json")
@@ -424,7 +575,10 @@ async def add_to_inventory(items: List[dict], user_id: str = Query(...)):
                     inventory_data = []
 
         # 3. 同一用户的同日、同名食材在写入时合并
-        inventory_data = merge_inventory_items(inventory_data, items)
+        inventory_data = merge_inventory_items(
+            inventory_data,
+            [item.model_dump(exclude_none=True) for item in items],
+        )
 
         # 4. 原子写入当前用户的库存文件
         _write_inventory_atomic(path, inventory_data)
@@ -432,9 +586,11 @@ async def add_to_inventory(items: List[dict], user_id: str = Query(...)):
         print(f"用户 {user_id} 成功存入 {len(items)} 件食材到 {path}")
         return {"status": "success", "message": "已存入冰箱"}
 
-    except Exception as e:
+    except HTTPException:
+        raise
+    except (OSError, json.JSONDecodeError, ValueError, TypeError) as e:
         print(f"存入失败报错: {e}")
-        return {"status": "error", "message": str(e)}
+        raise HTTPException(status_code=422, detail=str(e)) from e
 
 
 @app.post("/api/analyze-fridge")
@@ -792,8 +948,8 @@ async def consume_ingredients(used_items: List[str], user_id: str):
 
 @app.get("/api/inventory")
 async def get_inventory(user_id: str):  # ✅ 必须有这个参数
-    # 核心：去用户专属文件夹找 inventory.json
-    path = get_user_path(user_id, "inventory.json")
+    _require_existing_user(user_id)
+    path = os.path.join(USER_DATA_BASE, str(user_id), "inventory.json")
 
     if not os.path.exists(path):
         return []
@@ -802,27 +958,20 @@ async def get_inventory(user_id: str):  # ✅ 必须有这个参数
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
-        # Do not fabricate a shelf life for legacy rows. Missing values remain
-        # explicit so FreshFusion can return data-unavailable instead of a false score.
-        merged_data = merge_duplicate_inventory_batches(data)
-        if merged_data != data:
-            _write_inventory_atomic(path, merged_data)
-            merged_count = len(data) - len(merged_data)
-            print(f"用户 {user_id} 的历史库存已规范化，归并 {merged_count} 条重复批次")
-        return merged_data
-    except Exception as e:
+        return data if isinstance(data, list) else []
+    except (OSError, json.JSONDecodeError) as e:
         print(f"读取失败: {e}")
-        return []
+        raise HTTPException(status_code=500, detail="用户库存数据无法读取") from e
 
 
 @app.delete("/api/inventory/{item_id}")
 async def delete_item(item_id: str, user_id: str):  # ✅ 确保接收这两个参数
+    _require_existing_user(user_id)
     try:
-        # 1. 获取专属路径
-        path = get_user_path(user_id, "inventory.json")
+        path = os.path.join(USER_DATA_BASE, str(user_id), "inventory.json")
 
         if not os.path.exists(path):
-            return {"status": "error", "message": "库存文件不存在"}
+            raise HTTPException(status_code=404, detail="库存项目不存在")
 
         # 2. 读取数据
         with open(path, "r", encoding="utf-8") as f:
@@ -835,48 +984,52 @@ async def delete_item(item_id: str, user_id: str):  # ✅ 确保接收这两个�
 
         # 4. 只有确实删除了才写文件（优化性能）
         if len(new_data) < original_count:
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump(new_data, f, ensure_ascii=False, indent=4)
+            _write_inventory_atomic(path, new_data)
             print(f"用户 {user_id} 删除了食材 {item_id}")
             return {"status": "success"}
         else:
-            return {"status": "error", "message": "未找到该食材记录"}
+            raise HTTPException(status_code=404, detail="库存项目不存在")
 
-    except Exception as e:
+    except HTTPException:
+        raise
+    except (OSError, json.JSONDecodeError) as e:
         print(f"删除失败: {e}")
-        return {"status": "error", "message": str(e)}
+        raise HTTPException(status_code=500, detail="用户库存数据无法读取") from e
 
 
 @app.put("/api/inventory/{item_id}")
-async def update_item(item_id: str, item_data: dict, user_id: str):
+async def update_item(item_id: str, item_data: InventoryUpdateItem, user_id: str):
+    _require_existing_user(user_id)
+    path = os.path.join(USER_DATA_BASE, str(user_id), "inventory.json")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="库存项目不存在")
     try:
-        path = get_user_path(user_id, "inventory.json")
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
+        updates = item_data.model_dump(exclude_unset=True)
         found = False
         for item in data:
             if str(item["id"]) == str(item_id):
-                # 1. 更新名称和数量
-                if "name" in item_data: item["name"] = item_data["name"]
-                if "quantity" in item_data: item["quantity"] = int(item_data["quantity"])
-                if "storage_type" in item_data: item["storage_type"] = item_data["storage_type"]
-
-                # ✅ 核心修复：必须明确包含 shelf_life 字段的写入
-                if "shelf_life" in item_data:
-                    item["shelf_life"] = int(item_data["shelf_life"])
-
+                candidate = {**item, **updates}
+                _validate_inventory_temporal_fields(candidate)
+                if "name" in updates:
+                    updates["name"] = normalize_inventory_name(updates["name"])
+                item.update(updates)
                 found = True
                 break
 
-        if not found: return {"status": "error", "message": "未找到记录"}
+        if not found:
+            raise HTTPException(status_code=404, detail="库存项目不存在")
 
-        # 写入文件
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=4)
+        _write_inventory_atomic(path, data)
         return {"status": "success"}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    except (OSError, json.JSONDecodeError) as e:
+        raise HTTPException(status_code=500, detail="用户库存数据无法读取") from e
 
 
 @app.get("/api/tts")
