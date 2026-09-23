@@ -7,7 +7,7 @@ import shutil
 import tempfile
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from collections import Counter
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Request
 from fastapi import Response
@@ -202,6 +202,14 @@ class InventoryUpdateItem(BaseModel):
     def validate_time_relationships(self):
         _validate_inventory_temporal_fields(self.model_dump(exclude_unset=True))
         return self
+
+
+class ConfirmRecognitionRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    user_id: str = Field(..., min_length=1)
+    confirmed: Literal[True]
+    items: List[InventoryCreateItem] = Field(..., min_length=1)
 
 # 开启跨域
 app.add_middleware(
@@ -557,6 +565,51 @@ def _require_existing_user(user_id: str) -> None:
         raise HTTPException(status_code=404, detail="用户不存在")
 
 
+def _public_freshfusion_result(item: Dict[str, Any], evaluated_at: datetime) -> Dict[str, Any]:
+    public_item = dict(item)
+    public_item.pop("visual_freshness", None)
+    detail = calculate_freshfusion(public_item, reference_time=evaluated_at)
+    public_visual_note = "当前尚无服务端可信视觉鲜度结果，V未参与融合。"
+    detail["data_quality_notes"] = list(dict.fromkeys([
+        *detail["data_quality_notes"], public_visual_note,
+    ]))
+    return detail
+
+
+def _confirmed_inventory_records(
+    inventory: List[Dict[str, Any]],
+    incoming_items: List[Dict[str, Any]],
+    evaluated_at: datetime,
+) -> List[Dict[str, Any]]:
+    generated_add_time = evaluated_at.isoformat().replace("+00:00", "Z")
+    confirmed = []
+    seen_ids = set()
+    for incoming in incoming_items:
+        probe = {
+            **incoming,
+            "name": normalize_inventory_name(incoming.get("name")),
+            "add_time": incoming.get("add_time") or generated_add_time,
+        }
+        batch_key = get_inventory_batch_key(probe)
+        matches = [
+            item for item in inventory
+            if (
+                get_inventory_batch_key(item) == batch_key
+                if batch_key is not None
+                else normalize_inventory_name(item.get("name")) == probe["name"]
+                and item.get("add_time") == probe["add_time"]
+            )
+        ]
+        if not matches:
+            raise ValueError("无法定位确认入库后的库存记录")
+        matched = matches[0]
+        item_id = str(matched.get("id"))
+        if item_id not in seen_ids:
+            confirmed.append(matched)
+            seen_ids.add(item_id)
+    return confirmed
+
+
 @app.post("/api/add-to-inventory")
 async def add_to_inventory(items: List[InventoryCreateItem], user_id: str = Query(...)):
     """正式入库：按用户隔离，并强制补全日期"""
@@ -591,6 +644,65 @@ async def add_to_inventory(items: List[InventoryCreateItem], user_id: str = Quer
     except (OSError, json.JSONDecodeError, ValueError, TypeError) as e:
         print(f"存入失败报错: {e}")
         raise HTTPException(status_code=422, detail=str(e)) from e
+
+
+@app.post("/api/inventory/confirm-recognition")
+async def confirm_recognized_inventory(request: ConfirmRecognitionRequest):
+    """Persist user-confirmed candidates, then return real-time FreshFusion results."""
+    _require_existing_user(request.user_id)
+    path = os.path.join(USER_DATA_BASE, request.user_id, "inventory.json")
+    try:
+        inventory: List[Dict[str, Any]] = []
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as inventory_file:
+                loaded = json.load(inventory_file)
+            if not isinstance(loaded, list):
+                raise ValueError("inventory must be an array")
+            inventory = loaded
+
+        evaluated_at = datetime.now(timezone.utc)
+        evaluated_at_iso = evaluated_at.isoformat().replace("+00:00", "Z")
+        incoming_items = [item.model_dump(exclude_none=True) for item in request.items]
+        updated_inventory = merge_inventory_items(
+            inventory,
+            incoming_items,
+            current_time=evaluated_at,
+        )
+        confirmed_records = _confirmed_inventory_records(
+            updated_inventory,
+            incoming_items,
+            evaluated_at,
+        )
+        confirmed_items = []
+        for record in confirmed_records:
+            detail = _public_freshfusion_result(record, evaluated_at)
+            confirmed_items.append({
+                "item_id": record.get("id"),
+                "ingredient_name": record.get("name"),
+                "inventory_item": dict(record),
+                "evaluated_at": evaluated_at_iso,
+                **detail,
+            })
+
+        # Evaluation completes before the single atomic write. If it fails, no
+        # inventory mutation is committed and no false success is returned.
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        _write_inventory_atomic(path, updated_inventory)
+        return {
+            "status": "success",
+            "user_id": request.user_id,
+            "evaluated_at": evaluated_at_iso,
+            "confirmed_count": len(confirmed_items),
+            "confirmed_items": confirmed_items,
+        }
+    except HTTPException:
+        raise
+    except (json.JSONDecodeError, OSError) as exc:
+        raise HTTPException(status_code=500, detail="用户库存数据无法读取或写入") from exc
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="鲜度评估失败，库存未写入") from exc
 
 
 @app.post("/api/analyze-fridge")
@@ -786,9 +898,7 @@ async def evaluate_freshness(request: FreshnessEvaluationRequest):
     evaluated_at = datetime.now(timezone.utc)
     payload = request.model_dump(exclude_none=True)
     payload["name"] = payload.pop("ingredient_name")
-    result = calculate_freshfusion(payload, reference_time=evaluated_at)
-    public_visual_note = "当前尚无服务端可信视觉鲜度结果，V未参与融合。"
-    result["data_quality_notes"] = list(dict.fromkeys([*result["data_quality_notes"], public_visual_note]))
+    result = _public_freshfusion_result(payload, evaluated_at)
     return {"evaluated_at": evaluated_at.isoformat().replace("+00:00", "Z"), **result}
 
 
@@ -814,13 +924,9 @@ async def evaluate_inventory_freshness(user_id: str, request: Request):
 
     evaluated_at = datetime.now(timezone.utc)
     evaluated_at_iso = evaluated_at.isoformat().replace("+00:00", "Z")
-    public_visual_note = "当前尚无服务端可信视觉鲜度结果，V未参与融合。"
     evaluated = []
     for item in inventory:
-        public_item = dict(item)
-        public_item.pop("visual_freshness", None)
-        detail = calculate_freshfusion(public_item, reference_time=evaluated_at)
-        detail["data_quality_notes"] = list(dict.fromkeys([*detail["data_quality_notes"], public_visual_note]))
+        detail = _public_freshfusion_result(item, evaluated_at)
         evaluated.append({"item_id": item.get("id"), "name": item.get("name"), **detail})
     return {
         "algorithm_version": "freshfusion_v1",

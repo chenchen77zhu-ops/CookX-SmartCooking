@@ -316,3 +316,145 @@ V 需要服务端可追溯的视觉结果，包括来源、模型版本、观测
 5. 展示 `freshness_label`、`confidence_level`、`risk_flags` 和 `data_quality_notes`；`null` 分量显示“数据不足”，不要显示为 0。
 6. `expired` 为最高优先级硬状态；不得用颜色或其他分量把过期项显示成新鲜。
 7. 不向 FreshFusion HTTP 接口发送 `reference_time` 或 `visual_freshness`，也不要尝试从库存 `add_time` 推导或覆盖 `evaluated_at`。
+
+## 12. A4 识别确认鲜度推荐联动流程
+
+### 12.1 可信边界
+
+`POST /api/analyze-fridge` 只负责返回名称和数量候选，不写入用户库存。识别结果中的名称可能来自本地 YOLO 或 Qwen，因此必须由用户确认；识别端不得生成 `purchase_time`、`add_time`、`shelf_life`、`expiry_date`、`storage_type` 或可信视觉鲜度。
+
+为保持旧客户端兼容，识别响应目前仍可能包含 `freshness` 和 `freshness_detail`。该详情只会明确返回“数据不足”，T、V、S、H 均无可用数据，不能当作确认后的库存鲜度。Qwen 图片描述不构成可信 V，确认接口也会移除任何 `visual_freshness` 输入。V 与 H 继续为 unavailable。
+
+推荐调用顺序：
+
+1. 调用 `/api/analyze-fridge` 获得候选。
+2. 用户确认名称、数量和真实库存字段；空结果或未确认时停止。
+3. 调用 `/api/inventory/confirm-recognition`。
+4. 使用响应中的 `item_id`、`inventory_item` 和 FreshFusion 字段更新库存与鲜度展示。
+5. 调用 `/api/recommendations` 刷新多目标推荐。
+
+确认接口不调用 YOLO、Qwen、DeepSeek、TTS 或硬件，也不在同一请求中生成推荐。
+
+### 12.2 确认识别并入库
+
+```http
+POST /api/inventory/confirm-recognition
+Content-Type: application/json
+```
+
+```json
+{
+  "user_id": "abc123",
+  "confirmed": true,
+  "items": [
+    {
+      "name": "番茄",
+      "quantity": 2,
+      "purchase_time": "2026-09-20T08:00:00Z",
+      "add_time": "2026-09-20T09:00:00Z",
+      "shelf_life": 4,
+      "expiry_date": "2026-09-24T09:00:00Z",
+      "storage_type": "常温"
+    }
+  ]
+}
+```
+
+`confirmed` 必须为 `true`，`items` 至少包含一项。嵌套库存对象直接复用 A3 的 `InventoryCreateItem` 校验，因此时间、保质期、数量、到期关系和储存别名规则与 `/api/add-to-inventory` 相同。
+
+同一批请求先整体完成 Pydantic 校验，再在内存中归并重复批次，使用同一个服务端 UTC 时间完成 FreshFusion 评估，最后只进行一次原子写入。任一输入或鲜度评估失败时，整批不写入。
+
+成功响应：
+
+```json
+{
+  "status": "success",
+  "user_id": "abc123",
+  "evaluated_at": "2026-09-22T12:00:00Z",
+  "confirmed_count": 1,
+  "confirmed_items": [
+    {
+      "item_id": "a1b2c3d4",
+      "ingredient_name": "西红柿",
+      "inventory_item": {
+        "id": "a1b2c3d4",
+        "name": "西红柿",
+        "quantity": 2,
+        "add_time": "2026-09-20T09:00:00Z",
+        "purchase_time": "2026-09-20T08:00:00Z",
+        "shelf_life": 4,
+        "expiry_date": "2026-09-24T09:00:00Z",
+        "storage_type": "常温"
+      },
+      "evaluated_at": "2026-09-22T12:00:00Z",
+      "algorithm_version": "freshfusion_v1",
+      "fresh_score": 63.33,
+      "freshness_level": "good",
+      "freshness_label": "状态良好",
+      "component_scores": {"T": 0.5, "V": null, "S": 1.0, "H": null},
+      "effective_weights": {"T": 0.733333, "S": 0.266667},
+      "unavailable_components": ["V", "H"],
+      "confidence_score": 0.7,
+      "confidence_level": "medium",
+      "expired": false,
+      "critical": false,
+      "expiring_soon": false,
+      "risk_flags": [],
+      "reasons": ["时间鲜度T=0.50", "命中tomato类别的room_temperature储存规则：推荐储存方式", "暂无可靠视觉鲜度输入"],
+      "data_quality_notes": ["暂无可靠视觉鲜度输入", "当前温度传感器用于烹饪锅温感知，不代表食材储存环境温度，因此未参与鲜度融合。", "当前尚无服务端可信视觉鲜度结果，V未参与融合。"],
+      "time_details": {"status": "valid", "start_time": "2026-09-20T08:00:00+00:00", "expiry_time": "2026-09-24T09:00:00+00:00"},
+      "storage_details": {"score": 1.0, "status": "recommended", "storage_type": "room_temperature", "category": "tomato", "match_type": "category_rule", "reason": "命中tomato类别的room_temperature储存规则：推荐储存方式"},
+      "visual_details": null,
+      "disclaimer": "结果为基于现有数据的辅助判断，不能替代专业食品安全检测。"
+    }
+  ]
+}
+```
+
+实际响应还包含现有 FreshFusion 的 `confidence_reasons` 字段。`confirmed_items[*].evaluated_at` 与顶层 `evaluated_at` 在同一批次中完全相同。
+
+相同名称、自然日、储存方式、保质期、购买时间和到期时间的重复项沿用既有库存 ID 并合并数量；响应按唯一 `item_id` 返回一次。不同批次不会被错误合并。
+
+### 12.3 推荐刷新
+
+确认成功后单独请求：
+
+```json
+{
+  "user_id": "abc123",
+  "top_k": 5
+}
+```
+
+发送至 `POST /api/recommendations`。推荐服务立即读取最新库存：
+
+- 时间信息有效时，F 使用 `urgency = 1 - T`。
+- 临期且未过期的安全食材会进入 `expiring_ingredients_used`，并参与 W 的库存利用计算；推荐理由使用“临期但未过期”等有限描述。
+- 已过期批次不参与安全匹配、候选资格或临期利用。
+- 缺少真实时间信息时 F 为 `null` 并出现在 `unavailable_components`，其余可用权重正常重新归一化。
+- 推荐总分公式、默认权重、缺失惩罚和候选资格规则未因 A4 改变。
+
+入库前没有安全关键食材时的现有响应：
+
+```json
+{"algorithm_version":"multi_objective_v1","user_id":"abc123","status":"inventory_required","eligible_recipe_count":0,"recommendations":[]}
+```
+
+只有基础调料或没有匹配菜谱时返回现有等价状态：
+
+```json
+{"algorithm_version":"multi_objective_v1","user_id":"abc123","status":"no_eligible_recipes","eligible_recipe_count":0,"recommendations":[]}
+```
+
+### 12.4 错误和状态处理
+
+- 空识别：`/api/analyze-fridge` 返回空 `detected`，前端不得调用确认接口。
+- 未确认、空 `items` 或非法库存字段：确认接口返回 FastAPI 标准 HTTP 422，且不写库存。
+- 用户不存在：HTTP 404 `{"detail":"用户不存在"}`，不会创建孤立用户目录。
+- FreshFusion 意外失败：HTTP 500 `{"detail":"鲜度评估失败，库存未写入"}`。
+- 库存读写失败：HTTP 500 `{"detail":"用户库存数据无法读取或写入"}`。
+- 数据不足：确认仍可成功；FreshFusion 明确返回不可用分量，不伪造 0 分。
+- 已过期：确认结果的 `freshness_level` 为 `expired`，后续推荐不会把该批次视为安全候选。
+- 推荐计算失败不会删除或回滚已经确认保存的库存；前端可以稍后重试 `/api/recommendations`。
+
+人员二接入时不要把识别候选直接提交为可信库存；必须显示确认表单，并只提交用户实际确认的字段。不要从识别类别推导储存方式，不要自动补 7 天，不要向公共接口发送 `reference_time` 或 `visual_freshness`。
