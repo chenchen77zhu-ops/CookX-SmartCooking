@@ -14,10 +14,12 @@ from app.services.freshness_service import calculate_time_freshness
 ALGORITHM_VERSION = "multi_objective_v1"
 COST_ALGORITHM_VERSION = "multi_objective_v2"
 DIFFICULTY_ALGORITHM_VERSION = "multi_objective_v3"
+NUTRITION_ALGORITHM_VERSION = "multi_objective_v4"
 COST_CURRENCY = "CNY"
-DEFAULT_WEIGHTS = {"I": 0.35, "F": 0.25, "P": 0.20, "W": 0.20, "B": 0.15, "D": 0.10}
+DEFAULT_WEIGHTS = {"I": 0.35, "F": 0.25, "P": 0.20, "W": 0.20, "B": 0.15, "D": 0.10, "N": 0.10}
 DEFAULT_MISSING_PENALTY = 0.15
-POSITIVE_COMPONENTS = ("I", "F", "P", "W", "B", "D")
+POSITIVE_COMPONENTS = ("I", "F", "P", "W", "B", "D", "N")
+NUTRITION_DISCLAIMER = "营养评分仅基于现有结构化数据和用户目标进行辅助比较，不能替代营养师或医疗建议。"
 BASIC_SEASONINGS = {
     "盐", "食用油", "油", "水", "清水", "生抽", "老抽", "酱油", "醋", "白糖", "糖",
     "料酒", "淀粉", "胡椒粉", "花椒", "葱", "大葱", "小葱", "姜", "生姜", "蒜", "大蒜",
@@ -51,6 +53,13 @@ DIFFICULTY_ALIASES = {
     "hard": "hard", "困难": "hard", "较难": "hard",
 }
 DIFFICULTY_LABELS = {"easy": "简单", "medium": "中等", "hard": "困难"}
+NUTRITION_TARGETS = {
+    "max_calories_kcal": ("calories_kcal", "max", "热量上限"),
+    "min_protein_g": ("protein_g", "min", "蛋白质下限"),
+    "max_fat_g": ("fat_g", "max", "脂肪上限"),
+    "max_carbohydrates_g": ("carbohydrates_g", "max", "碳水化合物上限"),
+}
+NUTRITION_METRICS = tuple(details[0] for details in NUTRITION_TARGETS.values())
 
 
 def clamp(value: float) -> float:
@@ -76,6 +85,65 @@ def calculate_difficulty_match(recipe_difficulty: Any, difficulty_target: Any) -
     if recipe_level is None or target_level is None:
         return None
     return clamp(1 - abs(DIFFICULTY_LEVELS[recipe_level] - DIFFICULTY_LEVELS[target_level]))
+
+
+def _strict_number(value: Any, *, positive: bool = False) -> Optional[float]:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    result = float(value)
+    if not math.isfinite(result) or result < 0 or (positive and result <= 0):
+        return None
+    return result
+
+
+def score_max_nutrition(value: Any, limit: Any) -> Optional[float]:
+    value_number = _strict_number(value)
+    limit_number = _strict_number(limit, positive=True)
+    if value_number is None or limit_number is None:
+        return None
+    return 1.0 if value_number == 0 else clamp(min(1.0, limit_number / value_number))
+
+
+def score_min_nutrition(value: Any, goal: Any) -> Optional[float]:
+    value_number = _strict_number(value)
+    goal_number = _strict_number(goal, positive=True)
+    if value_number is None or goal_number is None:
+        return None
+    return clamp(value_number / goal_number)
+
+
+def validate_recipe_nutrition(value: Any) -> Optional[Dict[str, Any]]:
+    """Return only explicit, valid per-serving nutrition fields."""
+    if not isinstance(value, dict) or value.get("basis") != "per_serving":
+        return None
+    validated: Dict[str, Any] = {"basis": "per_serving"}
+    for metric in NUTRITION_METRICS:
+        number = _strict_number(value.get(metric))
+        if number is not None:
+            validated[metric] = number
+    return validated
+
+
+def calculate_nutrition_match(
+    recipe_nutrition: Any, nutrition_target: Any,
+) -> Tuple[Optional[float], Dict[str, float]]:
+    validated = validate_recipe_nutrition(recipe_nutrition)
+    if validated is None or not isinstance(nutrition_target, dict):
+        return None, {}
+    component_scores: Dict[str, float] = {}
+    for target_key, (metric, direction, _) in NUTRITION_TARGETS.items():
+        target = _strict_number(nutrition_target.get(target_key), positive=True)
+        if target is None or metric not in validated:
+            continue
+        score = (
+            score_max_nutrition(validated[metric], target)
+            if direction == "max" else score_min_nutrition(validated[metric], target)
+        )
+        if score is not None:
+            component_scores[target_key] = score
+    if not component_scores:
+        return None, {}
+    return clamp(sum(component_scores.values()) / len(component_scores)), component_scores
 
 
 def load_recipes(path: Optional[Path] = None) -> List[Dict[str, Any]]:
@@ -221,6 +289,46 @@ def _difficulty_details(
     }
 
 
+def _nutrition_details(
+    recipe: Dict[str, Any], preferences: Dict[str, Any], configured_weight: float,
+) -> Dict[str, Any]:
+    raw_target = preferences.get("nutrition_target")
+    target = {
+        key: number
+        for key in NUTRITION_TARGETS
+        if (number := _strict_number(
+            raw_target.get(key) if isinstance(raw_target, dict) else None, positive=True,
+        )) is not None
+    }
+    raw_nutrition = recipe.get("nutrition")
+    base = {
+        "nutrition_target": target or None,
+        "recipe_nutrition": None,
+        "nutrition_basis": None,
+        "component_scores": {},
+        "disclaimer": NUTRITION_DISCLAIMER,
+    }
+    if not target:
+        return {**base, "score": None, "status": "target_unavailable", "notes": ["未提供明确数值nutrition_target，N不参与评分"]}
+    if not isinstance(raw_nutrition, dict):
+        return {**base, "score": None, "status": "recipe_nutrition_unavailable", "notes": ["菜谱缺少可靠结构化营养数据，未推测营养值"]}
+    if raw_nutrition.get("basis") != "per_serving":
+        return {**base, "score": None, "status": "basis_unavailable", "notes": ["菜谱营养口径不是明确的per_serving，未进行单位或份量换算"]}
+    validated = validate_recipe_nutrition(raw_nutrition)
+    score, component_scores = calculate_nutrition_match(raw_nutrition, target)
+    populated = {
+        **base,
+        "recipe_nutrition": validated,
+        "nutrition_basis": "per_serving",
+        "component_scores": component_scores,
+    }
+    if score is None:
+        return {**populated, "score": None, "status": "no_comparable_metrics", "notes": ["用户目标与菜谱可靠营养字段之间没有可比较项目"]}
+    if configured_weight <= 0:
+        return {**populated, "score": score, "status": "disabled_by_weight", "notes": ["N原始权重为0，营养适配度不参与总分"]}
+    return {**populated, "score": score, "status": "available", "notes": ["仅按每份结构化营养数据与用户明确数值目标计算；不构成医疗建议"]}
+
+
 def validate_weights(weights: Optional[Dict[str, Any]]) -> Tuple[Dict[str, float], float]:
     supplied = weights or {}
     unknown = set(supplied) - {*POSITIVE_COMPONENTS, "lambda"}
@@ -239,7 +347,7 @@ def validate_weights(weights: Optional[Dict[str, Any]]) -> Tuple[Dict[str, float
         else:
             resolved[key] = number
     legacy_keys = {"I", "F", "P", "W"}
-    if "B" not in supplied and "D" not in supplied and legacy_keys <= set(supplied) and not any(resolved[key] > 0 for key in legacy_keys):
+    if "B" not in supplied and "D" not in supplied and "N" not in supplied and legacy_keys <= set(supplied) and not any(resolved[key] > 0 for key in legacy_keys):
         raise ValueError("at least one positive weight must be greater than zero")
     if sum(resolved.values()) <= 0:
         raise ValueError("at least one positive weight must be greater than zero")
@@ -412,7 +520,9 @@ def score_recipe(
     b_score = cost_details["score"]
     difficulty_details = _difficulty_details(recipe, preferences, configured_weights["D"])
     d_score = difficulty_details["score"]
-    components = {"I": i_score, "F": f_score, "P": p_score, "W": w_score, "M": m_score, "B": b_score, "D": d_score, "N": None}
+    nutrition_details = _nutrition_details(recipe, preferences, configured_weights["N"])
+    n_score = nutrition_details["score"]
+    components = {"I": i_score, "F": f_score, "P": p_score, "W": w_score, "M": m_score, "B": b_score, "D": d_score, "N": n_score}
     available_positive = [key for key in POSITIVE_COMPONENTS if components[key] is not None and configured_weights[key] > 0]
     denominator = sum(configured_weights[key] for key in available_positive)
     if not denominator:
@@ -443,7 +553,8 @@ def score_recipe(
         data_notes.append("缺少可靠菜谱成本或有效预算，B不可用；未推测价格")
     if d_score is None:
         data_notes.append("缺少明确难度目标或可靠菜谱难度，D不可用；未推测难度")
-    data_notes.append("N缺少可靠数据，保持unavailable")
+    if n_score is None:
+        data_notes.append("缺少明确营养目标或可靠每份营养数据，N不可用；未推测营养值")
     reasons = []
     if i_score >= 0.6:
         reasons.append(f"库存食材匹配度较高（I={public_components['I']:.2f}）")
@@ -464,6 +575,21 @@ def score_recipe(
             reasons.append(f"符合期望难度：{target_label}")
         else:
             reasons.append(f"菜谱难度{recipe_label}与期望难度{target_label}存在差异")
+    if n_score is not None:
+        satisfied = [
+            NUTRITION_TARGETS[key][2]
+            for key, score in nutrition_details["component_scores"].items()
+            if score == 1.0
+        ]
+        if satisfied:
+            reasons.append(f"满足明确营养目标：{', '.join(satisfied)}")
+        below_target = [
+            NUTRITION_TARGETS[key][2]
+            for key, score in nutrition_details["component_scores"].items()
+            if score < 1.0
+        ]
+        if below_target:
+            reasons.append(f"以下营养目标存在差距：{', '.join(below_target)}")
     if m_score == 0:
         reasons.append("无需补充关键食材")
     elif missing:
@@ -493,6 +619,13 @@ def score_recipe(
         "difficulty_target": difficulty_details["difficulty_target"],
         "difficulty_status": difficulty_details["status"],
         "difficulty_data_notes": difficulty_details["notes"],
+        "nutrition_target": nutrition_details["nutrition_target"],
+        "recipe_nutrition": nutrition_details["recipe_nutrition"],
+        "nutrition_basis": nutrition_details["nutrition_basis"],
+        "nutrition_status": nutrition_details["status"],
+        "nutrition_component_scores": nutrition_details["component_scores"],
+        "nutrition_data_notes": nutrition_details["notes"],
+        "nutrition_disclaimer": nutrition_details["disclaimer"],
         "data_quality_notes": data_notes,
         "reasons": reasons,
     }
@@ -520,6 +653,8 @@ def recommend_recipes(
 def algorithm_version_for_recommendations(recommendations: Iterable[Dict[str, Any]]) -> str:
     """Return the newest version for a component that actually participates."""
     items = list(recommendations)
+    if any("N" in item.get("effective_weights", {}) for item in items):
+        return NUTRITION_ALGORITHM_VERSION
     if any("D" in item.get("effective_weights", {}) for item in items):
         return DIFFICULTY_ALGORITHM_VERSION
     if any("B" in item.get("effective_weights", {}) for item in items):
