@@ -57,6 +57,34 @@ class LoginRequest(BaseModel):
     username: str
     password: str
 
+
+class NutritionTarget(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    max_calories_kcal: Optional[float] = Field(None, gt=0, allow_inf_nan=False, strict=True, description="每份热量上限，单位 kcal")
+    min_protein_g: Optional[float] = Field(None, gt=0, allow_inf_nan=False, strict=True, description="每份蛋白质下限，单位 g")
+    max_fat_g: Optional[float] = Field(None, gt=0, allow_inf_nan=False, strict=True, description="每份脂肪上限，单位 g")
+    max_carbohydrates_g: Optional[float] = Field(None, gt=0, allow_inf_nan=False, strict=True, description="每份碳水化合物上限，单位 g")
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def reject_non_numeric_or_non_finite_target(cls, value: Any) -> Any:
+        if value is None:
+            return None
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+        ):
+            return "invalid nutrition target"
+        return value
+
+    @model_validator(mode="after")
+    def require_at_least_one_target(self):
+        if not any(value is not None for value in self.model_dump().values()):
+            raise ValueError("nutrition_target至少需要一个每份数值目标")
+        return self
+
 class RecommendationRequest(BaseModel):
     model_config = {"extra": "forbid"}
 
@@ -68,18 +96,33 @@ class RecommendationRequest(BaseModel):
     difficulty_target: Optional[Literal["easy", "medium", "hard"]] = Field(
         None, description="用户期望的烹饪难度：easy、medium 或 hard",
     )
+    nutrition_target: Optional[NutritionTarget] = Field(
+        None, description="用户按每份口径设置的明确营养数值目标",
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_explicit_null_nutrition_target(cls, value: Any) -> Any:
+        if isinstance(value, dict) and "nutrition_target" in value and value["nutrition_target"] is None:
+            raise ValueError("nutrition_target存在时必须是非空对象")
+        return value
 
     @field_validator("weights", mode="before")
     @classmethod
-    def reject_invalid_difficulty_weight(cls, value: Any) -> Any:
-        if isinstance(value, dict) and "D" in value:
-            difficulty_weight = value["D"]
-            if (
-                isinstance(difficulty_weight, bool)
-                or not isinstance(difficulty_weight, (int, float))
-                or not math.isfinite(difficulty_weight)
-            ):
-                return {**value, "D": "invalid difficulty weight"}
+    def reject_invalid_extended_weight(cls, value: Any) -> Any:
+        if isinstance(value, dict):
+            validated = dict(value)
+            for key in ("D", "N"):
+                if key not in value:
+                    continue
+                weight = value[key]
+                if (
+                    isinstance(weight, bool)
+                    or not isinstance(weight, (int, float))
+                    or not math.isfinite(weight)
+                ):
+                    validated[key] = f"invalid {key} weight"
+            return validated
         return value
 
     @field_validator("budget", mode="before")
@@ -853,10 +896,13 @@ async def multi_objective_recommendations(request: RecommendationRequest):
     scoring_preferences = dict(request.preferences or {})
     scoring_preferences.pop("budget", None)
     scoring_preferences.pop("difficulty_target", None)
+    scoring_preferences.pop("nutrition_target", None)
     if request.budget is not None:
         scoring_preferences["budget"] = request.budget
     if request.difficulty_target is not None:
         scoring_preferences["difficulty_target"] = request.difficulty_target
+    if request.nutrition_target is not None:
+        scoring_preferences["nutrition_target"] = request.nutrition_target.model_dump(exclude_none=True)
 
     try:
         validate_weights(request.weights)
