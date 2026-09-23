@@ -1,6 +1,7 @@
 import asyncio
 import inspect
 import json
+import math
 import sys
 import types
 from datetime import datetime, timedelta
@@ -8,6 +9,7 @@ from pathlib import Path
 
 import pytest
 from fastapi import HTTPException
+from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from app.services import recommendation_service as service
@@ -21,11 +23,11 @@ def ingredient(name, amount=1, unit="个", required=True):
     return {"name": name, "amount": amount, "unit": unit, "required": required}
 
 
-def recipe(recipe_id, name, required, tags=None, optional=None):
+def recipe(recipe_id, name, required, tags=None, optional=None, estimated_cost=None):
     return {
         "id": recipe_id, "name": name, "ingredients": required,
         "optional_ingredients": optional or [], "cooking_time": 20,
-        "difficulty": "简单", "estimated_cost": None, "method": "炒",
+        "difficulty": "简单", "estimated_cost": estimated_cost, "method": "炒",
         "tags": tags or [], "nutrition": None, "steps": ["完成烹饪"],
     }
 
@@ -100,6 +102,169 @@ def test_missing_components_are_unavailable_and_weights_renormalize():
     assert {"F", "P", "B", "D", "N"} <= set(result["unavailable_components"])
     assert set(result["effective_weights"]) == {"I", "W"}
     assert sum(result["effective_weights"].values()) == pytest.approx(1, abs=0.000001)
+
+
+def test_explicit_test_cost_and_budget_enable_b_without_inference():
+    target = recipe("a", "测试菜谱", [ingredient("番茄")], estimated_cost=20)
+    result = service.score_recipe(target, [inventory_item("番茄")], preferences={"budget": 50}, now=NOW)
+    assert result["component_scores"]["B"] == 0.6
+    assert "B" in result["effective_weights"]
+    assert "B" not in result["unavailable_components"]
+    assert result["estimated_cost"] == 20
+    assert result["budget"] == 50
+    assert result["currency"] == "CNY"
+    assert result["cost_status"] == "available"
+    assert result["cost_data_notes"]
+
+
+@pytest.mark.parametrize("estimated_cost", [None, "", -1, float("nan"), True])
+def test_missing_or_invalid_recipe_cost_keeps_b_unavailable(estimated_cost):
+    target = recipe("a", "测试菜谱", [ingredient("番茄")], estimated_cost=estimated_cost)
+    result = service.score_recipe(target, [inventory_item("番茄")], preferences={"budget": 50}, now=NOW)
+    assert result["component_scores"]["B"] is None
+    assert "B" in result["unavailable_components"]
+    assert "B" not in result["effective_weights"]
+
+
+@pytest.mark.parametrize("budget", [None, 0, -1, float("nan"), True])
+def test_missing_or_invalid_budget_keeps_b_unavailable(budget):
+    target = recipe("a", "测试菜谱", [ingredient("番茄")], estimated_cost=20)
+    preferences = {} if budget is None else {"budget": budget}
+    result = service.score_recipe(target, [inventory_item("番茄")], preferences=preferences, now=NOW)
+    assert result["component_scores"]["B"] is None
+    assert "B" in result["unavailable_components"]
+
+
+def test_production_recipes_do_not_contain_fabricated_costs():
+    assert all(item["estimated_cost"] is None for item in service.load_recipes())
+
+
+def test_cost_weight_changes_ranking_only_for_explicit_test_prices():
+    recipes = [
+        recipe("expensive", "高成本测试菜", [ingredient("番茄")], estimated_cost=40),
+        recipe("affordable", "低成本测试菜", [ingredient("番茄")], estimated_cost=10),
+    ]
+    results = service.recommend_recipes(
+        [inventory_item("番茄")], preferences={"budget": 50},
+        weights={"I": 0, "F": 0, "P": 0, "W": 0, "B": 1},
+        recipes=recipes, now=NOW,
+    )
+    assert [item["recipe_id"] for item in results] == ["affordable", "expensive"]
+
+
+def test_no_budget_preserves_a4_scores_and_ranking():
+    priced = [
+        recipe("b", "高成本测试菜", [ingredient("番茄")], estimated_cost=40),
+        recipe("a", "低成本测试菜", [ingredient("番茄")], estimated_cost=10),
+    ]
+    unpriced = [{**item, "estimated_cost": None} for item in priced]
+    priced_results = service.recommend_recipes([inventory_item("番茄")], recipes=priced, now=NOW)
+    baseline_results = service.recommend_recipes([inventory_item("番茄")], recipes=unpriced, now=NOW)
+    comparable = lambda results: [
+        (item["recipe_id"], item["total_score"], item["effective_weights"])
+        for item in results
+    ]
+    assert comparable(priced_results) == comparable(baseline_results)
+    assert all(item["component_scores"]["B"] is None for item in priced_results)
+
+
+def test_cost_version_helper_switches_only_when_b_participates():
+    unavailable = service.score_recipe(recipe("a", "无价格", [ingredient("番茄")]), [inventory_item("番茄")], now=NOW)
+    available = service.score_recipe(
+        recipe("a", "有价格", [ingredient("番茄")], estimated_cost=20),
+        [inventory_item("番茄")], preferences={"budget": 50}, now=NOW,
+    )
+    assert service.algorithm_version_for_recommendations([unavailable]) == "multi_objective_v1"
+    assert service.algorithm_version_for_recommendations([available]) == "multi_objective_v2"
+
+
+def _http_recommendation_client(monkeypatch, tmp_path, recipes):
+    main = _import_main_without_loading_real_yolo(monkeypatch)
+    user_id = "cost-api-user"
+    monkeypatch.setattr(main, "get_all_users", lambda: [{"id": user_id}])
+    monkeypatch.setattr(main, "USER_DATA_BASE", str(tmp_path))
+    monkeypatch.setattr(main, "load_recipes", lambda: recipes)
+    user_dir = tmp_path / user_id
+    user_dir.mkdir(exist_ok=True)
+    (user_dir / "inventory.json").write_text(
+        json.dumps([inventory_item("番茄")], ensure_ascii=False), encoding="utf-8",
+    )
+    return TestClient(main.app), main, user_id
+
+
+def test_openapi_formally_exposes_strict_positive_finite_budget(monkeypatch):
+    main = _import_main_without_loading_real_yolo(monkeypatch)
+    schema = main.app.openapi()["components"]["schemas"]["RecommendationRequest"]
+    budget_schema = schema["properties"]["budget"]
+    assert budget_schema["anyOf"][0]["type"] == "number"
+    assert budget_schema["anyOf"][0]["exclusiveMinimum"] == 0
+    assert schema["additionalProperties"] is False
+
+
+def test_real_post_budget_reaches_service_and_serializes_cost(monkeypatch, tmp_path):
+    priced_recipe = recipe("priced", "有价格测试菜", [ingredient("番茄")], estimated_cost=20)
+    client, _, user_id = _http_recommendation_client(monkeypatch, tmp_path, [priced_recipe])
+    response = client.post("/api/recommendations", json={"user_id": user_id, "budget": 50})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["algorithm_version"] == "multi_objective_v2"
+    item = body["recommendations"][0]
+    assert item["component_scores"]["B"] == 0.6
+    assert item["effective_weights"]["B"] > 0
+    assert item["estimated_cost"] == 20
+    assert item["budget"] == 50
+    assert item["currency"] == "CNY"
+    assert item["cost_status"] == "available"
+    assert item["cost_data_notes"]
+    positive = 100 * sum(
+        weight * item["component_scores"][key]
+        for key, weight in item["effective_weights"].items()
+    )
+    penalty = 100 * item["missing_penalty_weight"] * item["component_scores"]["M"]
+    assert item["total_score"] == round(max(0, min(100, positive - penalty)), 2)
+
+
+@pytest.mark.parametrize("budget", [0, -1, "50", "NaN", "Infinity", float("nan"), float("inf")])
+def test_real_post_rejects_invalid_budget(monkeypatch, tmp_path, budget):
+    client, _, user_id = _http_recommendation_client(
+        monkeypatch, tmp_path, [recipe("a", "测试菜", [ingredient("番茄")], estimated_cost=20)],
+    )
+    payload = {"user_id": user_id, "budget": budget}
+    if isinstance(budget, float) and not math.isfinite(budget):
+        response = client.post(
+            "/api/recommendations",
+            content=json.dumps(payload, allow_nan=True),
+            headers={"content-type": "application/json"},
+        )
+    else:
+        response = client.post("/api/recommendations", json=payload)
+    assert response.status_code == 422
+
+
+def test_old_real_post_without_budget_remains_v1_and_cost_unavailable(monkeypatch, tmp_path):
+    priced_recipe = recipe("priced", "有价格测试菜", [ingredient("番茄")], estimated_cost=20)
+    client, _, user_id = _http_recommendation_client(monkeypatch, tmp_path, [priced_recipe])
+    response = client.post("/api/recommendations", json={"user_id": user_id})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["algorithm_version"] == "multi_objective_v1"
+    item = body["recommendations"][0]
+    assert item["component_scores"]["B"] is None
+    assert "B" in item["unavailable_components"]
+    assert "B" not in item["effective_weights"]
+    assert item["estimated_cost"] == 20
+    assert item["budget"] is None
+    assert item["cost_status"] == "budget_unavailable"
+
+
+def test_undeclared_or_nested_budget_cannot_accidentally_activate_b(monkeypatch, tmp_path):
+    priced_recipe = recipe("priced", "有价格测试菜", [ingredient("番茄")], estimated_cost=20)
+    client, _, user_id = _http_recommendation_client(monkeypatch, tmp_path, [priced_recipe])
+    nested = client.post("/api/recommendations", json={"user_id": user_id, "preferences": {"budget": 50}})
+    assert nested.status_code == 200
+    assert nested.json()["algorithm_version"] == "multi_objective_v1"
+    extra = client.post("/api/recommendations", json={"user_id": user_id, "budget_cny": 50})
+    assert extra.status_code == 422
 
 
 def test_custom_weights_change_ranking():

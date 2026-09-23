@@ -24,6 +24,7 @@ from app.services.deepseek_service import get_recipe_suggestion
 from app.services.tts_service import generate_voice
 from app.services.qwen_service import get_ingredients_from_qwen
 from app.services.recommendation_service import (
+    algorithm_version_for_recommendations,
     filter_eligible_recipes, load_recipes, recommend_recipes,
     safe_inventory_names, validate_weights,
 )
@@ -57,10 +58,22 @@ class LoginRequest(BaseModel):
     password: str
 
 class RecommendationRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+
     user_id: str = Field(..., min_length=1)
     top_k: int = Field(5, ge=1, le=20)
     weights: Optional[Dict[str, float]] = None
     preferences: Optional[Dict[str, Any]] = None
+    budget: Optional[float] = Field(None, gt=0, allow_inf_nan=False, strict=True, description="整道菜预算，币种为 CNY")
+
+    @field_validator("budget", mode="before")
+    @classmethod
+    def reject_non_finite_budget(cls, value: Any) -> Any:
+        # Keep FastAPI's 422 body JSON-serializable even when a non-standard
+        # JSON parser accepts NaN or Infinity as a Python float.
+        if isinstance(value, float) and not math.isfinite(value):
+            return "non-finite budget"
+        return value
 
 class FreshnessEvaluationRequest(BaseModel):
     model_config = {"extra": "forbid"}
@@ -821,6 +834,11 @@ async def multi_objective_recommendations(request: RecommendationRequest):
     if not any(user.get("id") == request.user_id for user in get_all_users()):
         raise HTTPException(status_code=404, detail="用户不存在")
 
+    scoring_preferences = dict(request.preferences or {})
+    scoring_preferences.pop("budget", None)
+    if request.budget is not None:
+        scoring_preferences["budget"] = request.budget
+
     try:
         validate_weights(request.weights)
     except ValueError as exc:
@@ -855,7 +873,7 @@ async def multi_objective_recommendations(request: RecommendationRequest):
     eligible_recipes, filtered_count = filter_eligible_recipes(
         inventory=inventory,
         recipes=recipes,
-        preferences=request.preferences,
+        preferences=scoring_preferences,
         now=scoring_time,
     )
     if not eligible_recipes:
@@ -874,7 +892,7 @@ async def multi_objective_recommendations(request: RecommendationRequest):
         recommendations = recommend_recipes(
             inventory=inventory,
             top_k=request.top_k,
-            preferences=request.preferences,
+            preferences=scoring_preferences,
             weights=request.weights,
             recipes=eligible_recipes,
             now=scoring_time,
@@ -882,7 +900,7 @@ async def multi_objective_recommendations(request: RecommendationRequest):
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return {
-        "algorithm_version": "multi_objective_v1",
+        "algorithm_version": algorithm_version_for_recommendations(recommendations),
         "user_id": request.user_id,
         "generated_at": generated_at,
         "status": "success",
