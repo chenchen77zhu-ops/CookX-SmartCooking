@@ -65,6 +65,22 @@ class RecommendationRequest(BaseModel):
     weights: Optional[Dict[str, float]] = None
     preferences: Optional[Dict[str, Any]] = None
     budget: Optional[float] = Field(None, gt=0, allow_inf_nan=False, strict=True, description="整道菜预算，币种为 CNY")
+    difficulty_target: Optional[Literal["easy", "medium", "hard"]] = Field(
+        None, description="用户期望的烹饪难度：easy、medium 或 hard",
+    )
+
+    @field_validator("weights", mode="before")
+    @classmethod
+    def reject_invalid_difficulty_weight(cls, value: Any) -> Any:
+        if isinstance(value, dict) and "D" in value:
+            difficulty_weight = value["D"]
+            if (
+                isinstance(difficulty_weight, bool)
+                or not isinstance(difficulty_weight, (int, float))
+                or not math.isfinite(difficulty_weight)
+            ):
+                return {**value, "D": "invalid difficulty weight"}
+        return value
 
     @field_validator("budget", mode="before")
     @classmethod
@@ -836,8 +852,11 @@ async def multi_objective_recommendations(request: RecommendationRequest):
 
     scoring_preferences = dict(request.preferences or {})
     scoring_preferences.pop("budget", None)
+    scoring_preferences.pop("difficulty_target", None)
     if request.budget is not None:
         scoring_preferences["budget"] = request.budget
+    if request.difficulty_target is not None:
+        scoring_preferences["difficulty_target"] = request.difficulty_target
 
     try:
         validate_weights(request.weights)

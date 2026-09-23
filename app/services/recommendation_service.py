@@ -13,10 +13,11 @@ from app.services.freshness_service import calculate_time_freshness
 
 ALGORITHM_VERSION = "multi_objective_v1"
 COST_ALGORITHM_VERSION = "multi_objective_v2"
+DIFFICULTY_ALGORITHM_VERSION = "multi_objective_v3"
 COST_CURRENCY = "CNY"
-DEFAULT_WEIGHTS = {"I": 0.35, "F": 0.25, "P": 0.20, "W": 0.20, "B": 0.15}
+DEFAULT_WEIGHTS = {"I": 0.35, "F": 0.25, "P": 0.20, "W": 0.20, "B": 0.15, "D": 0.10}
 DEFAULT_MISSING_PENALTY = 0.15
-POSITIVE_COMPONENTS = ("I", "F", "P", "W", "B")
+POSITIVE_COMPONENTS = ("I", "F", "P", "W", "B", "D")
 BASIC_SEASONINGS = {
     "盐", "食用油", "油", "水", "清水", "生抽", "老抽", "酱油", "醋", "白糖", "糖",
     "料酒", "淀粉", "胡椒粉", "花椒", "葱", "大葱", "小葱", "姜", "生姜", "蒜", "大蒜",
@@ -43,6 +44,14 @@ INGREDIENT_ALIASES = {
     "香菇": "香菇", "蘑菇": "蘑菇",
 }
 
+DIFFICULTY_LEVELS = {"easy": 0.0, "medium": 0.5, "hard": 1.0}
+DIFFICULTY_ALIASES = {
+    "easy": "easy", "简单": "easy", "容易": "easy",
+    "medium": "medium", "中等": "medium", "一般": "medium",
+    "hard": "hard", "困难": "hard", "较难": "hard",
+}
+DIFFICULTY_LABELS = {"easy": "简单", "medium": "中等", "hard": "困难"}
+
 
 def clamp(value: float) -> float:
     return max(0.0, min(1.0, float(value)))
@@ -51,6 +60,22 @@ def clamp(value: float) -> float:
 def normalize_ingredient(name: Any) -> str:
     normalized = str(name or "").strip().lower().replace(" ", "")
     return INGREDIENT_ALIASES.get(normalized, normalized)
+
+
+def normalize_recipe_difficulty(value: Any) -> Optional[str]:
+    """Normalize only explicit, recognized difficulty levels."""
+    if not isinstance(value, str):
+        return None
+    return DIFFICULTY_ALIASES.get(value.strip().lower())
+
+
+def calculate_difficulty_match(recipe_difficulty: Any, difficulty_target: Any) -> Optional[float]:
+    """Return deterministic target fit, not an intrinsic 'harder is better' score."""
+    recipe_level = normalize_recipe_difficulty(recipe_difficulty)
+    target_level = normalize_recipe_difficulty(difficulty_target)
+    if recipe_level is None or target_level is None:
+        return None
+    return clamp(1 - abs(DIFFICULTY_LEVELS[recipe_level] - DIFFICULTY_LEVELS[target_level]))
 
 
 def load_recipes(path: Optional[Path] = None) -> List[Dict[str, Any]]:
@@ -166,6 +191,36 @@ def _cost_details(recipe: Dict[str, Any], preferences: Dict[str, Any]) -> Dict[s
     }
 
 
+def _difficulty_details(
+    recipe: Dict[str, Any], preferences: Dict[str, Any], configured_weight: float,
+) -> Dict[str, Any]:
+    recipe_difficulty = normalize_recipe_difficulty(recipe.get("difficulty"))
+    difficulty_target = normalize_recipe_difficulty(preferences.get("difficulty_target"))
+    if difficulty_target is None:
+        return {
+            "score": None, "recipe_difficulty": recipe_difficulty,
+            "difficulty_target": None, "status": "target_unavailable",
+            "notes": ["未提供明确difficulty_target，D不参与评分"],
+        }
+    if recipe_difficulty is None:
+        return {
+            "score": None, "recipe_difficulty": None,
+            "difficulty_target": difficulty_target,
+            "status": "recipe_difficulty_unavailable",
+            "notes": ["菜谱缺少可靠显式difficulty，未推测难度"],
+        }
+    score = calculate_difficulty_match(recipe_difficulty, difficulty_target)
+    status = "available" if configured_weight > 0 else "disabled_by_weight"
+    notes = (
+        ["基于菜谱显式difficulty与用户明确目标计算难度适配度"]
+        if configured_weight > 0 else ["D原始权重为0，难度适配度不参与总分"]
+    )
+    return {
+        "score": score, "recipe_difficulty": recipe_difficulty,
+        "difficulty_target": difficulty_target, "status": status, "notes": notes,
+    }
+
+
 def validate_weights(weights: Optional[Dict[str, Any]]) -> Tuple[Dict[str, float], float]:
     supplied = weights or {}
     unknown = set(supplied) - {*POSITIVE_COMPONENTS, "lambda"}
@@ -174,6 +229,8 @@ def validate_weights(weights: Optional[Dict[str, Any]]) -> Tuple[Dict[str, float
     resolved = dict(DEFAULT_WEIGHTS)
     penalty = DEFAULT_MISSING_PENALTY
     for key, value in supplied.items():
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(f"weight {key} must be a finite number between 0 and 1")
         number = _number(value)
         if number is None or number > 1:
             raise ValueError(f"weight {key} must be between 0 and 1")
@@ -182,7 +239,7 @@ def validate_weights(weights: Optional[Dict[str, Any]]) -> Tuple[Dict[str, float
         else:
             resolved[key] = number
     legacy_keys = {"I", "F", "P", "W"}
-    if "B" not in supplied and legacy_keys <= set(supplied) and not any(resolved[key] > 0 for key in legacy_keys):
+    if "B" not in supplied and "D" not in supplied and legacy_keys <= set(supplied) and not any(resolved[key] > 0 for key in legacy_keys):
         raise ValueError("at least one positive weight must be greater than zero")
     if sum(resolved.values()) <= 0:
         raise ValueError("at least one positive weight must be greater than zero")
@@ -353,7 +410,9 @@ def score_recipe(
     m_score = clamp(len(set(missing)) / len(relevant_required)) if relevant_required else 0.0
     cost_details = _cost_details(recipe, preferences)
     b_score = cost_details["score"]
-    components = {"I": i_score, "F": f_score, "P": p_score, "W": w_score, "M": m_score, "B": b_score, "D": None, "N": None}
+    difficulty_details = _difficulty_details(recipe, preferences, configured_weights["D"])
+    d_score = difficulty_details["score"]
+    components = {"I": i_score, "F": f_score, "P": p_score, "W": w_score, "M": m_score, "B": b_score, "D": d_score, "N": None}
     available_positive = [key for key in POSITIVE_COMPONENTS if components[key] is not None and configured_weights[key] > 0]
     denominator = sum(configured_weights[key] for key in available_positive)
     if not denominator:
@@ -382,7 +441,9 @@ def score_recipe(
         data_notes.append("未提供可评分偏好，P不可用")
     if b_score is None:
         data_notes.append("缺少可靠菜谱成本或有效预算，B不可用；未推测价格")
-    data_notes.append("D、N缺少可靠数据，保持unavailable")
+    if d_score is None:
+        data_notes.append("缺少明确难度目标或可靠菜谱难度，D不可用；未推测难度")
+    data_notes.append("N缺少可靠数据，保持unavailable")
     reasons = []
     if i_score >= 0.6:
         reasons.append(f"库存食材匹配度较高（I={public_components['I']:.2f}）")
@@ -396,6 +457,13 @@ def score_recipe(
         reasons.append(f"可利用现有库存并减少浪费（W={public_components['W']:.2f}）")
     if b_score is not None:
         reasons.append(f"显式成本相对预算评分（B={public_components['B']:.2f}）")
+    if d_score is not None:
+        target_label = DIFFICULTY_LABELS[difficulty_details["difficulty_target"]]
+        recipe_label = DIFFICULTY_LABELS[difficulty_details["recipe_difficulty"]]
+        if d_score >= 0.75:
+            reasons.append(f"符合期望难度：{target_label}")
+        else:
+            reasons.append(f"菜谱难度{recipe_label}与期望难度{target_label}存在差异")
     if m_score == 0:
         reasons.append("无需补充关键食材")
     elif missing:
@@ -421,6 +489,10 @@ def score_recipe(
         "currency": cost_details["currency"],
         "cost_status": cost_details["status"],
         "cost_data_notes": cost_details["notes"],
+        "recipe_difficulty": difficulty_details["recipe_difficulty"],
+        "difficulty_target": difficulty_details["difficulty_target"],
+        "difficulty_status": difficulty_details["status"],
+        "difficulty_data_notes": difficulty_details["notes"],
         "data_quality_notes": data_notes,
         "reasons": reasons,
     }
@@ -446,8 +518,10 @@ def recommend_recipes(
 
 
 def algorithm_version_for_recommendations(recommendations: Iterable[Dict[str, Any]]) -> str:
-    """Return v2 only when the cost component actually participates."""
-    return COST_ALGORITHM_VERSION if any(
-        item.get("component_scores", {}).get("B") is not None
-        for item in recommendations
-    ) else ALGORITHM_VERSION
+    """Return the newest version for a component that actually participates."""
+    items = list(recommendations)
+    if any("D" in item.get("effective_weights", {}) for item in items):
+        return DIFFICULTY_ALGORITHM_VERSION
+    if any("B" in item.get("effective_weights", {}) for item in items):
+        return COST_ALGORITHM_VERSION
+    return ALGORITHM_VERSION
