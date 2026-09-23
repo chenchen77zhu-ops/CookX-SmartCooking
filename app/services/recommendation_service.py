@@ -12,9 +12,11 @@ from app.services.freshness_service import calculate_time_freshness
 
 
 ALGORITHM_VERSION = "multi_objective_v1"
-DEFAULT_WEIGHTS = {"I": 0.35, "F": 0.25, "P": 0.20, "W": 0.20}
+COST_ALGORITHM_VERSION = "multi_objective_v2"
+COST_CURRENCY = "CNY"
+DEFAULT_WEIGHTS = {"I": 0.35, "F": 0.25, "P": 0.20, "W": 0.20, "B": 0.15}
 DEFAULT_MISSING_PENALTY = 0.15
-POSITIVE_COMPONENTS = ("I", "F", "P", "W")
+POSITIVE_COMPONENTS = ("I", "F", "P", "W", "B")
 BASIC_SEASONINGS = {
     "盐", "食用油", "油", "水", "清水", "生抽", "老抽", "酱油", "醋", "白糖", "糖",
     "料酒", "淀粉", "胡椒粉", "花椒", "葱", "大葱", "小葱", "姜", "生姜", "蒜", "大蒜",
@@ -136,6 +138,34 @@ def _preference_tokens(preferences: Dict[str, Any], keys: Iterable[str]) -> List
     return result
 
 
+def _cost_details(recipe: Dict[str, Any], preferences: Dict[str, Any]) -> Dict[str, Any]:
+    """Describe and score an explicit whole-recipe cost against a user budget.
+
+    Missing or invalid values stay unavailable. In particular, this function does
+    not infer a price from ingredients, recipe names, external models, or defaults.
+    """
+    estimated_cost = _number(recipe.get("estimated_cost"))
+    budget = _number(preferences.get("budget"))
+    if estimated_cost is None:
+        return {
+            "score": None, "estimated_cost": None, "budget": budget,
+            "currency": COST_CURRENCY, "status": "estimated_cost_unavailable",
+            "notes": ["菜谱未提供可靠estimated_cost，未推测价格"],
+        }
+    if budget is None or budget <= 0:
+        return {
+            "score": None, "estimated_cost": estimated_cost, "budget": None,
+            "currency": COST_CURRENCY, "status": "budget_unavailable",
+            "notes": ["请求未提供有效budget，B不参与评分"],
+        }
+    return {
+        "score": clamp(1 - estimated_cost / budget),
+        "estimated_cost": estimated_cost, "budget": budget,
+        "currency": COST_CURRENCY, "status": "available",
+        "notes": ["基于菜谱显式estimated_cost与用户预算计算；不是实时市场价格或库存抵扣后的新增采购成本"],
+    }
+
+
 def validate_weights(weights: Optional[Dict[str, Any]]) -> Tuple[Dict[str, float], float]:
     supplied = weights or {}
     unknown = set(supplied) - {*POSITIVE_COMPONENTS, "lambda"}
@@ -151,6 +181,9 @@ def validate_weights(weights: Optional[Dict[str, Any]]) -> Tuple[Dict[str, float
             penalty = number
         else:
             resolved[key] = number
+    legacy_keys = {"I", "F", "P", "W"}
+    if "B" not in supplied and legacy_keys <= set(supplied) and not any(resolved[key] > 0 for key in legacy_keys):
+        raise ValueError("at least one positive weight must be greater than zero")
     if sum(resolved.values()) <= 0:
         raise ValueError("at least one positive weight must be greater than zero")
     return resolved, penalty
@@ -318,7 +351,9 @@ def score_recipe(
         w_score = None
 
     m_score = clamp(len(set(missing)) / len(relevant_required)) if relevant_required else 0.0
-    components = {"I": i_score, "F": f_score, "P": p_score, "W": w_score, "M": m_score, "B": None, "D": None, "N": None}
+    cost_details = _cost_details(recipe, preferences)
+    b_score = cost_details["score"]
+    components = {"I": i_score, "F": f_score, "P": p_score, "W": w_score, "M": m_score, "B": b_score, "D": None, "N": None}
     available_positive = [key for key in POSITIVE_COMPONENTS if components[key] is not None and configured_weights[key] > 0]
     denominator = sum(configured_weights[key] for key in available_positive)
     if not denominator:
@@ -345,7 +380,9 @@ def score_recipe(
         data_notes.append("无可用的真实入库/购买/到期时间，F不可用")
     if p_score is None:
         data_notes.append("未提供可评分偏好，P不可用")
-    data_notes.append("B、D、N第一阶段不参与总分；缺少可靠数据时保持unavailable")
+    if b_score is None:
+        data_notes.append("缺少可靠菜谱成本或有效预算，B不可用；未推测价格")
+    data_notes.append("D、N缺少可靠数据，保持unavailable")
     reasons = []
     if i_score >= 0.6:
         reasons.append(f"库存食材匹配度较高（I={public_components['I']:.2f}）")
@@ -357,6 +394,8 @@ def score_recipe(
         reasons.append(f"符合明确偏好：{', '.join(dict.fromkeys(matched_preferences))}")
     if w_score is not None and w_score >= 0.5:
         reasons.append(f"可利用现有库存并减少浪费（W={public_components['W']:.2f}）")
+    if b_score is not None:
+        reasons.append(f"显式成本相对预算评分（B={public_components['B']:.2f}）")
     if m_score == 0:
         reasons.append("无需补充关键食材")
     elif missing:
@@ -377,6 +416,11 @@ def score_recipe(
         "missing_required_ingredients": sorted(set(missing)),
         "expiring_ingredients_used": sorted(set(expiring_names)),
         "unsafe_or_expired_ingredients": sorted(set(unsafe)),
+        "estimated_cost": cost_details["estimated_cost"],
+        "budget": cost_details["budget"],
+        "currency": cost_details["currency"],
+        "cost_status": cost_details["status"],
+        "cost_data_notes": cost_details["notes"],
         "data_quality_notes": data_notes,
         "reasons": reasons,
     }
@@ -399,3 +443,11 @@ def recommend_recipes(
     for rank, item in enumerate(scored[:top_k], 1):
         item["rank"] = rank
     return scored[:top_k]
+
+
+def algorithm_version_for_recommendations(recommendations: Iterable[Dict[str, Any]]) -> str:
+    """Return v2 only when the cost component actually participates."""
+    return COST_ALGORITHM_VERSION if any(
+        item.get("component_scores", {}).get("B") is not None
+        for item in recommendations
+    ) else ALGORITHM_VERSION
