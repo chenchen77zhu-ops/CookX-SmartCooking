@@ -177,7 +177,7 @@ def test_legacy_recognition_freshness_is_freshfusion_compatible(monkeypatch):
 
 def test_freshness_routes_exist(monkeypatch):
     main = import_main(monkeypatch)
-    paths = {(route.path, tuple(getattr(route, "methods", None) or [])) for route in main.app.routes}
+    paths = {(path, (method.upper(),)) for path, operations in main.app.openapi()["paths"].items() for method in operations if method in {"get", "post", "put", "delete"}}
     assert ("/api/freshness/evaluate", ("POST",)) in paths
     assert ("/api/users/{user_id}/inventory/freshness", ("GET",)) in paths
 

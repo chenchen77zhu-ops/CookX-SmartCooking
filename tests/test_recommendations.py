@@ -360,7 +360,7 @@ def test_new_algorithm_does_not_use_legacy_hash_freshness():
 
 def test_legacy_route_exists_and_main_imports(monkeypatch):
     main = _import_main_without_loading_real_yolo(monkeypatch)
-    paths = {(route.path, tuple(getattr(route, "methods", None) or [])) for route in main.app.routes}
+    paths = {(path, (method.upper(),)) for path, operations in main.app.openapi()["paths"].items() for method in operations if method in {"get", "post", "put", "delete"}}
     assert any(path == "/api/recommend-recipe" and "GET" in methods for path, methods in paths)
     assert any(path == "/api/recommendations" and "POST" in methods for path, methods in paths)
 

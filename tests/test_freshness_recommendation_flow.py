@@ -312,10 +312,7 @@ def test_same_inventory_produces_stable_recommendation_payload(flow_api):
 
 def test_flow_routes_and_legacy_routes_coexist(flow_api):
     _, main, _, _, _ = flow_api
-    paths = {
-        (route.path, tuple(getattr(route, "methods", None) or []))
-        for route in main.app.routes
-    }
+    paths = {(path, (method.upper(),)) for path, operations in main.app.openapi()["paths"].items() for method in operations if method in {"get", "post", "put", "delete"}}
     assert ("/api/inventory/confirm-recognition", ("POST",)) in paths
     assert ("/api/add-to-inventory", ("POST",)) in paths
     assert ("/api/recommendations", ("POST",)) in paths
