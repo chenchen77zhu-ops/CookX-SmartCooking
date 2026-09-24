@@ -63,10 +63,11 @@ def solve(config,inventory,prices,reference=None):
         quantity=b.get('quantity');unit=b.get('unit') or '库存计数';k=key(b['name'],unit)
         if k not in all_keys or not isinstance(quantity,(float,int)) or isinstance(quantity,bool) or quantity<=0:continue
         capacity=math.floor(quantity*Q);batch_vars=[]
+        if capacity<=0:continue
         for slot in meals:
             sid=f"{slot['day']}:{slot['meal']}";hour={'breakfast':8,'lunch':12,'dinner':18}[slot['meal']]
             date=datetime.fromisoformat(config['start_date']).replace(tzinfo=timezone(timedelta(hours=config['utc_offset_hours'])))+timedelta(days=slot['day'],hours=hour)
-            assessment=calculate_freshfusion({k:v for k,v in b.items() if k!='visual_freshness'},reference_time=date)
+            assessment=calculate_freshfusion({k:v for k,v in b.items() if k!='visual_freshness'},reference_time=max(current,date))
             if assessment['freshness_level'] in ('unknown','high_risk','expired'):continue
             v=model.new_int_var(0,capacity,'use:'+str(b['id'])+':'+sid);allocations.append((b,sid,k,v));allocation_by_key[k].append(v);batch_vars.append(v)
             normalized=max(1,round(100000/capacity));use_terms.append(v*normalized)
