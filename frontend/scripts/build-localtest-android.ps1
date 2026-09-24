@@ -27,6 +27,11 @@ try {
   if ($LASTEXITCODE -ge 8) { throw "Plugin staging failed: $plugin" }
  }
  $utf8 = [Text.UTF8Encoding]::new($false)
+ # Capacitor may resolve a shared node_modules junction back to another worktree.
+ # The staging directory owns its dependency copies, so use their local paths.
+ $settingsFile = Join-Path $stage 'android/capacitor.settings.gradle'
+ $settingsText = [IO.File]::ReadAllText($settingsFile) -replace "'[^']*/node_modules/", "'../node_modules/"
+ [IO.File]::WriteAllText($settingsFile,$settingsText,$utf8)
  $gradleFile = Join-Path $stage 'android/app/build.gradle'
  $gradleText = [IO.File]::ReadAllText($gradleFile).Replace('applicationId "com.smartcooking.app"','applicationId "com.smartcooking.app.localtest"')
  [IO.File]::WriteAllText($gradleFile,$gradleText,$utf8)
