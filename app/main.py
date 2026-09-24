@@ -1076,7 +1076,7 @@ async def recommend_recipe(user_prompt: str, user_id: str, save_history: bool = 
 
         # 补全营养成分
         if "nutrition" not in recipe_data:
-            recipe_data["nutrition"] = {"calories": "200", "protein": "15", "fat": "10", "carbs": "20"}
+            recipe_data["nutrition"] = None
 
         # 补全食材清单
         if "ingredients_list" not in recipe_data:

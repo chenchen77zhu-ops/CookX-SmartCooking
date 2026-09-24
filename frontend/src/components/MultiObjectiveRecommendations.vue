@@ -185,7 +185,7 @@ const splitIngredients = (value) => {
 }
 
 const readPreferences = () => {
-  const stored = safeJsonObject('cookx_preferences')
+  const stored = safeJsonObject(`cookx:preferences:v1:${readUserId()}`)
   const preferences = {}
   if (stored.taste) preferences.taste = stored.taste
   if (stored.spice) preferences.spice = stored.spice
