@@ -1,7 +1,8 @@
 // Mirrors the baseline API name aliases solely for read-back verification, not scoring.
 const aliases = {"tomato": "西红柿", "番茄": "西红柿", "西红柿": "西红柿", "小番茄": "西红柿", "圣女果": "西红柿", "beef": "牛肉", "牛肉": "牛肉", "milk": "牛奶", "牛奶": "牛奶", "tofu": "豆腐", "豆腐": "豆腐", "potato": "土豆", "土豆": "土豆", "carrot": "胡萝卜", "胡萝卜": "胡萝卜", "chicken": "鸡肉", "鸡肉": "鸡肉", "egg": "鸡蛋", "鸡蛋": "鸡蛋", "onion": "洋葱", "洋葱": "洋葱", "garlic": "大蒜", "大蒜": "大蒜", "ginger": "生姜", "姜": "生姜", "生姜": "生姜", "broccoli": "西兰花", "西兰花": "西兰花", "kimchi": "泡菜", "韩式泡菜": "泡菜", "泡菜": "泡菜", "chili": "红辣椒", "红辣椒": "红辣椒", "青辣椒": "青辣椒"}
 export const canonicalName = name => aliases[String(name || '').trim().toLowerCase()] || String(name || '').trim().toLowerCase()
-export const blankItem = () => ({ name: '', quantity: 1, storage_type: '', shelf_life: '', purchase_time: '', expiry_date: '' })
+export const blankItem = () => ({ name: '', quantity: 1, storage_type: '', shelf_life: '', purchase_time: '', add_time: '', expiry_date: '' })
+const originalValue = (item, key) => key === 'purchase_time' ? item.purchase_time ?? item.purchase_date : key === 'storage_type' ? item.storage_type ?? item.storage_method ?? item.storage : item[key]
 const empty = value => value === '' || value === null || value === undefined
 export function localDateTime(value) {
   if (!value) return ''
@@ -30,26 +31,25 @@ export function serializeItem(form, original = null, now = Date.now()) {
   }
   if (original) {
     for (const key of ['storage_type','shelf_life']) {
-      if (empty(form[key]) && !empty(original[key])) {
-        if (key === 'storage_type' && (original.storage || original.storage_method)) throw new Error('此记录含旧储存字段，清空需后端兼容处理')
+      if (empty(form[key]) && !empty(originalValue(original,key))) {
         result[key] = null
       }
     }
     for (const key of ['purchase_time','add_time','expiry_date']) {
-      if ((form[key] || '') === localDateTime(original[key])) continue
-      if (empty(form[key]) && key === 'purchase_time' && original.purchase_date) throw new Error('此记录含旧购买日期，清空需后端兼容处理')
+      if ((form[key] || '') === localDateTime(originalValue(original,key))) continue
       result[key] = empty(form[key]) ? null : isoFromLocal(form[key])
     }
-    const candidate = { ...original, ...result }
-    const purchase = Date.parse(candidate.purchase_time || candidate.purchase_date), added = Date.parse(candidate.add_time), expiry = Date.parse(candidate.expiry_date)
+    const candidate = { ...original, purchase_time: originalValue(original,'purchase_time'), ...result }
+    const purchase = Date.parse(candidate.purchase_time), added = Date.parse(candidate.add_time), expiry = Date.parse(candidate.expiry_date)
     if (result.purchase_time && purchase > now) throw new Error('购买时间不能晚于当前时间')
     if (Number.isFinite(expiry) && ((Number.isFinite(purchase) && expiry <= purchase) || (Number.isFinite(added) && expiry <= added))) throw new Error('到期时间必须晚于购买及入库时间')
-    return Object.fromEntries(Object.entries(result).filter(([key, value]) => value === null ? original[key] != null : key === 'name' ? canonicalName(value) !== canonicalName(original[key]) : key === 'quantity' || key === 'shelf_life' ? Number(original[key]) !== value : original[key] !== value))
+    return Object.fromEntries(Object.entries(result).filter(([key, value]) => value === null ? originalValue(original,key) != null : key === 'name' ? canonicalName(value) !== canonicalName(original[key]) : key === 'quantity' || key === 'shelf_life' ? Number(original[key]) !== value : originalValue(original,key) !== value))
   }
-  const purchase = isoFromLocal(form.purchase_time), expiry = isoFromLocal(form.expiry_date)
+  const purchase = isoFromLocal(form.purchase_time), added = isoFromLocal(form.add_time), expiry = isoFromLocal(form.expiry_date)
   if (purchase && Date.parse(purchase) > now) throw new Error('购买时间不能晚于当前时间')
-  if (expiry && Date.parse(expiry) < (purchase ? Date.parse(purchase) : now)) throw new Error('到期时间不能早于起始时间；历史记录请填写购买时间')
+  if (expiry && ((purchase && Date.parse(expiry) <= Date.parse(purchase)) || Date.parse(expiry) <= (added ? Date.parse(added) : now))) throw new Error('到期时间必须晚于购买及入库时间；历史记录请填写入库时间')
   if (purchase) result.purchase_time = purchase
+  if (added) result.add_time = added
   if (expiry) result.expiry_date = expiry
   return result
 }
@@ -89,5 +89,5 @@ export function inventoryErrorMessage(error) {
 }
 
 export function inventoryEditForm(item) {
-  return {...blankItem(),...item,...Object.fromEntries(['purchase_time','add_time','expiry_date'].map(key=>[key,localDateTime(item[key])]))}
+  return {...blankItem(),...item,storage_type:originalValue(item,'storage_type') ?? '',...Object.fromEntries(['purchase_time','add_time','expiry_date'].map(key=>[key,localDateTime(originalValue(item,key))]))}
 }

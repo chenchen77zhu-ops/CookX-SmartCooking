@@ -7,13 +7,14 @@ const assert=require('node:assert/strict'),fs=require('node:fs')
   fs.mkdirSync('tmp/copilot',{recursive:true})
   page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message))
   await page.addInitScript(()=>{localStorage.setItem('user',JSON.stringify({id:'copilot-test'}));window.SpeechRecognition=undefined;window.webkitSpeechRecognition=undefined})
-  let mode='bad',consumeCalls=0
+  let mode='bad',consumeCalls=0,receipt=null
   let inventory=[{id:'milk',name:'牛奶',quantity:2},{id:'t1',name:'番茄',quantity:2},{id:'t2',name:'tomato',quantity:3}]
   await page.route('**/api/**',async route=>{
    const url=route.request().url()
    if(url.includes('recommend-recipe'))return route.fulfill({json:{status:'success',recipe:mode==='bad'?'{invalid':{dish_name:'测试菜谱',steps:['准备食材',{text:'热锅',time_estimate:60},{text:'放入食材',time_estimate:90}],used_ingredients:[],missing:['盐']}}})
    if(url.includes('inventory/freshness'))return route.fulfill({json:{items:[],evaluated_at:new Date().toISOString()}})
-   if(url.includes('consume-ingredients')){consumeCalls++;inventory[0].quantity--;return route.fulfill({json:{status:'success'}})}
+   if(url.includes('/inventory/consumption/'))return route.fulfill({json:receipt});
+   if(url.endsWith('/inventory/consume')){consumeCalls++;const body=route.request().postDataJSON();for(const i of body.items)inventory.find(r=>r.id===i.item_id).quantity-=i.quantity;receipt={status:'success',idempotency_key:body.idempotency_key};return route.fulfill({json:receipt})}
    if(url.includes('/inventory'))return route.fulfill({json:inventory})
    if(url.includes('/tts'))return route.fulfill({status:503,json:{detail:'test speech unavailable'}})
    return route.fulfill({json:[]})
@@ -74,7 +75,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs')
   await page.getByRole('button',{name:'完成烹饪',exact:true}).click()
   await page.getByRole('heading',{name:'完成烹饪 · 实际使用清单'}).waitFor()
   await page.locator('.completion label').filter({hasText:'牛奶'}).getByRole('checkbox').check()
-  assert.equal(await page.locator('.completion label').filter({hasText:'番茄'}).getByRole('checkbox').isDisabled(),true)
+  assert.equal(await page.locator('.completion label').filter({hasText:'番茄'}).getByRole('checkbox').isDisabled(),false)
   assert.equal(consumeCalls,0)
   await page.locator('.completion').screenshot({path:'tmp/copilot/completion-review.png'})
   await page.getByRole('button',{name:'确认完成并扣减所选',exact:true}).click()
@@ -91,6 +92,6 @@ const assert=require('node:assert/strict'),fs=require('node:fs')
   assert.equal(log.source,'browser-no-hardware');assert.deepEqual(log.records,[])
   fs.mkdirSync('tmp/copilot' ,{recursive:true});await page.screenshot({path:'tmp/copilot/cooking-mobile.png',fullPage:true})
   assert.deepEqual(errors,[])
-  console.log(JSON.stringify({suite:'copilot',checks:['invalid-json','retained-input','retry','unknown-duration','timer-independent-of-speech','reload-restore','paused-step-return','asr-unavailable','low-confidence-confirmation','duplicate-final-result','adjustment-preview-cancel-apply-undo','timer-expiry-no-skip','batch-protection','completion-consumption-readback','diagnostics-export'],errors}))
+  console.log(JSON.stringify({suite:'copilot',checks:['invalid-json','retained-input','retry','unknown-duration','timer-independent-of-speech','reload-restore','paused-step-return','asr-unavailable','low-confidence-confirmation','duplicate-final-result','adjustment-preview-cancel-apply-undo','timer-expiry-no-skip','batch-selection','completion-consumption-readback','diagnostics-export'],errors}))
  }finally{await browser.close()}
 })().catch(e=>{console.error(e);process.exit(1)})

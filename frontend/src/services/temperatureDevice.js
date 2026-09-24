@@ -14,7 +14,7 @@ export async function initializeTemperatureDevice(){
 }
 export async function reconcileTemperatureDevice(){if(!isAndroidNative())return unsupportedResult();await initializeTemperatureDevice();return deviceHub.reconcile()}
 export async function exportTemperatureDiagnostics(){
- await initializeTemperatureDevice();const data=isAndroidNative()?deviceHub.snapshot():{schemaVersion:1,source:'browser-no-hardware',exportedAt:Date.now(),records:[],hardwareAcceptance:'浏览器不支持真实 SPP 采集，待真机验收'}
+ await initializeTemperatureDevice();if(isAndroidNative()){try{deviceHub.setInfo(await TemperatureBluetooth.getDiagnosticsInfo())}catch(e){deviceHub.record('info-unavailable',{message:e.message})}}const data=isAndroidNative()?deviceHub.snapshot():{schemaVersion:1,source:'browser-no-hardware',exportedAt:Date.now(),records:[],hardwareAcceptance:'浏览器不支持真实 SPP 采集，待真机验收'}
  if(isAndroidNative()){await TemperatureBluetooth.exportDiagnostics({json:JSON.stringify(data,null,2),filename:`cookx-device-diagnostics-${Date.now()}.json`});return data}
  const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download=`cookx-device-diagnostics-${Date.now()}.json`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);return data
 }
@@ -52,7 +52,10 @@ export const getBluetoothState = async () => {
 
 export const scanTemperatureDevices = async () => {
   if (!isAndroidNative()) return unsupportedResult()
-  return TemperatureBluetooth.startDiscovery()
+  await initializeTemperatureDevice()
+  const result=await TemperatureBluetooth.startDiscovery()
+  deviceHub.record('discovery-request',result)
+  return result
 }
 
 export const stopTemperatureDeviceScan = async () => {

@@ -1,0 +1,18 @@
+name: Keep offline edition separate
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  formal-boundary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject offline-only runtime in formal main
+        run: |
+          test ! -d frontend/src/localtest
+          test ! -f frontend/.env.localtest
+          test ! -f frontend/scripts/build-localtest.mjs
