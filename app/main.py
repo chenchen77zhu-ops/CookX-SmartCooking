@@ -78,6 +78,9 @@ from app.domain.family_consumption import router as family_consumption_router
 app.include_router(family_consumption_router)
 from app.domain.preferences import router as preferences_router
 app.include_router(preferences_router)
+from app.domain.private_media import router as private_media_router, PrivateStaticBoundary
+app.include_router(private_media_router)
+app.add_middleware(PrivateStaticBoundary)
 USER_DATA_BASE = "app/data/users"
 # --- 1. 配置与初始化 ---
 UPLOAD_DIR = "app/static/uploads"
@@ -1323,13 +1326,21 @@ async def update_item(item_id: str, item_data: InventoryUpdateItem, user_id: str
 
 
 @app.get("/api/tts")
-async def get_tts(text: str = Query(..., min_length=1)):
+async def get_tts(request: Request, text: str = Query(..., min_length=1, max_length=3000)):
     """
     语音合成接口
     """
     try:
         # 传入文本生成语音，建议在 tts_service 中处理文件名唯一性
         filename = await generate_voice(text)
+        if storage.is_sqlite:
+            from pathlib import Path
+            from app.domain.private_media import save_media
+            root=Path(AUDIO_DIR).resolve();path=(root/filename).resolve()
+            if path.parent!=root or not path.is_file() or path.stat().st_size>10*1024*1024:raise HTTPException(500,'语音文件不可用')
+            url=save_media(request.state.user_id,path.read_bytes(),'audio/mpeg','audio')
+            path.unlink()
+            return {'audio_url':url}
         return {"audio_url": f"/static/audio/{filename}"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -1371,8 +1382,11 @@ async def clear_chat(user_id: str):
 # ==================== 用户认证相关接口 ====================
 
 @app.post("/api/upload-avatar")
-async def api_upload_avatar(file: UploadFile = File(...)):
+async def api_upload_avatar(request: Request, file: UploadFile = File(...)):
     """上传头像"""
+    if storage.is_sqlite:
+        from app.domain.private_media import upload_avatar
+        return await upload_avatar(request,file)
     try:
         # 验证文件类型
         if not file.content_type.startswith('image/'):
@@ -1488,6 +1502,10 @@ async def api_get_user(user_id: str):
 @app.put("/api/user/{user_id}")
 async def api_update_user(user_id: str, nickname: str = None, phone: str = None, avatar: str = None):
     """更新用户信息"""
+    if storage.is_sqlite and avatar is not None:
+        from app.domain.private_media import validate_avatar
+        current=next((u for u in get_all_users() if u['id']==user_id),{})
+        validate_avatar(user_id,avatar,current.get('avatar',''))
     try:
         update_data = {}
         if nickname is not None:
