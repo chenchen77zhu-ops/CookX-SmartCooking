@@ -53,6 +53,10 @@ def generate(family:str,request:Request,body:Generate):
         else:
             menu=read('menu',body.source_id)
             if menu['owner']!=user: raise HTTPException(403,'不能读取其他账号的菜单')
+            from app.domain.planning import inventory
+            if menu['config']['family_id']!=family:raise HTTPException(409,'菜单使用的库存范围与该家庭不同，请按该家庭库存重新规划')
+            _,current_version=inventory(user,family)
+            if current_version!=menu['inventory_version']:raise HTTPException(409,'菜单保存后库存已变化，请重算采购需求')
             requirements=menu.get('shopping_requirements')
             if requirements is None: raise HTTPException(409,'菜单没有经过核对的采购需求，请重新规划')
         added=[]

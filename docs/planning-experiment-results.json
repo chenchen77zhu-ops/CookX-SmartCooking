@@ -1,0 +1,1803 @@
+{
+  "provenance": "synthetic configuration and price fixtures; not real purchases or human preferences",
+  "reference_time": "2026-09-24T00:00:00+00:00",
+  "solver": "OR-Tools 9.15.6755, one worker, seed 77",
+  "configs": [
+    {
+      "name": "weekly",
+      "config": {
+        "start_date": "2026-09-25",
+        "meals": [
+          {
+            "day": 0,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 0,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 1,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 1,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 2,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 2,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 3,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 3,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 4,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 4,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 5,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 5,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 6,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 6,
+            "meal": "dinner",
+            "side": false
+          }
+        ],
+        "people": 1,
+        "portion_factor": 1,
+        "budget": null,
+        "max_minutes": 120,
+        "max_difficulty": 2,
+        "max_repeat": 2,
+        "avoid_ingredients": [],
+        "dietary_restrictions": [],
+        "nutrition": {},
+        "locks": [],
+        "family_id": null,
+        "inventory_priority": true,
+        "confirm_estimates": true,
+        "timeout_seconds": 5,
+        "seed": 77,
+        "utc_offset_hours": 8
+      },
+      "prices": [
+        {
+          "name": "冬瓜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "可乐",
+          "unit": "毫升",
+          "price": 0.1
+        },
+        {
+          "name": "圆白菜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "土豆",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "土豆",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "大米",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "大蒜",
+          "unit": "瓣",
+          "price": 0.1
+        },
+        {
+          "name": "干辣椒",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "排骨",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "木耳",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "洋葱",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "燕麦",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "牛肉",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "牛腩",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "猪肉",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "生姜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "生抽",
+          "unit": "毫升",
+          "price": 0.1
+        },
+        {
+          "name": "番茄",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "白菜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "白萝卜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "盐",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "粉丝",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "胡椒粉",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "胡萝卜",
+          "unit": "根",
+          "price": 0.1
+        },
+        {
+          "name": "芹菜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "茄子",
+          "unit": "根",
+          "price": 0.1
+        },
+        {
+          "name": "西兰花",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "豆瓣酱",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "豆腐",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "醋",
+          "unit": "毫升",
+          "price": 0.1
+        },
+        {
+          "name": "青椒",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "青菜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "面条",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "韭菜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "食用油",
+          "unit": "毫升",
+          "price": 0.1
+        },
+        {
+          "name": "香菇",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "鸡翅",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "鸡胸肉",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "鸡蛋",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "黄瓜",
+          "unit": "根",
+          "price": 0.1
+        }
+      ]
+    },
+    {
+      "name": "budget_missing",
+      "config": {
+        "start_date": "2026-09-25",
+        "meals": [
+          {
+            "day": 0,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 0,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 1,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 1,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 2,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 2,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 3,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 3,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 4,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 4,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 5,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 5,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 6,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 6,
+            "meal": "dinner",
+            "side": false
+          }
+        ],
+        "people": 1,
+        "portion_factor": 1,
+        "budget": 100,
+        "max_minutes": 120,
+        "max_difficulty": 2,
+        "max_repeat": 2,
+        "avoid_ingredients": [],
+        "dietary_restrictions": [],
+        "nutrition": {},
+        "locks": [],
+        "family_id": null,
+        "inventory_priority": true,
+        "confirm_estimates": true,
+        "timeout_seconds": 5,
+        "seed": 77,
+        "utc_offset_hours": 8
+      },
+      "prices": []
+    },
+    {
+      "name": "time_infeasible",
+      "config": {
+        "start_date": "2026-09-25",
+        "meals": [
+          {
+            "day": 0,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 0,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 1,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 1,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 2,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 2,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 3,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 3,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 4,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 4,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 5,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 5,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 6,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 6,
+            "meal": "dinner",
+            "side": false
+          }
+        ],
+        "people": 1,
+        "portion_factor": 1,
+        "budget": null,
+        "max_minutes": 1,
+        "max_difficulty": 2,
+        "max_repeat": 2,
+        "avoid_ingredients": [],
+        "dietary_restrictions": [],
+        "nutrition": {},
+        "locks": [],
+        "family_id": null,
+        "inventory_priority": true,
+        "confirm_estimates": true,
+        "timeout_seconds": 5,
+        "seed": 77,
+        "utc_offset_hours": 8
+      },
+      "prices": [
+        {
+          "name": "冬瓜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "可乐",
+          "unit": "毫升",
+          "price": 0.1
+        },
+        {
+          "name": "圆白菜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "土豆",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "土豆",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "大米",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "大蒜",
+          "unit": "瓣",
+          "price": 0.1
+        },
+        {
+          "name": "干辣椒",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "排骨",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "木耳",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "洋葱",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "燕麦",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "牛肉",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "牛腩",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "猪肉",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "生姜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "生抽",
+          "unit": "毫升",
+          "price": 0.1
+        },
+        {
+          "name": "番茄",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "白菜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "白萝卜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "盐",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "粉丝",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "胡椒粉",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "胡萝卜",
+          "unit": "根",
+          "price": 0.1
+        },
+        {
+          "name": "芹菜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "茄子",
+          "unit": "根",
+          "price": 0.1
+        },
+        {
+          "name": "西兰花",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "豆瓣酱",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "豆腐",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "醋",
+          "unit": "毫升",
+          "price": 0.1
+        },
+        {
+          "name": "青椒",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "青菜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "面条",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "韭菜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "食用油",
+          "unit": "毫升",
+          "price": 0.1
+        },
+        {
+          "name": "香菇",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "鸡翅",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "鸡胸肉",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "鸡蛋",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "黄瓜",
+          "unit": "根",
+          "price": 0.1
+        }
+      ]
+    },
+    {
+      "name": "locked_allergen",
+      "config": {
+        "start_date": "2026-09-25",
+        "meals": [
+          {
+            "day": 0,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 0,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 1,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 1,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 2,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 2,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 3,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 3,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 4,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 4,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 5,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 5,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 6,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 6,
+            "meal": "dinner",
+            "side": false
+          }
+        ],
+        "people": 1,
+        "portion_factor": 1,
+        "budget": null,
+        "max_minutes": 120,
+        "max_difficulty": 2,
+        "max_repeat": 2,
+        "avoid_ingredients": [
+          "鸡蛋"
+        ],
+        "dietary_restrictions": [],
+        "nutrition": {},
+        "locks": [
+          {
+            "day": 0,
+            "meal": "lunch",
+            "role": "main",
+            "recipe_id": "recipe_001"
+          }
+        ],
+        "family_id": null,
+        "inventory_priority": true,
+        "confirm_estimates": true,
+        "timeout_seconds": 5,
+        "seed": 77,
+        "utc_offset_hours": 8
+      },
+      "prices": [
+        {
+          "name": "冬瓜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "可乐",
+          "unit": "毫升",
+          "price": 0.1
+        },
+        {
+          "name": "圆白菜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "土豆",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "土豆",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "大米",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "大蒜",
+          "unit": "瓣",
+          "price": 0.1
+        },
+        {
+          "name": "干辣椒",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "排骨",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "木耳",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "洋葱",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "燕麦",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "牛肉",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "牛腩",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "猪肉",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "生姜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "生抽",
+          "unit": "毫升",
+          "price": 0.1
+        },
+        {
+          "name": "番茄",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "白菜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "白萝卜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "盐",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "粉丝",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "胡椒粉",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "胡萝卜",
+          "unit": "根",
+          "price": 0.1
+        },
+        {
+          "name": "芹菜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "茄子",
+          "unit": "根",
+          "price": 0.1
+        },
+        {
+          "name": "西兰花",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "豆瓣酱",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "豆腐",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "醋",
+          "unit": "毫升",
+          "price": 0.1
+        },
+        {
+          "name": "青椒",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "青菜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "面条",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "韭菜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "食用油",
+          "unit": "毫升",
+          "price": 0.1
+        },
+        {
+          "name": "香菇",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "鸡翅",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "鸡胸肉",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "鸡蛋",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "黄瓜",
+          "unit": "根",
+          "price": 0.1
+        }
+      ]
+    },
+    {
+      "name": "timeout",
+      "config": {
+        "start_date": "2026-09-25",
+        "meals": [
+          {
+            "day": 0,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 0,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 1,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 1,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 2,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 2,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 3,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 3,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 4,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 4,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 5,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 5,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 6,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 6,
+            "meal": "dinner",
+            "side": false
+          }
+        ],
+        "people": 1,
+        "portion_factor": 1,
+        "budget": null,
+        "max_minutes": 120,
+        "max_difficulty": 2,
+        "max_repeat": 2,
+        "avoid_ingredients": [],
+        "dietary_restrictions": [],
+        "nutrition": {},
+        "locks": [],
+        "family_id": null,
+        "inventory_priority": true,
+        "confirm_estimates": true,
+        "timeout_seconds": 1e-07,
+        "seed": 77,
+        "utc_offset_hours": 8
+      },
+      "prices": [
+        {
+          "name": "冬瓜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "可乐",
+          "unit": "毫升",
+          "price": 0.1
+        },
+        {
+          "name": "圆白菜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "土豆",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "土豆",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "大米",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "大蒜",
+          "unit": "瓣",
+          "price": 0.1
+        },
+        {
+          "name": "干辣椒",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "排骨",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "木耳",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "洋葱",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "燕麦",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "牛肉",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "牛腩",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "猪肉",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "生姜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "生抽",
+          "unit": "毫升",
+          "price": 0.1
+        },
+        {
+          "name": "番茄",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "白菜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "白萝卜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "盐",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "粉丝",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "胡椒粉",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "胡萝卜",
+          "unit": "根",
+          "price": 0.1
+        },
+        {
+          "name": "芹菜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "茄子",
+          "unit": "根",
+          "price": 0.1
+        },
+        {
+          "name": "西兰花",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "豆瓣酱",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "豆腐",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "醋",
+          "unit": "毫升",
+          "price": 0.1
+        },
+        {
+          "name": "青椒",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "青菜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "面条",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "韭菜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "食用油",
+          "unit": "毫升",
+          "price": 0.1
+        },
+        {
+          "name": "香菇",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "鸡翅",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "鸡胸肉",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "鸡蛋",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "黄瓜",
+          "unit": "根",
+          "price": 0.1
+        }
+      ]
+    },
+    {
+      "name": "nutrition_bounds",
+      "config": {
+        "start_date": "2026-09-25",
+        "meals": [
+          {
+            "day": 0,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 0,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 1,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 1,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 2,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 2,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 3,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 3,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 4,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 4,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 5,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 5,
+            "meal": "dinner",
+            "side": false
+          },
+          {
+            "day": 6,
+            "meal": "lunch",
+            "side": false
+          },
+          {
+            "day": 6,
+            "meal": "dinner",
+            "side": false
+          }
+        ],
+        "people": 1,
+        "portion_factor": 1,
+        "budget": 10000,
+        "max_minutes": 120,
+        "max_difficulty": 2,
+        "max_repeat": 2,
+        "avoid_ingredients": [],
+        "dietary_restrictions": [],
+        "nutrition": {
+          "protein_g": {
+            "min": 100,
+            "max": 800
+          }
+        },
+        "locks": [],
+        "family_id": null,
+        "inventory_priority": true,
+        "confirm_estimates": true,
+        "timeout_seconds": 5,
+        "seed": 77,
+        "utc_offset_hours": 8
+      },
+      "prices": [
+        {
+          "name": "冬瓜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "可乐",
+          "unit": "毫升",
+          "price": 0.1
+        },
+        {
+          "name": "圆白菜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "土豆",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "土豆",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "大米",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "大蒜",
+          "unit": "瓣",
+          "price": 0.1
+        },
+        {
+          "name": "干辣椒",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "排骨",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "木耳",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "洋葱",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "燕麦",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "牛肉",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "牛腩",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "猪肉",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "生姜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "生抽",
+          "unit": "毫升",
+          "price": 0.1
+        },
+        {
+          "name": "番茄",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "白菜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "白萝卜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "盐",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "粉丝",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "胡椒粉",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "胡萝卜",
+          "unit": "根",
+          "price": 0.1
+        },
+        {
+          "name": "芹菜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "茄子",
+          "unit": "根",
+          "price": 0.1
+        },
+        {
+          "name": "西兰花",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "豆瓣酱",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "豆腐",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "醋",
+          "unit": "毫升",
+          "price": 0.1
+        },
+        {
+          "name": "青椒",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "青菜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "面条",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "韭菜",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "食用油",
+          "unit": "毫升",
+          "price": 0.1
+        },
+        {
+          "name": "香菇",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "鸡翅",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "鸡胸肉",
+          "unit": "克",
+          "price": 0.1
+        },
+        {
+          "name": "鸡蛋",
+          "unit": "个",
+          "price": 0.1
+        },
+        {
+          "name": "黄瓜",
+          "unit": "根",
+          "price": 0.1
+        }
+      ]
+    }
+  ],
+  "results": [
+    {
+      "case": "weekly",
+      "status": "OPTIMAL",
+      "meals": 14,
+      "selected": [
+        [
+          "recipe_013",
+          "plan-oats"
+        ],
+        [
+          "recipe_002",
+          "plan-oats"
+        ],
+        [
+          "recipe_008",
+          "plan-oats"
+        ],
+        [
+          "recipe_021",
+          "plan-oats"
+        ],
+        [
+          "recipe_021",
+          "plan-oats"
+        ],
+        [
+          "recipe_002",
+          "plan-oats"
+        ],
+        [
+          "recipe_011",
+          "plan-oats"
+        ],
+        [
+          "recipe_011",
+          "plan-oats"
+        ],
+        [
+          "recipe_001",
+          "plan-oats"
+        ],
+        [
+          "recipe_001",
+          "plan-oats"
+        ],
+        [
+          "recipe_008",
+          "plan-oats"
+        ],
+        [
+          "recipe_013",
+          "plan-oats"
+        ],
+        [
+          "recipe_012",
+          "plan-oats"
+        ],
+        [
+          "recipe_012",
+          "plan-oats"
+        ]
+      ],
+      "constraints_rechecked": true,
+      "stages": [
+        {
+          "name": "现有单餐推荐分",
+          "status": "OPTIMAL",
+          "objective": -0.0
+        },
+        {
+          "name": "补购估算成本",
+          "status": "OPTIMAL",
+          "objective": 976000000.0
+        }
+      ],
+      "elapsed_seconds": 0.094
+    },
+    {
+      "case": "budget_missing",
+      "status": "NEEDS_DATA",
+      "meals": 0,
+      "selected": [],
+      "constraints_rechecked": false,
+      "stages": [],
+      "elapsed_seconds": null
+    },
+    {
+      "case": "time_infeasible",
+      "status": "INFEASIBLE",
+      "meals": 0,
+      "selected": [],
+      "constraints_rechecked": false,
+      "stages": [
+        {
+          "name": "现有单餐推荐分",
+          "status": "INFEASIBLE",
+          "objective": null
+        }
+      ],
+      "elapsed_seconds": null
+    },
+    {
+      "case": "locked_allergen",
+      "status": "INFEASIBLE",
+      "meals": 0,
+      "selected": [],
+      "constraints_rechecked": false,
+      "stages": [],
+      "elapsed_seconds": null
+    },
+    {
+      "case": "timeout",
+      "status": "TIMEOUT",
+      "meals": 0,
+      "selected": [],
+      "constraints_rechecked": false,
+      "stages": [],
+      "elapsed_seconds": null
+    },
+    {
+      "case": "nutrition_bounds",
+      "status": "OPTIMAL",
+      "meals": 14,
+      "selected": [
+        [
+          "recipe_013",
+          "plan-oats"
+        ],
+        [
+          "recipe_011",
+          "plan-oats"
+        ],
+        [
+          "recipe_012",
+          "plan-oats"
+        ],
+        [
+          "recipe_009",
+          "plan-oats"
+        ],
+        [
+          "recipe_001",
+          "plan-oats"
+        ],
+        [
+          "recipe_012",
+          "plan-oats"
+        ],
+        [
+          "recipe_008",
+          "plan-oats"
+        ],
+        [
+          "recipe_009",
+          "plan-oats"
+        ],
+        [
+          "recipe_008",
+          "plan-oats"
+        ],
+        [
+          "recipe_013",
+          "plan-oats"
+        ],
+        [
+          "recipe_002",
+          "plan-oats"
+        ],
+        [
+          "recipe_011",
+          "plan-oats"
+        ],
+        [
+          "recipe_002",
+          "plan-oats"
+        ],
+        [
+          "recipe_001",
+          "plan-oats"
+        ]
+      ],
+      "constraints_rechecked": true,
+      "stages": [
+        {
+          "name": "现有单餐推荐分",
+          "status": "OPTIMAL",
+          "objective": -0.0
+        },
+        {
+          "name": "补购估算成本",
+          "status": "OPTIMAL",
+          "objective": 1083000000.0
+        }
+      ],
+      "elapsed_seconds": 0.547
+    }
+  ],
+  "baseline": {
+    "method": "repeat highest original single-meal score",
+    "recipe_id": "recipe_001",
+    "repeat_count": 14,
+    "max_repeat": 2,
+    "weekly_repeat_constraint_passed": false,
+    "note": "Demonstrates why an independent week constraint layer is needed; not a comparison of real eating outcomes."
+  },
+  "deterministic_selection": true
+}
