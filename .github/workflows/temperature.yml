@@ -129,6 +129,7 @@ jobs:
           node frontend/scripts/browser-recipes.cjs
           node frontend/scripts/browser-community.cjs
           node frontend/scripts/browser-leftovers.cjs
+          node frontend/scripts/browser-growth.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
