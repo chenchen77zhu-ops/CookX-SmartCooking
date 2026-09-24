@@ -49,6 +49,8 @@ from app.domain.households import router as households_router
 app.include_router(households_router)
 from app.domain.shopping import router as shopping_router
 app.include_router(shopping_router)
+from app.domain.recipes import router as recipes_router
+app.include_router(recipes_router)
 USER_DATA_BASE = "app/data/users"
 # --- 1. 配置与初始化 ---
 UPLOAD_DIR = "app/static/uploads"
