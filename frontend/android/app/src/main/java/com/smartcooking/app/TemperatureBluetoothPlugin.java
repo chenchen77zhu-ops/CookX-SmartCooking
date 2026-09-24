@@ -1,6 +1,9 @@
 package com.smartcooking.app;
 
 import android.Manifest;
+import android.app.Activity;
+import androidx.activity.result.ActivityResult;
+import com.getcapacitor.annotation.ActivityCallback;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
@@ -15,6 +18,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import com.getcapacitor.JSObject;
+import com.getcapacitor.JSArray;
 import com.getcapacitor.PermissionState;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -62,18 +66,24 @@ public class TemperatureBluetoothPlugin extends Plugin {
     private volatile boolean receiverRegistered;
     private volatile boolean userDisconnected;
     private volatile int reconnectAttempt;
+    private static final long DISCOVERY_TIMEOUT_MS = 25000;
+    private final DiscoveryWindow discoveryWindow = new DiscoveryWindow();
+    private Runnable discoveryTimeout;
+    private volatile String discoveryOutcome = "not-started";
+    private volatile boolean discoveryStartAccepted;
+
 
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
-            if (BluetoothAdapter.ACTION_DISCOVERY_STARTED.equals(action)) { Log.d(TAG, "ACTION_DISCOVERY_STARTED"); setState(State.SCANNING, null, ""); }
+            if (BluetoothAdapter.ACTION_DISCOVERY_STARTED.equals(action)) { Log.d(TAG, "ACTION_DISCOVERY_STARTED"); /* startDiscovery owns the state; late broadcasts must not replace CONNECTED. */ }
             else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action)) {
                 Log.d(TAG, "ACTION_DISCOVERY_FINISHED: devices=" + discovered.size());
-                if (state == State.SCANNING) setState(State.IDLE, null, "");
-                notifyListeners("discoveryFinished", new JSObject());
+                // A cancellation from an older attempt may arrive after a new scan starts.
+                if (!safeDiscovering()) finishDiscovery(discoveryWindow.token(), "finished");
             } else if (BluetoothDevice.ACTION_FOUND.equals(action) || BluetoothDevice.ACTION_BOND_STATE_CHANGED.equals(action)) {
                 BluetoothDevice device = getDevice(intent);
-                if (device != null) { Log.d(TAG, "ACTION_FOUND: name=" + safeName(device) + ", address=" + safeAddress(device) + ", bondState=" + safeBondState(device)); publishDevice(device); }
+                if (device != null && (discoveryWindow.active() || BluetoothDevice.ACTION_BOND_STATE_CHANGED.equals(action))) { Log.d(TAG, "ACTION_FOUND: name=" + safeName(device) + ", address=" + safeAddress(device) + ", bondState=" + safeBondState(device)); publishDevice(device); }
             }
         }
     };
@@ -82,6 +92,29 @@ public class TemperatureBluetoothPlugin extends Plugin {
         BluetoothManager manager = (BluetoothManager) getContext().getSystemService(Context.BLUETOOTH_SERVICE);
         adapter = manager == null ? null : manager.getAdapter();
         mainHandler.post(this::registerReceiverOnce);
+    }
+
+    private boolean exportingDiagnostics;
+    @PluginMethod public void exportDiagnostics(PluginCall call) {
+        if (exportingDiagnostics) { call.reject("正在导出，请勿重复操作"); return; }
+        String json = call.getString("json", "");
+        if (json.isEmpty() || json.length() > 16000000) { call.reject("诊断内容无效或过大，请分段导出"); return; }
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT); intent.setType("application/json"); intent.addCategory(Intent.CATEGORY_OPENABLE); intent.putExtra(Intent.EXTRA_TITLE, call.getString("filename", "cookx-diagnostics.json"));
+        exportingDiagnostics = true;
+        try { startActivityForResult(call, intent, "diagnosticsSaved"); } catch (Exception error) { exportingDiagnostics = false; call.reject("系统文件保存不可用", error); }
+    }
+    @ActivityCallback private void diagnosticsSaved(PluginCall call, ActivityResult result) {
+        exportingDiagnostics = false;
+        if (call == null) return;
+        if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null || result.getData().getData() == null) { call.reject("已取消导出"); return; }
+        try (OutputStream stream = getContext().getContentResolver().openOutputStream(result.getData().getData())) {
+            if (stream == null) throw new IOException("Cannot open document");
+            stream.write(call.getString("json", "").getBytes(StandardCharsets.UTF_8)); call.resolve();
+        } catch (Exception error) { call.reject("诊断文件保存失败", error); }
+    }
+
+    @PluginMethod public void getDiagnosticsInfo(PluginCall call) {
+        JSObject info = new JSObject(); info.put("manufacturer", Build.MANUFACTURER); info.put("model", Build.MODEL); info.put("androidRelease", Build.VERSION.RELEASE); info.put("sdkInt", Build.VERSION.SDK_INT); try { info.put("appVersion", getContext().getPackageManager().getPackageInfo(getContext().getPackageName(), 0).versionName); } catch (Exception ignored) { info.put("appVersion", "unknown"); } info.put("transport", "Bluetooth Classic SPP"); info.put("permissionsGranted", hasPermissions()); info.put("bluetoothEnabled", safeEnabled()); info.put("discoveryOutcome", discoveryOutcome); info.put("discoveryStartAccepted", discoveryStartAccepted); info.put("discoveryActive", discoveryWindow.active()); info.put("knownDeviceCount", discovered.size()); info.put("bluetoothFix", "discovery-v2"); call.resolve(info);
     }
 
     @PluginMethod public void checkBluetoothState(PluginCall call) {
@@ -95,7 +128,7 @@ public class TemperatureBluetoothPlugin extends Plugin {
 
     @PluginMethod public void requestBluetoothPermissions(PluginCall call) {
         if (hasPermissions()) { call.resolve(permissionResult()); return; }
-        requestAllPermissions(call, "permissionsCallback");
+        requestPermissionForAliases(Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? new String[]{"bluetoothScan", "bluetoothConnect"} : new String[]{"location"}, call, "permissionsCallback");
     }
 
     @PermissionCallback private void permissionsCallback(PluginCall call) {
@@ -109,6 +142,9 @@ public class TemperatureBluetoothPlugin extends Plugin {
     }
 
     private void startDiscoveryOnMainThread(PluginCall call) {
+        if (state == State.CONNECTED || state == State.CONNECTING || state == State.RECONNECTING || discoveryWindow.active()) {
+            call.reject("Stop the existing connection or scan before discovering again", "SCAN_BUSY"); return;
+        }
         try {
             registerReceiverOnce();
             boolean enabled = adapter != null && adapter.isEnabled();
@@ -122,19 +158,35 @@ public class TemperatureBluetoothPlugin extends Plugin {
                 + ", fineLocationGranted=" + (getPermissionState("location") == PermissionState.GRANTED)
                 + ", receiverRegistered=" + receiverRegistered);
             discovered.clear();
+            // Paired devices need not be discoverable. Offer them immediately for explicit connection.
+            for (BluetoothDevice device : adapter.getBondedDevices()) publishDevice(device);
             if (discovering) {
                 boolean cancelled = adapter.cancelDiscovery();
                 Log.d(TAG, "cancelDiscovery returned=" + cancelled);
             }
+            final long token = discoveryWindow.begin();
             boolean started = adapter.startDiscovery();
+            discoveryStartAccepted = started;
             Log.d(TAG, "startDiscovery returned=" + started);
-            if (!started) { call.reject("Unable to start Bluetooth discovery", "SCAN_FAILED"); return; }
-            setState(State.SCANNING, null, "");
-            JSObject result = new JSObject(); result.put("status", "scanning"); call.resolve(result);
+            if (started) {
+                discoveryOutcome = "scanning";
+                setState(State.SCANNING, null, "");
+                discoveryTimeout = () -> {
+                    if (finishDiscovery(token, "timeout")) stopDiscoveryInternal();
+                };
+                mainHandler.postDelayed(discoveryTimeout, DISCOVERY_TIMEOUT_MS);
+            } else finishDiscovery(token, "start-failed");
+            JSObject result = new JSObject();
+            result.put("status", started ? "scanning" : "idle");
+            result.put("warning", started ? "" : "SCAN_FAILED");
+            result.put("devices", knownDevices());
+            call.resolve(result);
         } catch (SecurityException error) {
+            finishDiscovery(discoveryWindow.token(), "permission-denied");
             Log.e(TAG, "startDiscovery permission failure", error);
             call.reject("Bluetooth scan permission is missing", "PERMISSION_DENIED", error);
         } catch (Exception error) {
+            finishDiscovery(discoveryWindow.token(), "error");
             Log.e(TAG, "startDiscovery framework failure", error);
             call.reject("Unable to start Bluetooth discovery", "SCAN_FAILED", error);
         }
@@ -254,11 +306,30 @@ public class TemperatureBluetoothPlugin extends Plugin {
     private JSObject stateObject(State value, BluetoothDevice device, String message, String errorCode) { JSObject result = deviceObject(device); result.put("state", value.name().toLowerCase(Locale.ROOT)); result.put("message", message); result.put("errorCode", errorCode); return result; }
     private void fail(PluginCall call, String code, String message, Exception error) { setState(State.ERROR, currentDevice, message, code); if (call != null) call.reject(message, code, error); }
     private boolean ensureReady(PluginCall call) { if (adapter == null) { call.reject("Bluetooth is not supported", "BLUETOOTH_UNSUPPORTED"); return false; } if (!hasPermissions()) { call.reject("Bluetooth permission is required", "PERMISSION_DENIED"); return false; } if (!safeEnabled()) { call.reject("Please enable Bluetooth and try again", "BLUETOOTH_DISABLED"); return false; } return true; }
-    private boolean hasPermissions() { if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) return getPermissionState("bluetoothScan") == PermissionState.GRANTED && getPermissionState("bluetoothConnect") == PermissionState.GRANTED && getPermissionState("location") == PermissionState.GRANTED; return getPermissionState("location") == PermissionState.GRANTED; }
+    private boolean hasPermissions() { if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) return getPermissionState("bluetoothScan") == PermissionState.GRANTED && getPermissionState("bluetoothConnect") == PermissionState.GRANTED; return getPermissionState("location") == PermissionState.GRANTED; }
     private JSObject permissionResult() { JSObject result = new JSObject(); result.put("granted", true); result.put("scanGranted", getPermissionState("bluetoothScan") == PermissionState.GRANTED); result.put("connectGranted", getPermissionState("bluetoothConnect") == PermissionState.GRANTED); result.put("fineLocationGranted", getPermissionState("location") == PermissionState.GRANTED); return result; }
     private boolean safeEnabled() { try { return adapter != null && adapter.isEnabled(); } catch (SecurityException error) { return false; } }
-    private void stopDiscoveryInternal() { if (Looper.myLooper() != Looper.getMainLooper()) { mainHandler.post(this::stopDiscoveryInternal); return; } try { if (adapter != null && adapter.isDiscovering()) { boolean cancelled = adapter.cancelDiscovery(); Log.d(TAG, "cancelDiscovery returned=" + cancelled); } } catch (SecurityException error) { Log.w(TAG, "Cannot stop discovery", error); } }
-    private void registerReceiverOnce() { if (receiverRegistered) return; IntentFilter filter = new IntentFilter(); filter.addAction(BluetoothDevice.ACTION_FOUND); filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED); filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED); filter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED); if (Build.VERSION.SDK_INT >= 33) getContext().registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED); else getContext().registerReceiver(receiver, filter); receiverRegistered = true; Log.d(TAG, "Classic Bluetooth receiver registered on main thread=" + (Looper.myLooper() == Looper.getMainLooper())); }
+    private void stopDiscoveryInternal() { if (Looper.myLooper() != Looper.getMainLooper()) { mainHandler.post(this::stopDiscoveryInternal); return; } finishDiscovery(discoveryWindow.token(), "stopped"); try { if (adapter != null && adapter.isDiscovering()) { boolean cancelled = adapter.cancelDiscovery(); Log.d(TAG, "cancelDiscovery returned=" + cancelled); } } catch (SecurityException error) { Log.w(TAG, "Cannot stop discovery", error); } }
+    private boolean safeDiscovering() { try { return adapter != null && adapter.isDiscovering(); } catch (SecurityException error) { return false; } }
+    private JSArray knownDevices() {
+        JSArray devices = new JSArray();
+        for (BluetoothDevice device : discovered.values()) devices.put(deviceObject(device));
+        return devices;
+    }
+    private boolean finishDiscovery(long token, String reason) {
+        if (!discoveryWindow.finish(token)) return false;
+        if (discoveryTimeout != null) mainHandler.removeCallbacks(discoveryTimeout);
+        discoveryTimeout = null;
+        discoveryOutcome = reason;
+        if (state == State.SCANNING) setState(State.IDLE, null, reason, "timeout".equals(reason) ? "SCAN_TIMEOUT" : "");
+        JSObject result = new JSObject(); result.put("reason", reason); result.put("devices", knownDevices());
+        notifyListeners("discoveryFinished", result);
+        Log.i(TAG, "Discovery finished: " + reason + ", devices=" + discovered.size());
+        return true;
+    }
+    // This filter contains only protected Android Bluetooth system actions. Bluetooth runs in a
+    // privileged UID separate from system; NOT_EXPORTED drops its events on recent Android.
+    private void registerReceiverOnce() { if (receiverRegistered) return; IntentFilter filter = new IntentFilter(); filter.addAction(BluetoothDevice.ACTION_FOUND); filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED); filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED); filter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED); if (Build.VERSION.SDK_INT >= 33) getContext().registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED); else getContext().registerReceiver(receiver, filter); receiverRegistered = true; Log.d(TAG, "Classic Bluetooth receiver registered on main thread=" + (Looper.myLooper() == Looper.getMainLooper())); }
     private BluetoothDevice getDevice(Intent intent) { if (Build.VERSION.SDK_INT >= 33) return intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice.class); return intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE); }
     private String safeName(BluetoothDevice device) { if (device == null) return ""; try { String name = device.getName(); return name == null ? "Unknown device" : name; } catch (SecurityException error) { return "Unknown device"; } }
     private String safeAddress(BluetoothDevice device) { if (device == null) return ""; try { return device.getAddress(); } catch (SecurityException error) { return ""; } }

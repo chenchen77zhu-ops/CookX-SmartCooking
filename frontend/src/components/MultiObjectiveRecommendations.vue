@@ -17,6 +17,16 @@
       </button>
     </header>
 
+    <details class="recommendation-options">
+      <summary>预算、难度与营养目标（可不填）</summary>
+      <fieldset :disabled="loading" @change="criteriaChanged">
+        <label>整道菜预算（元）<input v-model="criteria.budget" type="number" min="0.01" step="any" /></label>
+        <label>期望难度<select v-model="criteria.difficulty_target" aria-label="期望难度"><option value="">不限制</option><option value="easy">简单</option><option value="medium">中等</option><option value="hard">较难</option></select></label>
+        <label v-for="[key,label] in nutritionFields" :key="key">{{ label }}<input v-model="criteria[key]" type="number" min="0.01" step="any" /></label>
+      </fieldset>
+      <p>预算按整道菜估算，营养目标按每份计算。缺少基础数据时对应分项不参与评分；目标保存在当前用户本机。</p>
+    </details>
+    <p v-if="viewState === 'stale'" role="status">库存或目标已变化，旧推荐已失效，请重新获取推荐。</p>
     <div v-if="viewState === 'initial'" class="state-panel initial-state">
       <span class="state-icon"><el-icon><DataAnalysis /></el-icon></span>
       <div><h3>从真实库存中寻找更合适的一餐</h3><p>算法只会推荐至少匹配一项安全关键食材的标准菜谱。</p></div>
@@ -113,22 +123,34 @@
               <span>缺失惩罚权重 {{ formatPercent(item.missing_penalty_weight) }}</span>
             </div>
             <p v-if="item.unavailable_components?.length" class="unavailable-copy">未参与评分：{{ item.unavailable_components.join('、') }}</p>
+            <div class="source-details">
+              <p>预算匹配：{{ item.cost_status || '数据不足' }}；整道菜估价 {{ item.estimated_cost ?? '未知' }} {{ item.currency || 'CNY' }}</p>
+              <p v-for="note in item.cost_data_notes" :key="'cost'+note">{{ note }}</p>
+              <p>难度匹配：{{ item.difficulty_status || '数据不足' }}；菜谱难度 {{ item.recipe_difficulty || '未知' }}</p>
+              <p v-for="note in item.difficulty_data_notes" :key="'difficulty'+note">{{ note }}</p>
+              <p>营养匹配：{{ item.nutrition_status || '数据不足' }}；口径 {{ item.nutrition_basis==='per_serving'?'每份':item.nutrition_basis || '未知' }}</p>
+              <p v-for="note in item.nutrition_data_notes" :key="'nutrition'+note">{{ note }}</p>
+              <p v-if="item.nutrition_disclaimer">{{ item.nutrition_disclaimer }}</p>
+            </div>
           </details>
         </article>
       </div>
 
-      <p class="algorithm-note">综合推荐分由食材匹配、临期利用、偏好匹配、厨余减少和缺失食材惩罚共同计算。</p>
+      <p class="algorithm-note">综合推荐分及有效权重均采用服务端结果；缺少数据的分项不由前端补算。</p>
     </template>
   </section>
 </template>
 
 <script setup>
-import { onBeforeUnmount, ref } from 'vue'
+import { onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Box, DataAnalysis, Refresh, User, WarningFilled } from '@element-plus/icons-vue'
 import { getMultiObjectiveRecommendations } from '@/api'
+import { nutritionFields, loadRecommendationPreferences, serializeRecommendationPreferences, recommendationPreferenceKey } from '../services/recommendationPreferences.js'
 
 defineEmits(['manage-inventory'])
+const props = defineProps({ inventoryRevision: Number, inventoryReady: Boolean, userId: String })
+let requestVersion = 0
 
 const router = useRouter()
 const loading = ref(false)
@@ -142,8 +164,10 @@ const algorithmVersion = ref('multi_objective_v1')
 let requestController = null
 let componentActive = true
 
-const weights = Object.freeze({ I: 0.35, F: 0.25, P: 0.20, W: 0.20, lambda: 0.15 })
-const metricLabels = { I: '食材匹配', F: '临期利用', P: '偏好匹配', W: '厨余减少', M: '缺失惩罚' }
+const criteria = ref(loadRecommendationPreferences(localStorage,props.userId))
+function criteriaChanged(){requestVersion++;requestController?.abort();loading.value=false;resetResults();viewState.value=hasRequested.value?'stale':'initial'}
+watch(()=>props.userId,user=>{criteria.value=loadRecommendationPreferences(localStorage,user)})
+const metricLabels = { I: '食材匹配', F: '临期利用', P: '偏好匹配', W: '厨余减少', B:'预算匹配', D:'难度匹配', N:'营养匹配', M: '缺失惩罚' }
 
 const safeJsonObject = (key) => {
   try {
@@ -183,7 +207,7 @@ const resetResults = () => {
 }
 
 const fetchRecommendations = async () => {
-  if (loading.value) return
+  if (loading.value || !props.inventoryReady) return
   const userId = readUserId()
   if (!userId) {
     resetResults()
@@ -193,6 +217,8 @@ const fetchRecommendations = async () => {
     return
   }
 
+  const version = ++requestVersion
+  try { sessionStorage.setItem(`cookx:recommendation-requested:${userId}`, '1') } catch {}
   requestController?.abort()
   requestController = new AbortController()
   loading.value = true
@@ -201,13 +227,15 @@ const fetchRecommendations = async () => {
   stateMessage.value = ''
 
   try {
+    const constraints=serializeRecommendationPreferences(criteria.value)
+    localStorage.setItem(recommendationPreferenceKey(userId),JSON.stringify(criteria.value))
     const response = await getMultiObjectiveRecommendations({
       user_id: userId,
       top_k: 5,
-      weights,
+      ...constraints,
       preferences: readPreferences()
     }, requestController.signal)
-    if (!componentActive) return
+    if (!componentActive || version !== requestVersion || readUserId() !== userId) return
     const data = response.data || {}
     algorithmVersion.value = data.algorithm_version || 'multi_objective_v1'
     eligibleCount.value = Number(data.eligible_recipe_count) || 0
@@ -224,23 +252,33 @@ const fetchRecommendations = async () => {
       stateMessage.value = '推荐服务返回了无法识别的状态，请稍后重试。'
     }
   } catch (error) {
-    if (!componentActive || error?.code === 'ERR_CANCELED') return
+    if (!componentActive || version !== requestVersion || readUserId() !== userId || error?.code === 'ERR_CANCELED') return
     resetResults()
     viewState.value = error?.response?.status === 404 ? 'auth_required' : 'error'
     if (error?.response?.status === 404) stateMessage.value = '登录信息可能已失效，请重新登录。'
     else if (error?.response?.status === 422) stateMessage.value = '推荐参数暂时无法处理，请刷新页面后重试。'
-    else stateMessage.value = '推荐服务暂时不可用，请检查网络或稍后重试。'
+    else stateMessage.value = error?.response ? '推荐服务暂时不可用，请检查网络或稍后重试。' : error.message || '请求失败，请重试。'
   } finally {
-    if (componentActive) loading.value = false
+    if (componentActive && version === requestVersion) loading.value = false
   }
 }
 
-const formatScore = value => Number.isFinite(Number(value)) ? Number(value).toFixed(2) : '--'
-const formatPercent = value => Number.isFinite(Number(value)) ? `${Math.round(Number(value) * 100)}%` : '数据不足'
+const formatScore = value => value != null && Number.isFinite(Number(value)) ? Number(value).toFixed(2) : '--'
+const formatPercent = value => value != null && Number.isFinite(Number(value)) ? `${Math.round(Number(value) * 100)}%` : '数据不足'
 const metricLabel = key => metricLabels[key] || key
-const scoreMetrics = item => ['I', 'F', 'P', 'W', 'M'].map(key => {
+const scoreMetrics = item => ['I', 'F', 'P', 'W', 'B', 'D', 'N', 'M'].map(key => {
   const value = item.component_scores?.[key]
   return { key, label: metricLabel(key), value: value == null ? null : Number(value), display: value == null ? '数据不足' : formatPercent(value) }
+})
+
+watch(() => [props.inventoryRevision, props.inventoryReady, props.userId], () => {
+  requestVersion++
+  requestController?.abort()
+  loading.value = false
+  resetResults()
+  try { hasRequested.value = sessionStorage.getItem(`cookx:recommendation-requested:${props.userId}`) === '1' } catch { hasRequested.value = false }
+  viewState.value = hasRequested.value ? 'stale' : 'initial'
+  if (hasRequested.value && props.inventoryReady) fetchRecommendations()
 })
 
 onBeforeUnmount(() => {
@@ -250,6 +288,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.recommendation-options{margin:15px 0;line-height:1.7}.recommendation-options fieldset{border:0;padding:10px 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}.recommendation-options label{display:grid;gap:5px}.recommendation-options input,.recommendation-options select{min-width:0;padding:9px;border:1px solid #ccd9d0;border-radius:8px}.recommendation-options p,.source-details{font-size:12px;color:#52645a;overflow-wrap:anywhere}
 .smart-recommendations { box-sizing: border-box; width: 100%; max-width: 960px; margin: 20px auto 0; padding: 20px; border: var(--cookx-border); border-radius: 22px; background: #fff; box-shadow: 0 14px 35px rgba(29, 57, 48, .06); }
 .recommendation-heading, .card-topline, .result-summary, .metric-row > div:first-child, .weight-copy { display: flex; align-items: center; }
 .recommendation-heading { justify-content: space-between; gap: 20px; }

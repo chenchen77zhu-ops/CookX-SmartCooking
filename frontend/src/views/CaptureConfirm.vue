@@ -20,7 +20,7 @@
         </div>
 
         <div v-if="identifiedItems.length" class="food-grid">
-          <article v-for="(item, index) in identifiedItems" :key="`${item.name}-${index}`" class="food-card">
+          <article v-for="(item, index) in identifiedItems" :key="index" class="food-card">
             <div class="food-image">
               <span class="image-placeholder"><el-icon><KnifeFork /></el-icon></span>
               <img v-if="getItemImage(item)" :src="getItemImage(item)" :alt="displayName(item.name)" loading="lazy" @error="hideBrokenImage" />
@@ -28,35 +28,12 @@
             </div>
 
             <div class="food-card-body">
-              <div class="name-line">
-                <el-input v-model="item.name" placeholder="食材名称" class="name-input" />
-                <span :class="['category-chip', `category-${getItemCategory(item)}`]">{{ categoryName(getItemCategory(item)) }}</span>
-              </div>
-
-              <div class="control-block">
-                <label>数量</label>
-                <div class="quantity-row">
-                  <el-input-number v-model="item.quantity" :min="1" :max="99" />
-                  <span class="unit-chip">{{ item.unit || '份' }}</span>
-                </div>
-              </div>
-
-              <div class="control-block storage-row">
-                <label>存储方式</label>
-                <el-radio-group v-model="item.storage_type" size="small">
-                  <el-radio-button label="冷藏">冷藏</el-radio-button>
-                  <el-radio-button label="冷冻">冷冻</el-radio-button>
-                </el-radio-group>
-              </div>
-
-              <div class="control-block shelf-life-row">
-                <label><el-icon><Calendar /></el-icon>保质期</label>
-                <div><el-input-number v-model="item.shelf_life" :min="1" :max="365" /><span>天</span></div>
-              </div>
-
+              <InventoryFields v-model="identifiedItems[index]" :disabled="saving || pendingWrite" />
+              <FreshnessCard v-if="item.freshness_detail" :detail="item.freshness_detail" status="success" />
+              <p v-else>识别结果仅供确认名称，鲜度数据不足，入库后重新评估。</p>
               <div class="card-footer">
-                <div class="freshness-copy"><span>新鲜度</span><el-tag :type="getFreshnessType(item.freshness)" size="small">{{ item.freshness || '新鲜' }}</el-tag></div>
-                <button type="button" class="delete-button" aria-label="删除该识别结果" @click="removeItem(index)"><el-icon><Delete /></el-icon>删除</button>
+                <div class="freshness-copy"><span>新鲜度</span><el-tag :type="getFreshnessType(item.freshness)" size="small">{{ item.freshness || '数据不足' }}</el-tag></div>
+                <button type="button" class="delete-button" aria-label="删除该识别结果" :disabled="saving || pendingWrite" @click="removeItem(index)"><el-icon><Delete /></el-icon>删除</button>
               </div>
             </div>
           </article>
@@ -93,9 +70,10 @@
       </aside>
     </main>
 
+    <InventoryWriteStatus :user="currentUserId" :message="saveError" :pending="pendingWrite" :disabled="saving" @released="pendingWrite = false; saveError = ''" />
     <section class="action-bar">
       <button type="button" class="secondary-action" @click="recognizeAgain"><el-icon><RefreshRight /></el-icon>重新识别</button>
-      <button type="button" class="primary-action" :disabled="identifiedItems.length === 0" @click="confirmSave">
+      <button type="button" class="primary-action" :disabled="identifiedItems.length === 0 || saving" @click="confirmSave">
         <el-icon><CircleCheckFilled /></el-icon>
         <span>确认加入冰箱（{{ identifiedItems.length }}项）<small>保存当前确认的食材信息</small></span>
       </button>
@@ -104,7 +82,13 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import FreshnessCard from '../components/FreshnessCard.vue'
+import { loadDraft, saveDraft, clearDraft, readUserId } from '../services/recognitionDraft.js'
+import InventoryFields from '../components/InventoryFields.vue'
+import InventoryWriteStatus from '../components/InventoryWriteStatus.vue'
+import { serializeItem, inventoryErrorMessage } from '../services/inventoryFields.js'
+import { saveInventory, hasPendingWrite } from '../api/inventoryWrites.js'
+import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { ArrowLeft, Calendar, CircleCheckFilled, Delete, InfoFilled, KnifeFork, Picture, RefreshRight, Tickets } from '@element-plus/icons-vue'
@@ -135,6 +119,8 @@ import doubanjiangImage from '@/assets/images/ingredients/doubanjiang.png'
 
 const router = useRouter()
 const identifiedItems = ref([])
+const saving = ref(false), saveError = ref(''), pendingWrite = ref(false)
+const currentUserId = ref(null)
 
 const foodConfig = {
   beef: { cn: '牛肉', category: 'meat', image: beefImage },
@@ -225,7 +211,7 @@ const getFreshnessType = (freshness) => {
   if (freshness === '新鲜') return 'success'
   if (freshness === '较新鲜') return 'warning'
   if (freshness === '一般') return 'danger'
-  return 'success'
+  return 'info'
 }
 
 const removeItem = (index) => {
@@ -237,57 +223,47 @@ const goBack = () => { router.back() }
 const recognizeAgain = () => { router.push({ path: '/home', query: { tab: 'Manage' } }) }
 
 const confirmSave = async () => {
-  if (identifiedItems.value.length === 0) {
-    ElMessage.warning('没有可保存的食材')
-    return
-  }
-
-  const user = JSON.parse(localStorage.getItem('user') || '{}')
-  const userId = user.id
-
-  if (!userId) {
-    ElMessage.error('用户信息失效，请重新登录')
-    router.push('/login')
-    return
-  }
-
+  if (saving.value || !identifiedItems.value.length) return
+  const userId = currentUserId.value
+  if (!userId || readUserId() !== userId) return router.push('/login')
+  saving.value = true; saveError.value = ''
   try {
-    const itemsToSave = identifiedItems.value.map(item => ({
-      name: item.name,
-      quantity: item.quantity,
-      storage_type: item.storage_type,
-      shelf_life: item.shelf_life
-    }))
-
-    const response = await axios.post(`${API_BASE_URL}/add-to-inventory`, itemsToSave, {
-      params: { user_id: userId }
-    })
-
-    if (response.data.status === 'success') {
-      ElMessage.success('食材已成功存入您的私人库存')
-      localStorage.removeItem('tempIdentifiedItems')
-      setTimeout(() => { router.push('/home') }, 500)
-    } else {
-      ElMessage.error(response.data.message || '保存失败')
-    }
+    const payload = hasPendingWrite(userId) ? null : identifiedItems.value.map(item => serializeItem(item))
+    await saveInventory(userId, payload, null, true)
+    if (readUserId() !== userId) return
+    pendingWrite.value = false
+    clearDraft(userId)
+    ElMessage.success('已重新读取库存并确认保存')
+    router.push('/home?tab=Manage')
   } catch (error) {
-    console.error('保存失败详情:', error.response?.data || error.message)
-    ElMessage.error('保存失败，请检查登录状态或联系管理员')
-  }
+    saveError.value = inventoryErrorMessage(error)
+    pendingWrite.value = hasPendingWrite(userId)
+  } finally { saving.value = false }
 }
 
-onMounted(() => {
-  const tempItems = localStorage.getItem('tempIdentifiedItems')
-  if (tempItems) {
-    try {
-      identifiedItems.value = JSON.parse(tempItems)
-    } catch (error) {
-      console.error('解析识别结果失败:', error)
-      ElMessage.error('识别数据加载失败')
-    }
-  } else {
-    ElMessage.warning('没有找到识别结果')
+function syncDraftUser() {
+  const user = readUserId()
+  if (user !== currentUserId.value) {
+    currentUserId.value = user
+    identifiedItems.value = user ? loadDraft(user) : []
+    pendingWrite.value = user ? hasPendingWrite(user) : false
+    saveError.value = ''
   }
+}
+const userChanged = event => { if (!event.key || event.key === 'user') syncDraftUser() }
+watch(identifiedItems, items => {
+  if (!saving.value && currentUserId.value === readUserId() && currentUserId.value) {
+    try { saveDraft(currentUserId.value, items) } catch { saveError.value = '草稿无法保存在本机，请保持此页打开' }
+  }
+}, {deep:true})
+onMounted(() => {
+  syncDraftUser()
+  window.addEventListener('storage', userChanged)
+  document.addEventListener('visibilitychange', syncDraftUser)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('storage', userChanged)
+  document.removeEventListener('visibilitychange', syncDraftUser)
 })
 </script>
 
@@ -432,6 +408,10 @@ button { font: inherit; }
   .food-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
   .food-image { height: 155px; }
   .action-bar { grid-template-columns: 220px minmax(0, 1fr); }
+}
+
+@media (max-width: 759px) {
+  .food-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (max-width: 380px) {

@@ -23,6 +23,8 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
   for(const name of ['番茄','鸡蛋']) {
    await page.getByRole('button',{name:'添加食材',exact:true}).first().click()
    await page.getByPlaceholder('如：牛肉').fill(name)
+   await page.getByLabel('储存方式',{exact:true}).selectOption('冷藏')
+   await page.getByLabel('保质期（天，可未知）',{exact:true}).fill('7')
    await page.getByRole('button',{name:'确认添加',exact:true}).click()
    await page.getByRole('dialog',{name:'添加食材'}).waitFor({state:'hidden'})
   }
@@ -39,11 +41,22 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
   await page.goto(base+'/#/home?tab=AiChef')
   await page.getByPlaceholder('告诉 CookX 你想做什么…').fill('番茄炒蛋')
   await page.getByPlaceholder('告诉 CookX 你想做什么…').press('Enter')
-  await page.getByRole('button',{name:'开始指导'}).click()
+  await page.getByRole('button',{name:'开始指导'}).last().click()
   await page.waitForFunction(()=>document.querySelector('.current-step-card .panel-heading')?.innerText.includes('00:29'))
+  await page.getByRole('button',{name:'完成烹饪',exact:true}).click()
+  const milkless=page.locator('.completion label').filter({hasText:'鸡蛋'})
+  await milkless.getByRole('checkbox').check()
+  const beforeFinish=await (await page.request.get('http://127.0.0.1:8000/api/inventory?user_id='+uid)).json()
+  const egg=beforeFinish.find(r=>r.name==='鸡蛋')
+  assert.ok(egg)
+  await page.getByRole('button',{name:'确认完成并扣减所选',exact:true}).click()
+  await page.getByText('库存扣减已回读确认。',{exact:true}).waitFor()
+  const afterFinish=await (await page.request.get('http://127.0.0.1:8000/api/inventory?user_id='+uid)).json()
+  assert.equal(afterFinish.find(r=>r.id===egg.id)?.quantity ?? 0,egg.quantity-1)
+  assert.equal(await page.evaluate(uid=>JSON.parse(localStorage.getItem('cookx:cooking:v1:'+uid)).status,uid),'completed')
   assert.deepEqual(errors,[])
   const report={environment:'Desktop Chromium with isolated loopback API',externalProviders:'YOLO and cloud substituted; no real recognition, speech or recipe quality claim',
-   checks:['login','inventory-read','legacy-unknown-ui','inventory-add-persistence','recommendation-ui-with-real-algorithm','freshfusion-api-with-real-algorithm','recipe-to-cooking','timer-during-provider-outage'],uncaughtErrors:errors}
+   checks:['login','inventory-read','legacy-unknown-ui','inventory-add-persistence','recommendation-ui-with-real-algorithm','freshfusion-api-with-real-algorithm','recipe-to-cooking','timer-during-provider-outage','completion-review','real-consumption-readback'],uncaughtErrors:errors}
   fs.writeFileSync(path.resolve(__dirname,'../../docs/temperature/application-results.json'),JSON.stringify(report,null,2))
   console.log(JSON.stringify(report))
  }finally{await browser.close()}
