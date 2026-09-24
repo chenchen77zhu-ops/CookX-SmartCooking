@@ -18,7 +18,7 @@ class Transfer(Command):
 class Stock(Command):
     name:str=Field(min_length=1,max_length=80)
     quantity:float=Field(gt=0,allow_inf_nan=False,strict=True)
-    unit:Literal['库存计数','克','千克','毫升','升','个','根','份']
+    unit:Literal['库存计数','克','千克','毫升','升','个','根','份','瓣','片','袋','包']
     storage_type:Literal['常温','冷藏','冷冻']|None=None
     purchase_time:str|None=None
     add_time:str|None=None

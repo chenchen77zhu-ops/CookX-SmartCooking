@@ -9,4 +9,4 @@ export async function businessApi(path,method='get',body) {
   if(response.data?.status==='error') throw new Error(response.data.message||'操作未完成')
   return response.data
 }
-export const apiError=error=>error.response?.data?.detail||error.message||'请求失败，请重试'
+export const apiError=error=>{const detail=error.response?.data?.detail;return Array.isArray(detail)?'输入不符合要求，请检查数量、单位与日期。':detail||error.message||'请求失败，请重试'}
