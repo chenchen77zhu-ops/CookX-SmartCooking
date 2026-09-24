@@ -10,18 +10,19 @@ export async function readInventory(user) {
   if (!Array.isArray(data)) throw new Error(data?.message || '库存读取失败')
   return data
 }
-export async function saveInventory(user, payload, id = null) {
+export async function saveInventory(user, payload, id = null, recognition = false) {
   if (active.has(user)) throw new Error('正在保存，请勿重复操作')
   active.add(user)
   try {
     let transaction = JSON.parse(localStorage.getItem(key(user)) || 'null')
     if (!transaction) {
-      transaction = { payload, id, before: await readInventory(user) }
+      transaction = { payload, id, recognition, before: await readInventory(user) }
       // Persist before sending; a timeout or navigation must not cause an automatic duplicate POST.
       localStorage.setItem(key(user), JSON.stringify(transaction))
       try {
         const options = { params:{user_id:user}, timeout:15000 }
         const response = id ? await axios.put(`${API_BASE_URL}/inventory/${encodeURIComponent(id)}`,payload,options)
+          : recognition ? await axios.post(`${API_BASE_URL}/inventory/confirm-recognition`,{user_id:user,confirmed:true,items:payload},{timeout:15000})
           : await axios.post(`${API_BASE_URL}/add-to-inventory`,payload,options)
         if (response.data?.status !== 'success') {
           localStorage.removeItem(key(user))
