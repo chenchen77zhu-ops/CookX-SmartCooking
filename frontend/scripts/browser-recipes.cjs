@@ -1,0 +1,15 @@
+const {chromium}=require(process.env.COOKX_PLAYWRIGHT||'playwright'),assert=require('node:assert/strict'),fs=require('node:fs')
+;(async()=>{const browser=await chromium.launch({headless:true,...(process.env.COOKX_CHROME?{executablePath:process.env.COOKX_CHROME}:{})});try{
+ const page=await browser.newPage({viewport:{width:390,height:844}}),base=process.env.COOKX_BASE_URL||'http://127.0.0.1:4176'
+ await page.route('**/api/**',async r=>{const u=new URL(r.request().url());await r.fulfill({response:await r.fetch({url:'http://127.0.0.1:8001'+u.pathname+u.search})})})
+ await page.goto(base+'/#/login');await page.getByPlaceholder('请输入昵称').fill('sqlite-alice');await page.getByPlaceholder('请输入密码').fill('test-pass-123');await page.getByRole('button',{name:'登录',exact:true}).click();await page.waitForURL('**/#/home');await page.goto(base+'/#/recipes')
+ const session=await page.evaluate(()=>JSON.parse(sessionStorage.getItem('cookx:session:v1'))),before=await page.evaluate(()=>localStorage.getItem('cookx:cooking:v1:'+JSON.parse(localStorage.getItem('user')).id))
+ await page.getByRole('button',{name:'收藏此版本',exact:true}).first().click();await page.getByRole('button',{name:'一键复刻',exact:true}).first().click();await page.getByRole('region',{name:'复刻食材核对'}).waitFor()
+ assert.equal(await page.evaluate(()=>localStorage.getItem('cookx:cooking:v1:'+JSON.parse(localStorage.getItem('user')).id)),before)
+ await page.getByRole('button',{name:'已核对，送到烹饪页',exact:true}).click();await page.waitForURL('**/#/home?tab=AiChef');await page.getByRole('button',{name:'开始指导',exact:true}).last().waitFor()
+ assert.equal(await page.evaluate(()=>localStorage.getItem('cookx:cooking:v1:'+JSON.parse(localStorage.getItem('user')).id)),before)
+ await page.getByRole('button',{name:'开始指导',exact:true}).last().click();await page.getByText('时长未提供',{exact:true}).first().waitFor()
+ const active=await page.evaluate(()=>JSON.parse(localStorage.getItem('cookx:cooking:v1:'+JSON.parse(localStorage.getItem('user')).id)));assert.equal(active.recipe.dish_name,'番茄炒鸡蛋');assert.equal(active.timers[0].deadline,null);assert.ok(active.recipe.cookx_copy_id)
+ await page.goto(base+'/#/favorites');await page.getByRole('heading',{name:'番茄炒鸡蛋',exact:true}).first().waitFor();fs.mkdirSync('tmp/recipes',{recursive:true});await page.screenshot({path:'tmp/recipes/favorites.png',fullPage:true,animations:'disabled'})
+ console.log(JSON.stringify({suite:'recipe-reuse-mobile-real-api',checks:['standard-catalog','favorite','independent-copy','ingredient-review','no-auto-session','no-auto-timer','missing-duration','source-provenance','favorite-roundtrip']}))
+}finally{await browser.close()}})().catch(e=>{console.error(e);process.exit(1)})

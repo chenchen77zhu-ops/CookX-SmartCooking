@@ -126,6 +126,7 @@ jobs:
           node frontend/scripts/browser-sqlite.cjs
           node frontend/scripts/browser-households.cjs
           node frontend/scripts/browser-shopping.cjs
+          node frontend/scripts/browser-recipes.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -139,6 +140,7 @@ jobs:
             tmp/sqlite/
             tmp/household/
             tmp/shopping/
+            tmp/recipes/
             /tmp/cookx-sqlite.log
             /tmp/cookx-backend.log
             /tmp/cookx-frontend.log

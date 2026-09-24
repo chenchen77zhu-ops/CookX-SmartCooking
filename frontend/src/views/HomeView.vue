@@ -37,7 +37,7 @@
       </section>
 
       <main class="dashboard-shell">
-        <section class="panel"><div class="panel-heading"><h2>一起做饭</h2><button class="plain-link" @click="router.push('/household')">家庭共享冰箱 →</button><button class="plain-link" @click="router.push('/shopping')">共同采购 →</button></div><p>个人库存保持私有，确认后再与家人分享。</p></section>
+        <section class="panel"><div class="panel-heading"><h2>一起做饭</h2><button class="plain-link" @click="router.push('/household')">家庭共享冰箱 →</button><button class="plain-link" @click="router.push('/shopping')">共同采购 →</button><button class="plain-link" @click="router.push('/recipes')">菜谱复刻 →</button></div><p>个人库存保持私有，确认后再与家人分享。</p></section>
         <section class="panel fridge-panel">
           <div class="panel-heading">
             <div class="heading-title">

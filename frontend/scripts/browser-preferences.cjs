@@ -4,7 +4,7 @@ const {chromium}=require(process.env.COOKX_PLAYWRIGHT||'playwright'),assert=requ
  await page.route('**/api/**',r=>r.fulfill({json:[]}));const base=process.env.COOKX_BASE_URL||'http://127.0.0.1:4176';await page.goto(base+'/#/preferences')
  const input=page.getByPlaceholder('例如：花生、香菜（请按真实情况填写）');assert.equal(await input.inputValue(),'账号A香菜')
  await page.evaluate(()=>{localStorage.setItem('user',JSON.stringify({id:'b'}));window.dispatchEvent(new StorageEvent('storage',{key:'user'}))});await page.waitForURL('**/#/home');await page.goto(base+'/#/preferences');await page.waitForFunction(()=>document.querySelectorAll('textarea').length===1 && document.querySelector('textarea').value==='');assert.equal(await input.inputValue(),'')
- await page.getByRole('button',{name:'确认将旧设备偏好导入当前账号',exact:true}).click();assert.equal(await input.inputValue(),'旧设备花生')
+ await page.getByRole('button',{name:'确认将旧设备偏好导入当前账号',exact:true}).click();await page.waitForFunction(()=>document.querySelector('textarea')?.value==='旧设备花生');assert.equal(await input.inputValue(),'旧设备花生')
  assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('cookx:preferences:v1:a')).dislikedIngredients),'账号A香菜')
  console.log(JSON.stringify({suite:'preference-isolation',checks:['account-bound-values','no-implicit-legacy-import','explicit-import','other-account-unchanged']}))
 }finally{await browser.close()}})().catch(e=>{console.error(e);process.exit(1)})

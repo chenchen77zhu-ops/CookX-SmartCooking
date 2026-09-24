@@ -206,6 +206,7 @@ import CookingAdjustments from '../components/CookingAdjustments.vue'
 import VoiceCommands from '../components/VoiceCommands.vue'
 import { speakSystem, stopSystemSpeech, stopListening } from '../services/systemVoice.js'
 import { getCookingStore, suspendCookingStores } from '../services/cookingStore.js'
+import { takeRecipeDraft } from '../services/recipeDraft'
 import { normalizeRecipe, safeHistory } from '../services/recipeAdapter.js'
 import { readUserId } from '../services/recognitionDraft.js'
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
@@ -747,6 +748,8 @@ onMounted(async () => {
   if (!user.id) return;
 
   await fetchHistory();
+  if(readUserId()!==user.id)return
+  try { const recipe=takeRecipeDraft(user.id);if(recipe)messages.value.push({role:'assistant',content:'独立复刻菜谱已准备好。点击开始指导后才会启动烹饪。',recipe}) } catch(error){recipeError.value=error.message}
 });
 
 onMounted(registerTemperatureListener)
