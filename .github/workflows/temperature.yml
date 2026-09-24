@@ -135,6 +135,7 @@ jobs:
           node frontend/scripts/browser-learning.cjs
           node frontend/scripts/browser-full-integration.cjs
           node frontend/scripts/browser-server-config.cjs
+          node frontend/scripts/browser-private-media.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -156,6 +157,7 @@ jobs:
             tmp/planning/
             tmp/learning/
             tmp/integration/
+            tmp/privacy/
             /tmp/cookx-sqlite.log
             /tmp/cookx-backend.log
             /tmp/cookx-frontend.log

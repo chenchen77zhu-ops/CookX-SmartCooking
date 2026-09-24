@@ -35,8 +35,8 @@ def post_payload(body,user):
     if not body.text.strip(): raise HTTPException(422,'内容不能为空')
     with store.transaction() as db:
         for id in body.image_ids:
-            row=db.execute('SELECT owner FROM media WHERE id=?',(id,)).fetchone()
-            if row is None or row['owner']!=user: raise HTTPException(403,'图片不存在或不属于当前账号')
+            row=db.execute('SELECT owner,mime FROM media WHERE id=?',(id,)).fetchone()
+            if row is None or (row['owner']!=user or not row['mime'].startswith('image/')): raise HTTPException(403,'图片不存在或不属于当前账号')
     recipe=None
     if body.recipe_copy_id:
         copy=read('recipe_copy',body.recipe_copy_id)
@@ -46,8 +46,7 @@ def post_payload(body,user):
         recipe['steps']=[{k:s[k] for k in ('text','time_estimate','temperature') if k in s} for s in normalized['steps']]
     return {'text':body.text.strip(),'image_ids':list(dict.fromkeys(body.image_ids)),'recipe':recipe}
 
-@router.post('/media')
-async def upload(request:Request,file:UploadFile=File(...)):
+async def validated_image(file):
     data=await file.read(5*1024*1024+1)
     if len(data)>5*1024*1024: raise HTTPException(413,'图片不能超过 5 MB')
     try:
@@ -57,8 +56,13 @@ async def upload(request:Request,file:UploadFile=File(...)):
                 if source.format not in ('JPEG','PNG','WEBP') or source.width*source.height>12_000_000: raise ValueError('format or pixels')
                 source.load();clean=ImageOps.exif_transpose(source).convert('RGB');clean.thumbnail((1920,1920));output=io.BytesIO();clean.save(output,format='JPEG',quality=88)
     except (UnidentifiedImageError,OSError,ValueError,Image.DecompressionBombError,Image.DecompressionBombWarning): raise HTTPException(422,'请上传真实 JPEG、PNG 或 WebP 图片（不超过 1200 万像素）')
+    return output.getvalue()
+
+@router.post('/media')
+async def upload(request:Request,file:UploadFile=File(...)):
+    content=await validated_image(file)
     id=new_id()
-    with store.transaction() as db: db.execute('INSERT INTO media VALUES(?,?,?,?)',(id,request.state.user_id,'image/jpeg',output.getvalue()))
+    with store.transaction() as db: db.execute('INSERT INTO media VALUES(?,?,?,?)',(id,request.state.user_id,'image/jpeg',content))
     return {'id':id,'mime':'image/jpeg'}
 
 @router.get('/media/{id}')

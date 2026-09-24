@@ -11,8 +11,8 @@
 
         <div class="user-hero">
           <button type="button" class="avatar-section" aria-label="编辑个人资料" @click="openEdit">
-            <el-avatar :size="88" :src="getFullAvatarUrl(user.avatar)"><el-icon><UserFilled /></el-icon></el-avatar>
-            <span><el-icon><EditPen /></el-icon></span>
+            <PrivateAvatar :size="88" :path="user.avatar" />
+            <span class="avatar-edit-badge"><el-icon><EditPen /></el-icon></span>
           </button>
           <div class="user-info">
             <span class="user-eyebrow">COOKX MEMBER</span>
@@ -157,7 +157,7 @@
       <el-form :model="editForm" :rules="editRules" ref="editFormRef" label-width="80px">
         <el-form-item label="头像">
           <div class="avatar-upload-section">
-            <el-avatar :size="100" :src="getFullAvatarUrl(editForm.avatar)"><el-icon><UserFilled /></el-icon></el-avatar>
+            <PrivateAvatar :size="100" :path="editForm.avatar" />
             <el-upload
               class="avatar-uploader"
               :auto-upload="false"
@@ -196,6 +196,7 @@
 </template>
 
 <script setup>
+import PrivateAvatar from '../components/PrivateAvatar.vue'
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -203,7 +204,7 @@ import { ArrowRight, Bell, Clock, Connection, EditPen, InfoFilled, Lock, Setting
 import { authApi } from '@/api/auth'
 import axios from 'axios'
 import { logoutSession } from '../services/authSession'
-import { API_BASE_URL, resolveBackendUrl } from '@/config/backend'
+import { API_BASE_URL } from '@/config/backend'
 
 const router = useRouter()
 const route = useRoute()
@@ -292,12 +293,6 @@ const editForm = reactive({
 const editRules = {
   nickname: [{ required: true, message: '请输入昵称', trigger: 'blur' }],
   phone: [{ pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' }]
-}
-
-const getFullAvatarUrl = (path) => {
-  if (!path) return ''
-  if (path.startsWith('http')) return path
-  return resolveBackendUrl(path)
 }
 
 onMounted(async () => {
@@ -859,7 +854,7 @@ const handleLogout = () => {
 .user-hero { gap: 20px; margin-top: 34px; }
 .avatar-section { position: relative; flex: 0 0 auto; padding: 0; border: 0; background: transparent; cursor: pointer; }
 .avatar-section :deep(.el-avatar) { border: 3px solid rgba(255,255,255,.28); background: rgba(255,255,255,.12); color: #fff; font-size: 36px; box-shadow: 0 12px 30px rgba(0,0,0,.2); }
-.avatar-section > span { position: absolute; right: -2px; bottom: 2px; display: grid; width: 29px; height: 29px; border: 3px solid var(--cookx-primary-dark); border-radius: 10px; background: var(--cookx-accent); color: #fff; font-size: 13px; place-items: center; }
+.avatar-section > .avatar-edit-badge { position: absolute; right: -2px; bottom: 2px; display: grid; width: 29px; height: 29px; border: 3px solid var(--cookx-primary-dark); border-radius: 10px; background: var(--cookx-accent); color: #fff; font-size: 13px; place-items: center; }
 .user-info { flex: 1; min-width: 0; }
 .user-eyebrow { color: var(--cookx-gold); font-size: 9px; font-weight: 800; letter-spacing: 1.3px; }
 .user-info h1 { overflow: hidden; margin: 6px 0 4px; font-size: clamp(24px, 5vw, 34px); text-overflow: ellipsis; white-space: nowrap; }
