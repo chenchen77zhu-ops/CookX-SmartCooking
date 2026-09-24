@@ -4,7 +4,7 @@
   "archive_sha256": "b80817294b8850530aaedf2e515c02593b1824f763a0ff356e5c2081643e6fd0",
   "archive_url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_sr_legacy_food_csv_2018-04.zip",
   "retrieved_at": "2026-09-24",
-  "note": "食材对应通用样品，熟制损耗与品牌差异未校正；份量换算仅是用户确认后的营养估算，不改变库存单位。豆瓣酱与泡发木耳未找到可直接对应记录，保持缺失。",
+  "note": "食材对应通用样品，熟制损耗与品牌差异未校正；份量换算仅是用户确认后的营养估算，不改变库存单位。豆瓣酱、可乐与泡发木耳未找到可直接对应记录，保持缺失。",
   "foods": {
     "番茄": {
       "fdc_id": 170457,

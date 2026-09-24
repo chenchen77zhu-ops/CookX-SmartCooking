@@ -81,6 +81,22 @@ def inventory(user,family):
         return items,digest(items)
     snap=personal_snapshot(user);return snap['items'],str(snap['version'])
 
+def revalidation_issues(menu,items,reference=None):
+    from app.services.freshness_service import calculate_freshfusion
+    current=reference or datetime.now(timezone.utc)
+    config=menu['config'];zone=timezone(timedelta(hours=config.get('utc_offset_hours',8)))
+    issues=[]
+    if date.fromisoformat(config['start_date'])<current.astimezone(zone).date():issues.append('菜单起始日期已过去，请重算尚未执行的餐次')
+    by_id={str(b['id']):b for b in items}
+    for allocation in menu['result'].get('inventory_allocations',[]):
+        item=by_id.get(str(allocation['item_id']))
+        if item is None:issues.append('原计划库存批次已不存在');continue
+        day,meal=allocation['slot'].split(':')
+        planned=datetime.fromisoformat(config['start_date']).replace(tzinfo=zone)+timedelta(days=int(day),hours={'breakfast':8,'lunch':12,'dinner':18}[meal])
+        assessment=calculate_freshfusion({k:v for k,v in item.items() if k!='visual_freshness'},reference_time=max(current,planned))
+        if assessment['freshness_level'] in ('unknown','high_risk','expired'):issues.append(item['name']+'原分配批次的鲜度已不可用于抵扣采购需求')
+    return list(dict.fromkeys(issues))
+
 @router.get('/catalog')
 def get_catalog(request:Request):
     with store.transaction():return {'recipes':[{**r,'planning_nutrition':nutrition(r)} for r in catalog()],'prices':price_settings(request.state.user_id),'currency':'CNY','note':'营养为模板原料估算；人数份量及通用食材映射需用户确认，不用于自动换算库存。'}
@@ -100,13 +116,16 @@ def preview(request:Request,body:Plan):
     # Read a consistent snapshot, run bounded solver outside the write lock, recheck before saving.
     with store.transaction():
         items,version=inventory(user,body.family_id);prices=price_settings(user)
+        from app.domain.preferences import current as preferences,scoring_preferences
+        preference_version=preferences(user)['version'];avoided=scoring_preferences(user)['disliked_ingredients']
     config=body.model_dump(mode='json',exclude={'idempotency_key'})
+    config['avoid_ingredients']=list(dict.fromkeys([*config['avoid_ingredients'],*avoided]))
     result=solve(config,items,prices['items'])
     with store.transaction():
         current,current_version=inventory(user,body.family_id)
-        if version!=current_version or prices['version']!=price_settings(user)['version']:raise HTTPException(409,'规划期间库存或价格已变化，请重新核对')
+        if version!=current_version or prices['version']!=price_settings(user)['version'] or preference_version!=preferences(user)['version']:raise HTTPException(409,'规划期间库存或价格已变化，请重新核对')
         def action():
-            row=put('menu_preview',new_id(),user,{'config':config,'result':result,'inventory_version':version,'price_version':prices['version'],'created_at':now(),'model_version':'cpsat-menu-v1'})
+            row=put('menu_preview',new_id(),user,{'config':config,'result':result,'inventory_version':version,'price_version':prices['version'],'preference_version':preference_version,'created_at':now(),'model_version':'cpsat-menu-v1'})
             return {'preview':row}
         return execute(user,'menu-preview',body,action)
 @router.post('/menus')
@@ -116,10 +135,14 @@ def save(request:Request,body:Save):
         draft=read('menu_preview',body.preview_id)
         if draft['owner']!=user:raise HTTPException(403,'不能保存其他账号菜单')
         if draft['version']!=body.expected_version:raise HTTPException(409,'预览已变化')
-        _,version=inventory(user,draft['config']['family_id'])
+        items,version=inventory(user,draft['config']['family_id'])
         def action():
             if draft['result']['solver_status'] not in ('OPTIMAL','FEASIBLE'):raise HTTPException(422,'预览没有可保存的菜单')
             if version!=draft['inventory_version'] or price_settings(user)['version']!=draft['price_version']:raise HTTPException(409,'库存或价格已变化，请重算后保存')
+            from app.domain.preferences import current as preferences
+            if preferences(user)['version']!=draft.get('preference_version',0):raise HTTPException(409,'忌口偏好已变化，请重算')
+            issues=revalidation_issues(draft,items)
+            if issues:raise HTTPException(409,'；'.join(issues))
             existing=next((m for m in listing('menu',user) if m.get('preview_id')==draft['id']),None)
             if existing:return {'menu':existing}
             return {'menu':put('menu',new_id(),user,{**draft,'name':body.name,'preview_id':draft['id'],'shopping_requirements':draft['result']['shopping_requirements'],'saved_at':now()})}
@@ -140,4 +163,4 @@ def check(id:str,request:Request):
         if row['owner']!=request.state.user_id:raise HTTPException(403,'不能读取其他账号菜单')
         items,version=inventory(request.state.user_id,row['config']['family_id'])
         from app.main import _public_freshfusion_result
-        return {'menu':row,'inventory_changed':version!=row['inventory_version'],'price_changed':price_settings(request.state.user_id)['version']!=row['price_version'],'inventory':[{'item':b,'freshness':_public_freshfusion_result(b,datetime.now(timezone.utc))} for b in items],'note':'请核查当前库存、份量与鲜度。保存菜单不预留或扣减库存，其他人可能已使用；采购前库存变化须重新规划。'}
+        return {'menu':row,'revalidation_issues':revalidation_issues(row,items),'inventory_changed':version!=row['inventory_version'],'price_changed':price_settings(request.state.user_id)['version']!=row['price_version'],'inventory':[{'item':b,'freshness':_public_freshfusion_result(b,datetime.now(timezone.utc))} for b in items],'note':'请核查当前库存、份量与鲜度。保存菜单不预留或扣减库存，其他人可能已使用；采购前库存变化须重新规划。'}
