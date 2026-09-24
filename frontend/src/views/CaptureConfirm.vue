@@ -230,7 +230,7 @@ const confirmSave = async () => {
   saving.value = true; saveError.value = ''
   try {
     const payload = hasPendingWrite(userId) ? null : identifiedItems.value.map(item => serializeItem(item))
-    await saveInventory(userId, payload)
+    await saveInventory(userId, payload, null, true)
     if (readUserId() !== userId) return
     pendingWrite.value = false
     clearDraft(userId)

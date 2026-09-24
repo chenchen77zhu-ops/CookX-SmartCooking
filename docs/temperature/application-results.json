@@ -9,7 +9,9 @@
     "recommendation-ui-with-real-algorithm",
     "freshfusion-api-with-real-algorithm",
     "recipe-to-cooking",
-    "timer-during-provider-outage"
+    "timer-during-provider-outage",
+    "completion-review",
+    "real-consumption-readback"
   ],
   "uncaughtErrors": []
 }

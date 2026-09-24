@@ -21,7 +21,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs')
     recommendations++
     if(failRecommendations)return route.fulfill({status:500,json:{detail:'测试推荐故障'}})
    }
-   if(u.pathname.endsWith('/add-to-inventory'))writes++
+   if(u.pathname.endsWith('/inventory/confirm-recognition'))writes++
    if(u.pathname.endsWith('/analyze-fridge'))return route.fulfill({json:{status:'success',detected:[{name:'tomato',quantity:2,freshness_detail:{fresh_score:null,component_scores:{T:null,S:null,V:null,H:null},reasons:['识别不能提供购买时间'],data_quality_notes:['视觉分项数据不足'],disclaimer:'测试识别结果，仅验证页面流程'}}]}})
    const response=await route.fetch({url:'http://127.0.0.1:8000'+u.pathname+u.search})
    await route.fulfill({response})

@@ -7,8 +7,11 @@ import shutil
 import tempfile
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from collections import Counter
+from functools import wraps
+import inspect
+from app.services.inventory_transactions import inventory_session, consume as consume_batches, receipt as consumption_receipt, read_json
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Request
 from fastapi import Response
 from fastapi import Body
@@ -24,6 +27,7 @@ from app.services.deepseek_service import get_recipe_suggestion
 from app.services.tts_service import generate_voice
 from app.services.qwen_service import get_ingredients_from_qwen
 from app.services.recommendation_service import (
+    algorithm_version_for_recommendations,
     filter_eligible_recipes, load_recipes, recommend_recipes,
     safe_inventory_names, validate_weights,
 )
@@ -56,11 +60,82 @@ class LoginRequest(BaseModel):
     username: str
     password: str
 
+
+class NutritionTarget(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    max_calories_kcal: Optional[float] = Field(None, gt=0, allow_inf_nan=False, strict=True, description="每份热量上限，单位 kcal")
+    min_protein_g: Optional[float] = Field(None, gt=0, allow_inf_nan=False, strict=True, description="每份蛋白质下限，单位 g")
+    max_fat_g: Optional[float] = Field(None, gt=0, allow_inf_nan=False, strict=True, description="每份脂肪上限，单位 g")
+    max_carbohydrates_g: Optional[float] = Field(None, gt=0, allow_inf_nan=False, strict=True, description="每份碳水化合物上限，单位 g")
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def reject_non_numeric_or_non_finite_target(cls, value: Any) -> Any:
+        if value is None:
+            return None
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+        ):
+            return "invalid nutrition target"
+        return value
+
+    @model_validator(mode="after")
+    def require_at_least_one_target(self):
+        if not any(value is not None for value in self.model_dump().values()):
+            raise ValueError("nutrition_target至少需要一个每份数值目标")
+        return self
+
 class RecommendationRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+
     user_id: str = Field(..., min_length=1)
     top_k: int = Field(5, ge=1, le=20)
     weights: Optional[Dict[str, float]] = None
     preferences: Optional[Dict[str, Any]] = None
+    budget: Optional[float] = Field(None, gt=0, allow_inf_nan=False, strict=True, description="整道菜预算，币种为 CNY")
+    difficulty_target: Optional[Literal["easy", "medium", "hard"]] = Field(
+        None, description="用户期望的烹饪难度：easy、medium 或 hard",
+    )
+    nutrition_target: Optional[NutritionTarget] = Field(
+        None, description="用户按每份口径设置的明确营养数值目标",
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_explicit_null_nutrition_target(cls, value: Any) -> Any:
+        if isinstance(value, dict) and "nutrition_target" in value and value["nutrition_target"] is None:
+            raise ValueError("nutrition_target存在时必须是非空对象")
+        return value
+
+    @field_validator("weights", mode="before")
+    @classmethod
+    def reject_invalid_extended_weight(cls, value: Any) -> Any:
+        if isinstance(value, dict):
+            validated = dict(value)
+            for key in ("D", "N"):
+                if key not in value:
+                    continue
+                weight = value[key]
+                if (
+                    isinstance(weight, bool)
+                    or not isinstance(weight, (int, float))
+                    or not math.isfinite(weight)
+                ):
+                    validated[key] = f"invalid {key} weight"
+            return validated
+        return value
+
+    @field_validator("budget", mode="before")
+    @classmethod
+    def reject_non_finite_budget(cls, value: Any) -> Any:
+        # Keep FastAPI's 422 body JSON-serializable even when a non-standard
+        # JSON parser accepts NaN or Infinity as a Python float.
+        if isinstance(value, float) and not math.isfinite(value):
+            return "non-finite budget"
+        return value
 
 class FreshnessEvaluationRequest(BaseModel):
     model_config = {"extra": "forbid"}
@@ -202,6 +277,14 @@ class InventoryUpdateItem(BaseModel):
     def validate_time_relationships(self):
         _validate_inventory_temporal_fields(self.model_dump(exclude_unset=True))
         return self
+
+
+class ConfirmRecognitionRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    user_id: str = Field(..., min_length=1)
+    confirmed: Literal[True]
+    items: List[InventoryCreateItem] = Field(..., min_length=1)
 
 # 开启跨域
 app.add_middleware(
@@ -392,23 +475,14 @@ def _inventory_storage_method(item):
 
 
 def get_inventory_batch_key(item):
-    """同名、同自然日、同储存方式、同保质期才是同一库存批次。"""
+    """Merge only known compatible batches, retaining fractional days and date evidence."""
     name = normalize_inventory_name(item.get("name"))
     added_date = _inventory_date(item.get("add_time"))
-    if not name or added_date is None or item.get("shelf_life") is None:
+    shelf_life = _finite_number(item.get("shelf_life"))
+    if not name or added_date is None or shelf_life is None or shelf_life <= 0:
         return None
-    try:
-        shelf_life = int(item["shelf_life"])
-    except (TypeError, ValueError):
-        return None
-    return (
-        name,
-        added_date.isoformat(),
-        _inventory_storage_method(item),
-        shelf_life,
-        item.get("purchase_time") or item.get("purchase_date"),
-        item.get("expiry_date"),
-    )
+    return (name, added_date.isoformat(), _inventory_storage_method(item), shelf_life,
+            item.get("purchase_time") or item.get("purchase_date"), item.get("expiry_date"))
 
 
 def _finite_number(value):
@@ -557,7 +631,70 @@ def _require_existing_user(user_id: str) -> None:
         raise HTTPException(status_code=404, detail="用户不存在")
 
 
+def inventory_guard(function):
+    signature = inspect.signature(function)
+    @wraps(function)
+    async def wrapped(*args, **kwargs):
+        values = signature.bind(*args, **kwargs).arguments
+        user_id = values.get("user_id") or values["request"].user_id
+        if function.__name__ == "evaluate_inventory_freshness":
+            for parameter in ("reference_time", "visual_freshness"):
+                if parameter in values["request"].query_params:
+                    raise HTTPException(422, f"不允许客户端提供{parameter}")
+        _require_existing_user(user_id)
+        path = os.path.join(USER_DATA_BASE, str(user_id), "inventory.json")
+        with inventory_session(path):
+            return await function(*args, **kwargs)
+    return wrapped
+
+
+def _public_freshfusion_result(item: Dict[str, Any], evaluated_at: datetime) -> Dict[str, Any]:
+    public_item = dict(item)
+    public_item.pop("visual_freshness", None)
+    detail = calculate_freshfusion(public_item, reference_time=evaluated_at)
+    public_visual_note = "当前尚无服务端可信视觉鲜度结果，V未参与融合。"
+    detail["data_quality_notes"] = list(dict.fromkeys([
+        *detail["data_quality_notes"], public_visual_note,
+    ]))
+    return detail
+
+
+def _confirmed_inventory_records(
+    inventory: List[Dict[str, Any]],
+    incoming_items: List[Dict[str, Any]],
+    evaluated_at: datetime,
+) -> List[Dict[str, Any]]:
+    generated_add_time = evaluated_at.isoformat().replace("+00:00", "Z")
+    confirmed = []
+    seen_ids = set()
+    for incoming in incoming_items:
+        probe = {
+            **incoming,
+            "name": normalize_inventory_name(incoming.get("name")),
+            "add_time": incoming.get("add_time") or generated_add_time,
+        }
+        batch_key = get_inventory_batch_key(probe)
+        matches = [
+            item for item in inventory
+            if (
+                get_inventory_batch_key(item) == batch_key
+                if batch_key is not None
+                else normalize_inventory_name(item.get("name")) == probe["name"]
+                and item.get("add_time") == probe["add_time"]
+            )
+        ]
+        if not matches:
+            raise ValueError("无法定位确认入库后的库存记录")
+        matched = matches[0]
+        item_id = str(matched.get("id"))
+        if item_id not in seen_ids:
+            confirmed.append(matched)
+            seen_ids.add(item_id)
+    return confirmed
+
+
 @app.post("/api/add-to-inventory")
+@inventory_guard
 async def add_to_inventory(items: List[InventoryCreateItem], user_id: str = Query(...)):
     """正式入库：按用户隔离，并强制补全日期"""
     _require_existing_user(user_id)
@@ -565,14 +702,9 @@ async def add_to_inventory(items: List[InventoryCreateItem], user_id: str = Quer
         # 1. 获取该用户的专属路径
         path = get_user_path(user_id, "inventory.json")
 
-        # 2. 读取现有数据
-        inventory_data = []
-        if os.path.exists(path):
-            with open(path, "r", encoding="utf-8") as f:
-                try:
-                    inventory_data = json.load(f)
-                except:
-                    inventory_data = []
+        inventory_data = read_json(path, [])
+        if not isinstance(inventory_data, list):
+            raise HTTPException(status_code=500, detail="库存格式损坏，未写入")
 
         # 3. 同一用户的同日、同名食材在写入时合并
         inventory_data = merge_inventory_items(
@@ -591,6 +723,66 @@ async def add_to_inventory(items: List[InventoryCreateItem], user_id: str = Quer
     except (OSError, json.JSONDecodeError, ValueError, TypeError) as e:
         print(f"存入失败报错: {e}")
         raise HTTPException(status_code=422, detail=str(e)) from e
+
+
+@app.post("/api/inventory/confirm-recognition")
+@inventory_guard
+async def confirm_recognized_inventory(request: ConfirmRecognitionRequest):
+    """Persist user-confirmed candidates, then return real-time FreshFusion results."""
+    _require_existing_user(request.user_id)
+    path = os.path.join(USER_DATA_BASE, request.user_id, "inventory.json")
+    try:
+        inventory: List[Dict[str, Any]] = []
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as inventory_file:
+                loaded = json.load(inventory_file)
+            if not isinstance(loaded, list):
+                raise ValueError("inventory must be an array")
+            inventory = loaded
+
+        evaluated_at = datetime.now(timezone.utc)
+        evaluated_at_iso = evaluated_at.isoformat().replace("+00:00", "Z")
+        incoming_items = [item.model_dump(exclude_none=True) for item in request.items]
+        updated_inventory = merge_inventory_items(
+            inventory,
+            incoming_items,
+            current_time=evaluated_at,
+        )
+        confirmed_records = _confirmed_inventory_records(
+            updated_inventory,
+            incoming_items,
+            evaluated_at,
+        )
+        confirmed_items = []
+        for record in confirmed_records:
+            detail = _public_freshfusion_result(record, evaluated_at)
+            confirmed_items.append({
+                "item_id": record.get("id"),
+                "ingredient_name": record.get("name"),
+                "inventory_item": dict(record),
+                "evaluated_at": evaluated_at_iso,
+                **detail,
+            })
+
+        # Evaluation completes before the single atomic write. If it fails, no
+        # inventory mutation is committed and no false success is returned.
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        _write_inventory_atomic(path, updated_inventory)
+        return {
+            "status": "success",
+            "user_id": request.user_id,
+            "evaluated_at": evaluated_at_iso,
+            "confirmed_count": len(confirmed_items),
+            "confirmed_items": confirmed_items,
+        }
+    except HTTPException:
+        raise
+    except (json.JSONDecodeError, OSError) as exc:
+        raise HTTPException(status_code=500, detail="用户库存数据无法读取或写入") from exc
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="鲜度评估失败，库存未写入") from exc
 
 
 @app.post("/api/analyze-fridge")
@@ -704,10 +896,22 @@ async def analyze_fridge(file: UploadFile = File(...)):
 
 
 @app.post("/api/recommendations")
+@inventory_guard
 async def multi_objective_recommendations(request: RecommendationRequest):
     """Return deterministic recommendations from local recipes and user inventory."""
     if not any(user.get("id") == request.user_id for user in get_all_users()):
         raise HTTPException(status_code=404, detail="用户不存在")
+
+    scoring_preferences = dict(request.preferences or {})
+    scoring_preferences.pop("budget", None)
+    scoring_preferences.pop("difficulty_target", None)
+    scoring_preferences.pop("nutrition_target", None)
+    if request.budget is not None:
+        scoring_preferences["budget"] = request.budget
+    if request.difficulty_target is not None:
+        scoring_preferences["difficulty_target"] = request.difficulty_target
+    if request.nutrition_target is not None:
+        scoring_preferences["nutrition_target"] = request.nutrition_target.model_dump(exclude_none=True)
 
     try:
         validate_weights(request.weights)
@@ -743,7 +947,7 @@ async def multi_objective_recommendations(request: RecommendationRequest):
     eligible_recipes, filtered_count = filter_eligible_recipes(
         inventory=inventory,
         recipes=recipes,
-        preferences=request.preferences,
+        preferences=scoring_preferences,
         now=scoring_time,
     )
     if not eligible_recipes:
@@ -762,7 +966,7 @@ async def multi_objective_recommendations(request: RecommendationRequest):
         recommendations = recommend_recipes(
             inventory=inventory,
             top_k=request.top_k,
-            preferences=request.preferences,
+            preferences=scoring_preferences,
             weights=request.weights,
             recipes=eligible_recipes,
             now=scoring_time,
@@ -770,7 +974,7 @@ async def multi_objective_recommendations(request: RecommendationRequest):
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return {
-        "algorithm_version": "multi_objective_v1",
+        "algorithm_version": algorithm_version_for_recommendations(recommendations),
         "user_id": request.user_id,
         "generated_at": generated_at,
         "status": "success",
@@ -786,13 +990,12 @@ async def evaluate_freshness(request: FreshnessEvaluationRequest):
     evaluated_at = datetime.now(timezone.utc)
     payload = request.model_dump(exclude_none=True)
     payload["name"] = payload.pop("ingredient_name")
-    result = calculate_freshfusion(payload, reference_time=evaluated_at)
-    public_visual_note = "当前尚无服务端可信视觉鲜度结果，V未参与融合。"
-    result["data_quality_notes"] = list(dict.fromkeys([*result["data_quality_notes"], public_visual_note]))
+    result = _public_freshfusion_result(payload, evaluated_at)
     return {"evaluated_at": evaluated_at.isoformat().replace("+00:00", "Z"), **result}
 
 
 @app.get("/api/users/{user_id}/inventory/freshness")
+@inventory_guard
 async def evaluate_inventory_freshness(user_id: str, request: Request):
     """Evaluate inventory in stable file order; never writes the inventory file."""
     for forbidden_parameter in ("reference_time", "visual_freshness"):
@@ -814,13 +1017,9 @@ async def evaluate_inventory_freshness(user_id: str, request: Request):
 
     evaluated_at = datetime.now(timezone.utc)
     evaluated_at_iso = evaluated_at.isoformat().replace("+00:00", "Z")
-    public_visual_note = "当前尚无服务端可信视觉鲜度结果，V未参与融合。"
     evaluated = []
     for item in inventory:
-        public_item = dict(item)
-        public_item.pop("visual_freshness", None)
-        detail = calculate_freshfusion(public_item, reference_time=evaluated_at)
-        detail["data_quality_notes"] = list(dict.fromkeys([*detail["data_quality_notes"], public_visual_note]))
+        detail = _public_freshfusion_result(item, evaluated_at)
         evaluated.append({"item_id": item.get("id"), "name": item.get("name"), **detail})
     return {
         "algorithm_version": "freshfusion_v1",
@@ -911,42 +1110,85 @@ async def recommend_recipe(user_prompt: str, user_id: str, save_history: bool = 
             save_chat_message(user_id, "assistant", "厨师长刚才走神了，没听清您的要求，能再说一遍吗？")
         return {"status": "error", "message": f"处理失败: {str(e)}"}
 
+class ConsumeBatchItem(BaseModel):
+    model_config = {"extra": "forbid"}
+    item_id: str = Field(min_length=1, max_length=128)
+    quantity: int = Field(strict=True, gt=0)
+    expected_quantity: int = Field(strict=True, gt=0)
+
+
+class ConsumeBatchRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+    user_id: str = Field(min_length=1)
+    idempotency_key: str = Field(pattern=r"^[A-Za-z0-9_-]{8,128}$")
+    items: List[ConsumeBatchItem] = Field(min_length=1, max_length=100)
+
+    @model_validator(mode="after")
+    def unique_items(self):
+        if len({row.item_id for row in self.items}) != len(self.items):
+            raise ValueError("同一批次只能选择一次")
+        return self
+
+
+@app.post("/api/inventory/consume")
+@inventory_guard
+async def consume_inventory_batches(request: ConsumeBatchRequest):
+    path = os.path.join(USER_DATA_BASE, request.user_id, "inventory.json")
+    try:
+        return consume_batches(path, request.idempotency_key,
+                               [row.model_dump() for row in request.items], _write_inventory_atomic)
+    except OSError as exc:
+        raise HTTPException(500, "扣减响应未确认，请使用原幂等键查询结果") from exc
+
+
+@app.get("/api/inventory/consumption/{idempotency_key}")
+@inventory_guard
+async def get_consumption_receipt(idempotency_key: str, user_id: str):
+    return consumption_receipt(os.path.join(USER_DATA_BASE, user_id, "inventory.json"), idempotency_key)
+
+
 @app.post("/api/consume-ingredients")
 async def consume_ingredients(used_items: List[str], user_id: str):
-    """从库存中扣除已使用的食材"""
-    path = get_user_path(user_id, "inventory.json")
-
-    if not os.path.exists(path):
-        return {"status": "error", "message": "库存文件不存在"}
-
-    with open(path, "r", encoding="utf-8") as f:
-        inventory_data = json.load(f)
-
-    # 执行扣减逻辑
-    new_inventory = []
-    used_names = {normalize_inventory_name(name) for name in used_items}
-    for item in inventory_data:
-        # 匹配名称（统一转小写去空格）
-        name_key = normalize_inventory_name(item["name"])
-
-        if name_key in used_names:
-            # 如果在消耗名单里，数量减 1
-            item["quantity"] = int(item.get("quantity", 1)) - 1
-            # 如果减完后数量大于 0，保留；否则不加入 new_inventory (即删除)
-            if item["quantity"] > 0:
+    if not any(str(user.get("id")) == str(user_id) for user in get_all_users()):
+        return {"status": "error", "message": "用户不存在"}
+    with inventory_session(os.path.join(USER_DATA_BASE, user_id, "inventory.json")):
+        path = get_user_path(user_id, "inventory.json")
+    
+        if not os.path.exists(path):
+            return {"status": "error", "message": "库存文件不存在"}
+    
+        with open(path, "r", encoding="utf-8") as f:
+            inventory_data = json.load(f)
+    
+        used_names = {normalize_inventory_name(name) for name in used_items}
+        for name in used_names:
+            if sum(normalize_inventory_name(row.get("name")) == name for row in inventory_data) > 1:
+                return {"status": "error", "message": "同名多批次，请升级客户端按批次扣减"}
+        # 执行扣减逻辑
+        new_inventory = []
+        used_names = {normalize_inventory_name(name) for name in used_items}
+        for item in inventory_data:
+            # 匹配名称（统一转小写去空格）
+            name_key = normalize_inventory_name(item["name"])
+    
+            if name_key in used_names:
+                # 如果在消耗名单里，数量减 1
+                item["quantity"] = int(item.get("quantity", 1)) - 1
+                # 如果减完后数量大于 0，保留；否则不加入 new_inventory (即删除)
+                if item["quantity"] > 0:
+                    new_inventory.append(item)
+            else:
+                # 不在消耗名单里的，原样保留
                 new_inventory.append(item)
-        else:
-            # 不在消耗名单里的，原样保留
-            new_inventory.append(item)
-
-    # 保存更新后的库存
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(new_inventory, f, ensure_ascii=False, indent=4)
-
-    return {"status": "success", "remaining_count": len(new_inventory)}
+    
+        # 保存更新后的库存
+        _write_inventory_atomic(path, new_inventory)
+    
+        return {"status": "success", "remaining_count": len(new_inventory)}
 
 
 @app.get("/api/inventory")
+@inventory_guard
 async def get_inventory(user_id: str):  # ✅ 必须有这个参数
     _require_existing_user(user_id)
     path = os.path.join(USER_DATA_BASE, str(user_id), "inventory.json")
@@ -965,6 +1207,7 @@ async def get_inventory(user_id: str):  # ✅ 必须有这个参数
 
 
 @app.delete("/api/inventory/{item_id}")
+@inventory_guard
 async def delete_item(item_id: str, user_id: str):  # ✅ 确保接收这两个参数
     _require_existing_user(user_id)
     try:
@@ -998,6 +1241,7 @@ async def delete_item(item_id: str, user_id: str):  # ✅ 确保接收这两个�
 
 
 @app.put("/api/inventory/{item_id}")
+@inventory_guard
 async def update_item(item_id: str, item_data: InventoryUpdateItem, user_id: str):
     _require_existing_user(user_id)
     path = os.path.join(USER_DATA_BASE, str(user_id), "inventory.json")
@@ -1011,6 +1255,11 @@ async def update_item(item_id: str, item_data: InventoryUpdateItem, user_id: str
         found = False
         for item in data:
             if str(item["id"]) == str(item_id):
+                if "purchase_time" in updates:
+                    item.pop("purchase_date", None)
+                if "storage_type" in updates:
+                    item.pop("storage_method", None)
+                    item.pop("storage", None)
                 candidate = {**item, **updates}
                 _validate_inventory_temporal_fields(candidate)
                 if "name" in updates:
