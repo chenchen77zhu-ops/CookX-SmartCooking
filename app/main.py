@@ -65,6 +65,8 @@ from app.domain.growth import router as growth_router
 app.include_router(growth_router)
 from app.domain.challenges import router as challenges_router
 app.include_router(challenges_router)
+from app.domain.badges import router as badges_router
+app.include_router(badges_router)
 USER_DATA_BASE = "app/data/users"
 # --- 1. 配置与初始化 ---
 UPLOAD_DIR = "app/static/uploads"
