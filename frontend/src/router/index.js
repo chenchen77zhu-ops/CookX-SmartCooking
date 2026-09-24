@@ -1,6 +1,7 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 
 const routes = [
+  {path:'/community',component:()=>import('../views/Community.vue'),meta:{requiresAuth:true}},
   {path:'/recipes',component:()=>import('../views/RecipeLibrary.vue'),meta:{requiresAuth:true}},
   {path:'/shopping',component:()=>import('../views/Shopping.vue'),meta:{requiresAuth:true}},
   {path:'/household',component:()=>import('../views/Household.vue'),meta:{requiresAuth:true}},
