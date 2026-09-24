@@ -1,0 +1,823 @@
+{
+  "schema_version": 1,
+  "source": "USDA FoodData Central SR Legacy April 2018",
+  "archive_sha256": "b80817294b8850530aaedf2e515c02593b1824f763a0ff356e5c2081643e6fd0",
+  "archive_url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_sr_legacy_food_csv_2018-04.zip",
+  "retrieved_at": "2026-09-24",
+  "note": "食材对应通用样品，熟制损耗与品牌差异未校正；份量换算仅是用户确认后的营养估算，不改变库存单位。豆瓣酱与泡发木耳未找到可直接对应记录，保持缺失。",
+  "foods": {
+    "番茄": {
+      "fdc_id": 170457,
+      "description": "Tomatoes, red, ripe, raw, year round average",
+      "source_url": "https://fdc.nal.usda.gov/food-details/170457/nutrients",
+      "per_100g": {
+        "kcal": 18.0,
+        "protein_g": 0.88,
+        "fat_g": 0.2,
+        "carb_g": 3.89
+      },
+      "grams_per_unit": {
+        "克": 1,
+        "个": 123.0
+      },
+      "portion_evidence": [
+        {
+          "unit": "个",
+          "id": "86686",
+          "fdc_id": "170457",
+          "seq_num": "6",
+          "amount": "1",
+          "measure_unit_id": "9999",
+          "portion_description": "",
+          "modifier": "medium whole (2-3/5\" dia)",
+          "gram_weight": "123",
+          "data_points": "",
+          "footnote": "",
+          "min_year_acquired": ""
+        }
+      ]
+    },
+    "鸡蛋": {
+      "fdc_id": 171287,
+      "description": "Egg, whole, raw, fresh",
+      "source_url": "https://fdc.nal.usda.gov/food-details/171287/nutrients",
+      "per_100g": {
+        "kcal": 143.0,
+        "protein_g": 12.56,
+        "fat_g": 9.51,
+        "carb_g": 0.72
+      },
+      "grams_per_unit": {
+        "克": 1,
+        "个": 50.0
+      },
+      "portion_evidence": [
+        {
+          "unit": "个",
+          "id": "88374",
+          "fdc_id": "171287",
+          "seq_num": "1",
+          "amount": "1",
+          "measure_unit_id": "9999",
+          "portion_description": "",
+          "modifier": "large",
+          "gram_weight": "50",
+          "data_points": "",
+          "footnote": "",
+          "min_year_acquired": ""
+        }
+      ]
+    },
+    "土豆": {
+      "fdc_id": 170026,
+      "description": "Potatoes, flesh and skin, raw",
+      "source_url": "https://fdc.nal.usda.gov/food-details/170026/nutrients",
+      "per_100g": {
+        "kcal": 77.0,
+        "protein_g": 2.05,
+        "fat_g": 0.09,
+        "carb_g": 17.49
+      },
+      "grams_per_unit": {
+        "克": 1,
+        "个": 213.0
+      },
+      "portion_evidence": [
+        {
+          "unit": "个",
+          "id": "85919",
+          "fdc_id": "170026",
+          "seq_num": "3",
+          "amount": "1",
+          "measure_unit_id": "9999",
+          "portion_description": "",
+          "modifier": "Potato medium (2-1/4\" to 3-1/4\" dia)",
+          "gram_weight": "213",
+          "data_points": "",
+          "footnote": "",
+          "min_year_acquired": ""
+        }
+      ]
+    },
+    "干辣椒": {
+      "fdc_id": 168570,
+      "description": "Peppers, hot chile, sun-dried",
+      "source_url": "https://fdc.nal.usda.gov/food-details/168570/nutrients",
+      "per_100g": {
+        "kcal": 324.0,
+        "protein_g": 10.58,
+        "fat_g": 5.81,
+        "carb_g": 69.86
+      },
+      "grams_per_unit": {
+        "克": 1,
+        "个": 0.5
+      },
+      "portion_evidence": [
+        {
+          "unit": "个",
+          "id": "83347",
+          "fdc_id": "168570",
+          "seq_num": "2",
+          "amount": "1",
+          "measure_unit_id": "9999",
+          "portion_description": "",
+          "modifier": "pepper",
+          "gram_weight": "0.5",
+          "data_points": "",
+          "footnote": "",
+          "min_year_acquired": ""
+        }
+      ]
+    },
+    "醋": {
+      "fdc_id": 172237,
+      "description": "Vinegar, distilled",
+      "source_url": "https://fdc.nal.usda.gov/food-details/172237/nutrients",
+      "per_100g": {
+        "kcal": 18.0,
+        "protein_g": 0.0,
+        "fat_g": 0.0,
+        "carb_g": 0.04
+      },
+      "grams_per_unit": {
+        "克": 1,
+        "毫升": 0.9933333333333334
+      },
+      "portion_evidence": [
+        {
+          "unit": "毫升",
+          "assumption": "规划估算采用 1 tbsp = 15 mL；不用于库存自动换算",
+          "id": "90136",
+          "fdc_id": "172237",
+          "seq_num": "1",
+          "amount": "1",
+          "measure_unit_id": "9999",
+          "portion_description": "",
+          "modifier": "tbsp",
+          "gram_weight": "14.9",
+          "data_points": "",
+          "footnote": "",
+          "min_year_acquired": ""
+        }
+      ]
+    },
+    "食用油": {
+      "fdc_id": 171411,
+      "description": "Oil, soybean, salad or cooking",
+      "source_url": "https://fdc.nal.usda.gov/food-details/171411/nutrients",
+      "per_100g": {
+        "kcal": 884.0,
+        "protein_g": 0.0,
+        "fat_g": 100.0,
+        "carb_g": 0.0
+      },
+      "grams_per_unit": {
+        "克": 1,
+        "毫升": 0.9066666666666666
+      },
+      "portion_evidence": [
+        {
+          "unit": "毫升",
+          "assumption": "规划估算采用 1 tbsp = 15 mL；不用于库存自动换算",
+          "id": "88661",
+          "fdc_id": "171411",
+          "seq_num": "1",
+          "amount": "1",
+          "measure_unit_id": "9999",
+          "portion_description": "",
+          "modifier": "tbsp",
+          "gram_weight": "13.6",
+          "data_points": "",
+          "footnote": "",
+          "min_year_acquired": ""
+        }
+      ]
+    },
+    "盐": {
+      "fdc_id": 173468,
+      "description": "Salt, table",
+      "source_url": "https://fdc.nal.usda.gov/food-details/173468/nutrients",
+      "per_100g": {
+        "kcal": 0.0,
+        "protein_g": 0.0,
+        "fat_g": 0.0,
+        "carb_g": 0.0
+      },
+      "grams_per_unit": {
+        "克": 1
+      },
+      "portion_evidence": []
+    },
+    "猪肉": {
+      "fdc_id": 167818,
+      "description": "Pork, fresh, loin, whole, separable lean and fat, raw",
+      "source_url": "https://fdc.nal.usda.gov/food-details/167818/nutrients",
+      "per_100g": {
+        "kcal": 198.0,
+        "protein_g": 19.74,
+        "fat_g": 12.58,
+        "carb_g": 0.0
+      },
+      "grams_per_unit": {
+        "克": 1
+      },
+      "portion_evidence": []
+    },
+    "青椒": {
+      "fdc_id": 170427,
+      "description": "Peppers, sweet, green, raw",
+      "source_url": "https://fdc.nal.usda.gov/food-details/170427/nutrients",
+      "per_100g": {
+        "kcal": 20.0,
+        "protein_g": 0.86,
+        "fat_g": 0.17,
+        "carb_g": 4.64
+      },
+      "grams_per_unit": {
+        "克": 1,
+        "个": 119.0
+      },
+      "portion_evidence": [
+        {
+          "unit": "个",
+          "id": "86627",
+          "fdc_id": "170427",
+          "seq_num": "5",
+          "amount": "1",
+          "measure_unit_id": "9999",
+          "portion_description": "",
+          "modifier": "medium (approx 2-3/4\" long, 2-1/2\" dia)",
+          "gram_weight": "119",
+          "data_points": "",
+          "footnote": "",
+          "min_year_acquired": ""
+        }
+      ]
+    },
+    "生抽": {
+      "fdc_id": 174277,
+      "description": "Soy sauce made from soy and wheat (shoyu)",
+      "source_url": "https://fdc.nal.usda.gov/food-details/174277/nutrients",
+      "per_100g": {
+        "kcal": 53.0,
+        "protein_g": 8.14,
+        "fat_g": 0.57,
+        "carb_g": 4.93
+      },
+      "grams_per_unit": {
+        "克": 1,
+        "毫升": 1.0666666666666667
+      },
+      "portion_evidence": [
+        {
+          "unit": "毫升",
+          "assumption": "规划估算采用 1 tbsp = 15 mL；不用于库存自动换算",
+          "id": "94068",
+          "fdc_id": "174277",
+          "seq_num": "1",
+          "amount": "1",
+          "measure_unit_id": "9999",
+          "portion_description": "",
+          "modifier": "tbsp",
+          "gram_weight": "16",
+          "data_points": "1",
+          "footnote": "",
+          "min_year_acquired": ""
+        }
+      ]
+    },
+    "牛腩": {
+      "fdc_id": 168607,
+      "description": "Beef, brisket, whole, separable lean only, all grades, raw",
+      "source_url": "https://fdc.nal.usda.gov/food-details/168607/nutrients",
+      "per_100g": {
+        "kcal": 157.0,
+        "protein_g": 20.72,
+        "fat_g": 7.37,
+        "carb_g": 0.6
+      },
+      "grams_per_unit": {
+        "克": 1
+      },
+      "portion_evidence": []
+    },
+    "胡萝卜": {
+      "fdc_id": 170393,
+      "description": "Carrots, raw",
+      "source_url": "https://fdc.nal.usda.gov/food-details/170393/nutrients",
+      "per_100g": {
+        "kcal": 41.0,
+        "protein_g": 0.93,
+        "fat_g": 0.24,
+        "carb_g": 9.58
+      },
+      "grams_per_unit": {
+        "克": 1,
+        "根": 61.0
+      },
+      "portion_evidence": [
+        {
+          "unit": "根",
+          "id": "86559",
+          "fdc_id": "170393",
+          "seq_num": "5",
+          "amount": "1",
+          "measure_unit_id": "9999",
+          "portion_description": "",
+          "modifier": "medium",
+          "gram_weight": "61",
+          "data_points": "",
+          "footnote": "",
+          "min_year_acquired": ""
+        }
+      ]
+    },
+    "鸡胸肉": {
+      "fdc_id": 171077,
+      "description": "Chicken, broiler or fryers, breast, skinless, boneless, meat only, raw",
+      "source_url": "https://fdc.nal.usda.gov/food-details/171077/nutrients",
+      "per_100g": {
+        "kcal": 120.0,
+        "protein_g": 22.5,
+        "fat_g": 2.62,
+        "carb_g": 0.0
+      },
+      "grams_per_unit": {
+        "克": 1
+      },
+      "portion_evidence": []
+    },
+    "胡椒粉": {
+      "fdc_id": 170931,
+      "description": "Spices, pepper, black",
+      "source_url": "https://fdc.nal.usda.gov/food-details/170931/nutrients",
+      "per_100g": {
+        "kcal": 251.0,
+        "protein_g": 10.39,
+        "fat_g": 3.26,
+        "carb_g": 63.95
+      },
+      "grams_per_unit": {
+        "克": 1
+      },
+      "portion_evidence": []
+    },
+    "豆腐": {
+      "fdc_id": 172476,
+      "description": "Tofu, raw, regular, prepared with calcium sulfate",
+      "source_url": "https://fdc.nal.usda.gov/food-details/172476/nutrients",
+      "per_100g": {
+        "kcal": 76.0,
+        "protein_g": 8.08,
+        "fat_g": 4.78,
+        "carb_g": 1.87
+      },
+      "grams_per_unit": {
+        "克": 1
+      },
+      "portion_evidence": []
+    },
+    "西兰花": {
+      "fdc_id": 170379,
+      "description": "Broccoli, raw",
+      "source_url": "https://fdc.nal.usda.gov/food-details/170379/nutrients",
+      "per_100g": {
+        "kcal": 34.0,
+        "protein_g": 2.82,
+        "fat_g": 0.37,
+        "carb_g": 6.64
+      },
+      "grams_per_unit": {
+        "克": 1
+      },
+      "portion_evidence": []
+    },
+    "大蒜": {
+      "fdc_id": 169230,
+      "description": "Garlic, raw",
+      "source_url": "https://fdc.nal.usda.gov/food-details/169230/nutrients",
+      "per_100g": {
+        "kcal": 149.0,
+        "protein_g": 6.36,
+        "fat_g": 0.5,
+        "carb_g": 33.06
+      },
+      "grams_per_unit": {
+        "克": 1,
+        "瓣": 3.0
+      },
+      "portion_evidence": [
+        {
+          "unit": "瓣",
+          "id": "84480",
+          "fdc_id": "169230",
+          "seq_num": "3",
+          "amount": "1",
+          "measure_unit_id": "9999",
+          "portion_description": "",
+          "modifier": "clove",
+          "gram_weight": "3",
+          "data_points": "",
+          "footnote": "",
+          "min_year_acquired": ""
+        }
+      ]
+    },
+    "洋葱": {
+      "fdc_id": 170000,
+      "description": "Onions, raw",
+      "source_url": "https://fdc.nal.usda.gov/food-details/170000/nutrients",
+      "per_100g": {
+        "kcal": 40.0,
+        "protein_g": 1.1,
+        "fat_g": 0.1,
+        "carb_g": 9.34
+      },
+      "grams_per_unit": {
+        "克": 1,
+        "个": 110.0
+      },
+      "portion_evidence": [
+        {
+          "unit": "个",
+          "id": "85860",
+          "fdc_id": "170000",
+          "seq_num": "6",
+          "amount": "1",
+          "measure_unit_id": "9999",
+          "portion_description": "",
+          "modifier": "medium (2-1/2\" dia)",
+          "gram_weight": "110",
+          "data_points": "",
+          "footnote": "",
+          "min_year_acquired": ""
+        }
+      ]
+    },
+    "白菜": {
+      "fdc_id": 169979,
+      "description": "Cabbage, chinese (pe-tsai), raw",
+      "source_url": "https://fdc.nal.usda.gov/food-details/169979/nutrients",
+      "per_100g": {
+        "kcal": 16.0,
+        "protein_g": 1.2,
+        "fat_g": 0.2,
+        "carb_g": 3.23
+      },
+      "grams_per_unit": {
+        "克": 1
+      },
+      "portion_evidence": []
+    },
+    "茄子": {
+      "fdc_id": 169228,
+      "description": "Eggplant, raw",
+      "source_url": "https://fdc.nal.usda.gov/food-details/169228/nutrients",
+      "per_100g": {
+        "kcal": 25.0,
+        "protein_g": 0.98,
+        "fat_g": 0.18,
+        "carb_g": 5.88
+      },
+      "grams_per_unit": {
+        "克": 1,
+        "根": 548.0
+      },
+      "portion_evidence": [
+        {
+          "unit": "根",
+          "id": "84476",
+          "fdc_id": "169228",
+          "seq_num": "3",
+          "amount": "1",
+          "measure_unit_id": "9999",
+          "portion_description": "",
+          "modifier": "eggplant, unpeeled (approx 1-1/4 lb)",
+          "gram_weight": "548",
+          "data_points": "",
+          "footnote": "",
+          "min_year_acquired": ""
+        }
+      ]
+    },
+    "黄瓜": {
+      "fdc_id": 168409,
+      "description": "Cucumber, with peel, raw",
+      "source_url": "https://fdc.nal.usda.gov/food-details/168409/nutrients",
+      "per_100g": {
+        "kcal": 15.0,
+        "protein_g": 0.65,
+        "fat_g": 0.11,
+        "carb_g": 3.63
+      },
+      "grams_per_unit": {
+        "克": 1,
+        "根": 301.0
+      },
+      "portion_evidence": [
+        {
+          "unit": "根",
+          "id": "83050",
+          "fdc_id": "168409",
+          "seq_num": "2",
+          "amount": "1",
+          "measure_unit_id": "9999",
+          "portion_description": "",
+          "modifier": "cucumber (8-1/4\")",
+          "gram_weight": "301",
+          "data_points": "",
+          "footnote": "",
+          "min_year_acquired": ""
+        }
+      ]
+    },
+    "香菇": {
+      "fdc_id": 169242,
+      "description": "Mushrooms, shiitake, raw",
+      "source_url": "https://fdc.nal.usda.gov/food-details/169242/nutrients",
+      "per_100g": {
+        "kcal": 34.0,
+        "protein_g": 2.24,
+        "fat_g": 0.49,
+        "carb_g": 6.79
+      },
+      "grams_per_unit": {
+        "克": 1,
+        "个": 19.0
+      },
+      "portion_evidence": [
+        {
+          "unit": "个",
+          "id": "84500",
+          "fdc_id": "169242",
+          "seq_num": "1",
+          "amount": "1",
+          "measure_unit_id": "9999",
+          "portion_description": "",
+          "modifier": "piece whole",
+          "gram_weight": "19",
+          "data_points": "4",
+          "footnote": "",
+          "min_year_acquired": ""
+        }
+      ]
+    },
+    "青菜": {
+      "fdc_id": 170390,
+      "description": "Cabbage, chinese (pak-choi), raw",
+      "source_url": "https://fdc.nal.usda.gov/food-details/170390/nutrients",
+      "per_100g": {
+        "kcal": 13.0,
+        "protein_g": 1.5,
+        "fat_g": 0.2,
+        "carb_g": 2.18
+      },
+      "grams_per_unit": {
+        "克": 1
+      },
+      "portion_evidence": []
+    },
+    "冬瓜": {
+      "fdc_id": 170069,
+      "description": "Waxgourd, (chinese preserving melon), raw",
+      "source_url": "https://fdc.nal.usda.gov/food-details/170069/nutrients",
+      "per_100g": {
+        "kcal": 13.0,
+        "protein_g": 0.4,
+        "fat_g": 0.2,
+        "carb_g": 3.0
+      },
+      "grams_per_unit": {
+        "克": 1
+      },
+      "portion_evidence": []
+    },
+    "排骨": {
+      "fdc_id": 167853,
+      "description": "Pork, fresh, spareribs, separable lean and fat, raw",
+      "source_url": "https://fdc.nal.usda.gov/food-details/167853/nutrients",
+      "per_100g": {
+        "kcal": 277.0,
+        "protein_g": 15.47,
+        "fat_g": 23.4,
+        "carb_g": 0.0
+      },
+      "grams_per_unit": {
+        "克": 1
+      },
+      "portion_evidence": []
+    },
+    "鸡翅": {
+      "fdc_id": 172390,
+      "description": "Chicken, broilers or fryers, wing, meat and skin, raw",
+      "source_url": "https://fdc.nal.usda.gov/food-details/172390/nutrients",
+      "per_100g": {
+        "kcal": 191.0,
+        "protein_g": 17.52,
+        "fat_g": 12.85,
+        "carb_g": 0.0
+      },
+      "grams_per_unit": {
+        "克": 1,
+        "个": 107.0
+      },
+      "portion_evidence": [
+        {
+          "unit": "个",
+          "id": "90518",
+          "fdc_id": "172390",
+          "seq_num": "2",
+          "amount": "1",
+          "measure_unit_id": "9999",
+          "portion_description": "",
+          "modifier": "piece",
+          "gram_weight": "107",
+          "data_points": "11",
+          "footnote": "",
+          "min_year_acquired": ""
+        }
+      ]
+    },
+    "芹菜": {
+      "fdc_id": 169988,
+      "description": "Celery, raw",
+      "source_url": "https://fdc.nal.usda.gov/food-details/169988/nutrients",
+      "per_100g": {
+        "kcal": 14.0,
+        "protein_g": 0.69,
+        "fat_g": 0.17,
+        "carb_g": 2.97
+      },
+      "grams_per_unit": {
+        "克": 1
+      },
+      "portion_evidence": []
+    },
+    "圆白菜": {
+      "fdc_id": 169975,
+      "description": "Cabbage, raw",
+      "source_url": "https://fdc.nal.usda.gov/food-details/169975/nutrients",
+      "per_100g": {
+        "kcal": 25.0,
+        "protein_g": 1.28,
+        "fat_g": 0.1,
+        "carb_g": 5.8
+      },
+      "grams_per_unit": {
+        "克": 1
+      },
+      "portion_evidence": []
+    },
+    "粉丝": {
+      "fdc_id": 174258,
+      "description": "Noodles, chinese, cellophane or long rice (mung beans), dehydrated",
+      "source_url": "https://fdc.nal.usda.gov/food-details/174258/nutrients",
+      "per_100g": {
+        "kcal": 351.0,
+        "protein_g": 0.16,
+        "fat_g": 0.06,
+        "carb_g": 86.09
+      },
+      "grams_per_unit": {
+        "克": 1
+      },
+      "portion_evidence": []
+    },
+    "韭菜": {
+      "fdc_id": 169994,
+      "description": "Chives, raw",
+      "source_url": "https://fdc.nal.usda.gov/food-details/169994/nutrients",
+      "per_100g": {
+        "kcal": 30.0,
+        "protein_g": 3.27,
+        "fat_g": 0.73,
+        "carb_g": 4.35
+      },
+      "grams_per_unit": {
+        "克": 1
+      },
+      "portion_evidence": []
+    },
+    "白萝卜": {
+      "fdc_id": 168451,
+      "description": "Radishes, oriental, raw",
+      "source_url": "https://fdc.nal.usda.gov/food-details/168451/nutrients",
+      "per_100g": {
+        "kcal": 18.0,
+        "protein_g": 0.6,
+        "fat_g": 0.1,
+        "carb_g": 4.1
+      },
+      "grams_per_unit": {
+        "克": 1
+      },
+      "portion_evidence": []
+    },
+    "生姜": {
+      "fdc_id": 169231,
+      "description": "Ginger root, raw",
+      "source_url": "https://fdc.nal.usda.gov/food-details/169231/nutrients",
+      "per_100g": {
+        "kcal": 80.0,
+        "protein_g": 1.82,
+        "fat_g": 0.75,
+        "carb_g": 17.77
+      },
+      "grams_per_unit": {
+        "克": 1
+      },
+      "portion_evidence": []
+    },
+    "牛肉": {
+      "fdc_id": 168607,
+      "description": "Beef, brisket, whole, separable lean only, all grades, raw",
+      "source_url": "https://fdc.nal.usda.gov/food-details/168607/nutrients",
+      "per_100g": {
+        "kcal": 157.0,
+        "protein_g": 20.72,
+        "fat_g": 7.37,
+        "carb_g": 0.6
+      },
+      "grams_per_unit": {
+        "克": 1
+      },
+      "portion_evidence": []
+    },
+    "白糖": {
+      "fdc_id": 169655,
+      "description": "Sugars, granulated",
+      "source_url": "https://fdc.nal.usda.gov/food-details/169655/nutrients",
+      "per_100g": {
+        "kcal": 387.0,
+        "protein_g": 0.0,
+        "fat_g": 0.0,
+        "carb_g": 99.98
+      },
+      "grams_per_unit": {
+        "克": 1
+      },
+      "portion_evidence": []
+    },
+    "大米": {
+      "fdc_id": 169756,
+      "description": "Rice, white, long-grain, regular, raw, unenriched",
+      "source_url": "https://fdc.nal.usda.gov/food-details/169756/nutrients",
+      "per_100g": {
+        "kcal": 365.0,
+        "protein_g": 7.13,
+        "fat_g": 0.66,
+        "carb_g": 79.95
+      },
+      "grams_per_unit": {
+        "克": 1
+      },
+      "portion_evidence": []
+    },
+    "燕麦": {
+      "fdc_id": 169705,
+      "description": "Oats (Includes foods for USDA's Food Distribution Program)",
+      "source_url": "https://fdc.nal.usda.gov/food-details/169705/nutrients",
+      "per_100g": {
+        "kcal": 389.0,
+        "protein_g": 16.89,
+        "fat_g": 6.9,
+        "carb_g": 66.27
+      },
+      "grams_per_unit": {
+        "克": 1
+      },
+      "portion_evidence": []
+    },
+    "面条": {
+      "fdc_id": 169731,
+      "description": "Noodles, egg, dry, enriched",
+      "source_url": "https://fdc.nal.usda.gov/food-details/169731/nutrients",
+      "per_100g": {
+        "kcal": 384.0,
+        "protein_g": 14.16,
+        "fat_g": 4.44,
+        "carb_g": 71.27
+      },
+      "grams_per_unit": {
+        "克": 1
+      },
+      "portion_evidence": []
+    },
+    "牛奶": {
+      "fdc_id": 171265,
+      "description": "Milk, whole, 3.25% milkfat, with added vitamin D",
+      "source_url": "https://fdc.nal.usda.gov/food-details/171265/nutrients",
+      "per_100g": {
+        "kcal": 61.0,
+        "protein_g": 3.15,
+        "fat_g": 3.25,
+        "carb_g": 4.8
+      },
+      "grams_per_unit": {
+        "克": 1
+      },
+      "portion_evidence": []
+    }
+  }
+}

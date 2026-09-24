@@ -131,6 +131,7 @@ jobs:
           node frontend/scripts/browser-leftovers.cjs
           node frontend/scripts/browser-growth.cjs
           node frontend/scripts/browser-challenges.cjs
+          node frontend/scripts/browser-planning.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -146,6 +147,10 @@ jobs:
             tmp/shopping/
             tmp/recipes/
             tmp/community/
+            tmp/leftovers/
+            tmp/growth/
+            tmp/challenges/
+            tmp/planning/
             /tmp/cookx-sqlite.log
             /tmp/cookx-backend.log
             /tmp/cookx-frontend.log

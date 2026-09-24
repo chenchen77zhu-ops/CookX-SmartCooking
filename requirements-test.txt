@@ -13,3 +13,5 @@ edge-tts
 uvicorn
 
 argon2-cffi==25.1.0
+
+ortools==9.15.6755

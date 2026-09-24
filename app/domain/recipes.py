@@ -10,7 +10,7 @@ from app.services.inventory_transactions import digest
 
 router=APIRouter(prefix='/api/v3/recipes',tags=['Recipe reuse'])
 class Source(Command):
-    source_type:Literal['standard','history','favorite','copy','community']
+    source_type:Literal['standard','history','favorite','copy','community','menu']
     source_id:str=Field(min_length=1,max_length=128)
     expected_source_version:str=Field(min_length=1,max_length=128)
 
@@ -69,6 +69,22 @@ def sources(user,kind):
     raise HTTPException(422,'来源类型不支持')
 
 def source(user,kind,id):
+    if kind=='menu':
+        try:menu_id,day,meal,role=id.split('|')
+        except ValueError:raise HTTPException(422,'菜单菜谱引用无效')
+        menu=read('menu',menu_id)
+        if menu['owner']!=user:raise HTTPException(403,'不能读取其他账号菜单')
+        from app.domain.planning import inventory
+        inventory(user,menu['config']['family_id'])
+        slot=next((s for s in menu['result']['meals'] if str(s['day'])==day and s['meal']==meal),None)
+        dish=next((d for d in slot['dishes'] if d['role']==role),None) if slot else None
+        if not dish:raise HTTPException(404,'菜单菜谱不存在')
+        recipe=normalize_recipe(dish['recipe'])
+        recipe['inventory_scope']={'family_id':menu['config']['family_id']}
+        recipe['planning_factor']=dish['factor']
+        recipe['menu_source']={'menu_id':menu_id,'day':int(day),'meal':meal,'role':role}
+        recipe['ingredients_list']=[{**i,'amount':i.get('amount',0)*dish['factor']} for i in recipe['ingredients_list']]
+        return {'id':id,'recipe':recipe,'source_version':str(menu['version'])}
     if kind=='community':
         post=read('post',id)
         if post.get('hidden') or post.get('deleted') or not post.get('recipe'): raise HTTPException(422,'帖子没有可复刻的有效菜谱')
@@ -111,11 +127,16 @@ def check(id:str,request:Request):
         if copy['owner']!=request.state.user_id: raise HTTPException(403,'不能读取他人复刻')
         from app.main import USER_DATA_BASE,normalize_inventory_name,_public_freshfusion_result
         from datetime import datetime,timezone
-        rows=store.read(f'{USER_DATA_BASE}/{request.state.user_id}/inventory.json',[]);evaluated=datetime.now(timezone.utc)
+        family=copy['recipe'].get('inventory_scope',{}).get('family_id')
+        if family:
+            from app.domain.households import membership
+            membership(family,request.state.user_id);rows=listing('family_inventory',family)
+        else:rows=store.read(f'{USER_DATA_BASE}/{request.state.user_id}/inventory.json',[])
+        evaluated=datetime.now(timezone.utc)
         assessed=[(row,_public_freshfusion_result(row,evaluated)) for row in rows if row.get('quantity',0)>0]
         required=[]
         for ingredient in copy['recipe']['ingredients_list']:
             name=ingredient['item'];matching=[(row,f) for row,f in assessed if normalize_inventory_name(row['name'])==normalize_inventory_name(name)]
-            usable=[row for row,f in matching if not f['expired'] and f['fresh_score'] is not None]
+            usable=[row for row,f in matching if f['freshness_level'] not in ('unknown','high_risk','expired')]
             required.append({'name':name,'required_amount':ingredient.get('amount'),'unit':ingredient.get('unit'),'matched_batches':[row['id'] for row in usable], 'status':'needs_quantity_check' if usable else 'needs_freshness_check' if matching else 'missing'})
         return {'copy':copy,'ingredients':required,'evaluated_at':evaluated.isoformat(),'note':'现有计数与菜谱用量未自动换算；请逐项核对份量、日期和实物状态，再自行启动指导。'}
