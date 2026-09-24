@@ -45,6 +45,8 @@ from app.models.user import (
 from app.services.sms_service import send_sms_code, verify_sms_code
 app = FastAPI(title="Smart Cooking API", dependencies=[Depends(require_auth)])
 app.include_router(auth_router)
+from app.domain.households import router as households_router
+app.include_router(households_router)
 USER_DATA_BASE = "app/data/users"
 # --- 1. 配置与初始化 ---
 UPLOAD_DIR = "app/static/uploads"

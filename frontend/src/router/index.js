@@ -1,6 +1,7 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 
 const routes = [
+  {path:'/household',component:()=>import('../views/Household.vue'),meta:{requiresAuth:true}},
   {
     path: '/login',
     name: 'Login',

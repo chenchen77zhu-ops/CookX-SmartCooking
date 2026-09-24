@@ -90,6 +90,9 @@ class SqliteStore:
                     if row[0] not in keep:
                         db.execute('DELETE FROM documents WHERE owner=?',(row[0],))
                         db.execute('DELETE FROM entities WHERE owner=?',(row[0],))
+                        db.execute('DELETE FROM receipts WHERE scope=?',(row[0],))
+                        db.execute('DELETE FROM media WHERE owner=?',(row[0],))
+                        db.execute('DELETE FROM invitations WHERE created_by=?',(row[0],))
                         db.execute('DELETE FROM accounts WHERE id=?',(row[0],))
                 for row in data:
                     db.execute('INSERT INTO accounts VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET username=excluded.username,payload=excluded.payload',(row['id'],row.get('nickname') or row['username'],encode(row)))
