@@ -55,6 +55,8 @@ from app.domain.community import router as community_router
 app.include_router(community_router)
 from app.domain.comments import router as comments_router
 app.include_router(comments_router)
+from app.domain.likes import router as likes_router
+app.include_router(likes_router)
 USER_DATA_BASE = "app/data/users"
 # --- 1. 配置与初始化 ---
 UPLOAD_DIR = "app/static/uploads"
