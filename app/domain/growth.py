@@ -48,6 +48,8 @@ def complete(request:Request,body:Complete):
         row=put('completion',id,user,{**payload,'recipe_identity':identity,'fingerprint':fingerprint,'recorded_at':now()})
         from app.domain.badges import award
         award(user)
+        from app.domain.learning import auxiliary
+        auxiliary(user,'completion',row['id'],recipe)
         return {'completion':row,'already_recorded':False}
     return execute(user,'cooking-complete',body,action)
 

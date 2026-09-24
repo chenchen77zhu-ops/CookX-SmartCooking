@@ -69,6 +69,8 @@ from app.domain.badges import router as badges_router
 app.include_router(badges_router)
 from app.domain.planning import router as planning_router
 app.include_router(planning_router)
+from app.domain.learning import router as learning_router
+app.include_router(learning_router)
 USER_DATA_BASE = "app/data/users"
 # --- 1. 配置与初始化 ---
 UPLOAD_DIR = "app/static/uploads"
@@ -955,7 +957,7 @@ async def multi_objective_recommendations(request: RecommendationRequest):
     try:
         recommendations = recommend_recipes(
             inventory=inventory,
-            top_k=request.top_k,
+            top_k=len(eligible_recipes) if storage.is_sqlite else request.top_k,
             preferences=scoring_preferences,
             weights=request.weights,
             recipes=eligible_recipes,
@@ -963,7 +965,13 @@ async def multi_objective_recommendations(request: RecommendationRequest):
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    personalization=None
+    if storage.is_sqlite:
+        from app.domain.learning import rerank
+        recommendations,personalization=rerank(request.user_id,recommendations)
+        recommendations=recommendations[:request.top_k]
     return {
+        "personalization":personalization,
         "algorithm_version": algorithm_version_for_recommendations(recommendations),
         "user_id": request.user_id,
         "generated_at": generated_at,

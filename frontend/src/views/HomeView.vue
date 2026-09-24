@@ -37,7 +37,7 @@
       </section>
 
       <main class="dashboard-shell">
-        <section class="panel feature-panel"><h2>一起做饭</h2><p>个人数据保持私有，确认后再与家人和内测成员分享。</p><div class="feature-links"><button class="plain-link" @click="router.push('/household')">家庭共享冰箱 →</button><button class="plain-link" @click="router.push('/shopping')">共同采购 →</button><button class="plain-link" @click="router.push('/recipes')">菜谱复刻 →</button><button class="plain-link" @click="router.push('/community')">一起晒菜 →</button><button class="plain-link" @click="router.push('/leftovers')">剩菜改造 →</button><button class="plain-link" @click="router.push('/growth')">厨艺成长 →</button><button class="plain-link" @click="router.push('/menus')">七日菜单 →</button></div></section>
+        <section class="panel feature-panel"><h2>一起做饭</h2><p>个人数据保持私有，确认后再与家人和内测成员分享。</p><div class="feature-links"><button class="plain-link" @click="router.push('/household')">家庭共享冰箱 →</button><button class="plain-link" @click="router.push('/shopping')">共同采购 →</button><button class="plain-link" @click="router.push('/recipes')">菜谱复刻 →</button><button class="plain-link" @click="router.push('/community')">一起晒菜 →</button><button class="plain-link" @click="router.push('/leftovers')">剩菜改造 →</button><button class="plain-link" @click="router.push('/growth')">厨艺成长 →</button><button class="plain-link" @click="router.push('/menus')">七日菜单 →</button><button class="plain-link" @click="router.push('/learning')">偏好学习 →</button></div></section>
         <section class="panel fridge-panel">
           <div class="panel-heading">
             <div class="heading-title">

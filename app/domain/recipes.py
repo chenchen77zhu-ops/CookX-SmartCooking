@@ -103,7 +103,10 @@ def create_snapshot(user,body,kind):
     recipe=normalize_recipe(row['recipe'])
     # Copies intentionally detach every nested value and retain the original source/version.
     snapshot=json.loads(json.dumps(recipe,ensure_ascii=False,allow_nan=False))
-    return put('recipe_'+kind,new_id(),user,{'recipe':snapshot,'source':{'type':body.source_type,'id':body.source_id,'version':row['source_version']},'created_at':now()})
+    result=put('recipe_'+kind,new_id(),user,{'recipe':snapshot,'source':{'type':body.source_type,'id':body.source_id,'version':row['source_version']},'created_at':now()})
+    from app.domain.learning import auxiliary
+    auxiliary(user,kind,result['id'],snapshot)
+    return result
 
 @router.post('/copies')
 def clone(request:Request,body:Source):
