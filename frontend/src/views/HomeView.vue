@@ -37,6 +37,7 @@
       </section>
 
       <main class="dashboard-shell">
+        <section class="panel feature-panel"><h2>一起做饭</h2><p>个人数据保持私有，确认后再与家人和内测成员分享。</p><div class="feature-links"><button class="plain-link" @click="router.push('/household')">家庭共享冰箱 →</button><button class="plain-link" @click="router.push('/shopping')">共同采购 →</button><button class="plain-link" @click="router.push('/recipes')">菜谱复刻 →</button><button class="plain-link" @click="router.push('/community')">一起晒菜 →</button><button class="plain-link" @click="router.push('/leftovers')">剩菜改造 →</button><button class="plain-link" @click="router.push('/growth')">厨艺成长 →</button><button class="plain-link" @click="router.push('/menus')">七日菜单 →</button><button class="plain-link" @click="router.push('/learning')">偏好学习 →</button></div></section>
         <section class="panel fridge-panel">
           <div class="panel-heading">
             <div class="heading-title">
@@ -316,6 +317,8 @@ onBeforeUnmount(()=>window.removeEventListener('cookx:inventory-changed',consump
 </script>
 
 <style scoped>
+.feature-panel h2{font-size:18px}.feature-panel p{font-size:12px;color:var(--cookx-text-secondary);line-height:1.7}.feature-links{display:grid;grid-template-columns:1fr 1fr;gap:10px}.feature-links button{min-height:44px;text-align:left;white-space:normal}
+
 .home-layout { min-height: calc(100vh - 70px); background: var(--cookx-bg); color: var(--cookx-text); }
 button { font: inherit; }
 .dark-stage { overflow: hidden; padding: 20px 16px 34px; background: radial-gradient(circle at 82% 5%, rgba(77,139,105,.2), transparent 30%), linear-gradient(145deg, #092a22 0%, var(--cookx-primary-dark) 60%, #0b352a 100%); }

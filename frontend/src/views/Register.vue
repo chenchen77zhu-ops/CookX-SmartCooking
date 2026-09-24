@@ -9,6 +9,7 @@
       </div>
 
       <el-form :model="registerForm" :rules="registerRules" ref="registerFormRef" label-width="0px">
+        <el-form-item prop="invitation_code"><el-input v-model="registerForm.invitation_code" placeholder="请输入内测邀请码" /></el-form-item>
         <!-- 昵称 -->
         <el-form-item prop="nickname">
           <el-input
@@ -24,7 +25,7 @@
           <el-input
             v-model="registerForm.password"
             type="password"
-            placeholder="请输入密码（6-20 位）"
+            placeholder="请输入密码（8-64 位）"
             :prefix-icon="Lock"
             show-password
           />
@@ -75,6 +76,7 @@ const registerFormRef = ref(null)
 const loading = ref(false)
 
 const registerForm = reactive({
+  invitation_code: '',
   nickname: '',
   password: '',
   confirmPassword: ''
@@ -90,12 +92,13 @@ const validateConfirmPassword = (rule, value, callback) => {
 }
 
 const registerRules = {
+  invitation_code: [{required:true,message:'请输入内测邀请码',trigger:'blur'}],
   nickname: [
     { required: true, message: '请输入昵称', trigger: 'blur' }
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, max: 20, message: '密码长度在 6-20 个字符', trigger: 'blur' }
+    { min: 8, max: 64, message: '密码长度在 8-64 个字符', trigger: 'blur' }
   ],
   confirmPassword: [
     { required: true, message: '请再次输入密码', trigger: 'blur' },
@@ -114,6 +117,7 @@ const handleRegister = async () => {
     // ✅ 核心修复：发送注册请求，phone 和 sms_code 传空字符串
     // 注意：这里建议传一个对象，以匹配后端 Body 接收模式
     const response = await authApi.register({
+        invitation_code: registerForm.invitation_code,
         nickname: registerForm.nickname,
         phone: '',
         password: registerForm.password,

@@ -17,6 +17,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
+import {deleteInventory} from '../api/inventoryWrites'
 import { API_BASE_URL } from '@/config/backend'
 
 const inventory = ref([])
@@ -30,7 +31,7 @@ const fetchInventory = async () => {
 
 const removeItem = async (id) => {
   if (!userId) return
-  await axios.delete(`${API_BASE_URL}/inventory/${id}`, { params: { user_id: userId } })
+  await deleteInventory(userId,id,inventory.value.find(r=>r.id===id)?._revision)
   fetchInventory() // 刷新列表
 }
 

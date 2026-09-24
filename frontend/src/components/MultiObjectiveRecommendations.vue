@@ -24,7 +24,7 @@
         <label>期望难度<select v-model="criteria.difficulty_target" aria-label="期望难度"><option value="">不限制</option><option value="easy">简单</option><option value="medium">中等</option><option value="hard">较难</option></select></label>
         <label v-for="[key,label] in nutritionFields" :key="key">{{ label }}<input v-model="criteria[key]" type="number" min="0.01" step="any" /></label>
       </fieldset>
-      <p>预算按整道菜估算，营养目标按每份计算。缺少基础数据时对应分项不参与评分；目标保存在当前用户本机。</p>
+      <p>预算按整道菜估算，营养目标按每份计算。缺少基础数据时对应分项不参与评分；目标关联当前账号，重新推荐时保存到后端。</p>
     </details>
     <p v-if="viewState === 'stale'" role="status">库存或目标已变化，旧推荐已失效，请重新获取推荐。</p>
     <div v-if="viewState === 'initial'" class="state-panel initial-state">
@@ -62,6 +62,7 @@
         <small>算法版本 {{ algorithmVersion }}</small>
       </div>
 
+      <p v-if="personalization">{{ personalization.reason }}</p><button class="secondary-button" @click="router.push('/learning')">管理偏好学习与反馈</button>
       <div class="recommendation-list">
         <article
           v-for="item in recommendations"
@@ -72,7 +73,7 @@
             <span class="rank-badge">TOP {{ item.rank }}</span>
             <span class="score"><strong>{{ formatScore(item.total_score) }}</strong><small>综合推荐分</small></span>
           </div>
-          <h3>{{ item.recipe_name }}</h3>
+          <h3>{{ item.recipe_name }}</h3><p v-if="item.personalization" class="muted">偏好重排依据：{{ item.personalization.reasons.map(r=>r.tag+'（'+r.direction+'）').join('、') || '当前标签模型' }}。此分值不是准确率；原综合推荐分保持不变。</p>
 
           <div class="ingredient-groups">
             <div class="ingredient-group matched">
@@ -143,7 +144,9 @@
 
 <script setup>
 import {LOCAL_TEST_MODE} from '../config/buildMode.js'
-import { onBeforeUnmount, ref, watch } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import {businessApi,commandKey} from '../api/business'
+import {readSession} from '../services/authSession'
 import { useRouter } from 'vue-router'
 import { Box, DataAnalysis, Refresh, User, WarningFilled } from '@element-plus/icons-vue'
 import { getMultiObjectiveRecommendations } from '@/api'
@@ -162,11 +165,15 @@ const recommendations = ref([])
 const eligibleCount = ref(0)
 const filteredCount = ref(0)
 const algorithmVersion = ref('multi_objective_v1')
+const personalization=ref(null)
 let requestController = null
 let componentActive = true
 
 const criteria = ref(loadRecommendationPreferences(localStorage,props.userId))
-function criteriaChanged(){requestVersion++;requestController?.abort();loading.value=false;resetResults();viewState.value=hasRequested.value?'stale':'initial'}
+let preferenceVersion=null,criteriaDirty=false
+async function loadRemotePreferences(){if(!readSession())return;const user=readUserId();const data=(await businessApi('/preferences')).preferences;if(!componentActive||user!==readUserId())return;preferenceVersion=data.version;if(data.version>0){localStorage.setItem(`cookx:preferences:v1:${user}`,JSON.stringify(data.values));if(!criteriaDirty){criteria.value=Object.fromEntries(Object.entries(data.recommendation).map(([k,v])=>[k,v??'']));localStorage.setItem(recommendationPreferenceKey(user),JSON.stringify(criteria.value))}}}
+onMounted(()=>loadRemotePreferences().catch(error=>{stateMessage.value='账号偏好读取失败：'+error.message}))
+function criteriaChanged(){criteriaDirty=true;requestVersion++;requestController?.abort();loading.value=false;resetResults();viewState.value=hasRequested.value?'stale':'initial'}
 watch(()=>props.userId,user=>{criteria.value=loadRecommendationPreferences(localStorage,user)})
 const metricLabels = { I: '食材匹配', F: '临期利用', P: '偏好匹配', W: '厨余减少', B:'预算匹配', D:'难度匹配', N:'营养匹配', M: '缺失惩罚' }
 
@@ -186,7 +193,7 @@ const splitIngredients = (value) => {
 }
 
 const readPreferences = () => {
-  const stored = safeJsonObject('cookx_preferences')
+  const stored = safeJsonObject(`cookx:preferences:v1:${readUserId()}`)
   const preferences = {}
   if (stored.taste) preferences.taste = stored.taste
   if (stored.spice) preferences.spice = stored.spice
@@ -202,7 +209,7 @@ const readUserId = () => {
 }
 
 const resetResults = () => {
-  recommendations.value = []
+  recommendations.value = [];personalization.value=null
   eligibleCount.value = 0
   filteredCount.value = 0
 }
@@ -228,6 +235,10 @@ const fetchRecommendations = async () => {
   stateMessage.value = ''
 
   try {
+    if(readSession()){
+      if(preferenceVersion===null)await loadRemotePreferences()
+      if(criteriaDirty){const recommendation=Object.fromEntries(Object.entries(criteria.value).map(([k,v])=>[k,v===''?null:k==='difficulty_target'?v:Number(v)]));const saved=await businessApi('/preferences','put',{idempotency_key:commandKey(),expected_version:preferenceVersion,recommendation});preferenceVersion=saved.preferences.version;criteriaDirty=false}
+    }
     const constraints=serializeRecommendationPreferences(criteria.value)
     localStorage.setItem(recommendationPreferenceKey(userId),JSON.stringify(criteria.value))
     const response = await getMultiObjectiveRecommendations({
@@ -241,6 +252,7 @@ const fetchRecommendations = async () => {
     algorithmVersion.value = data.algorithm_version || 'multi_objective_v1'
     eligibleCount.value = Number(data.eligible_recipe_count) || 0
     filteredCount.value = Number(data.filtered_recipe_count) || 0
+    personalization.value=data.personalization||null
     recommendations.value = Array.isArray(data.recommendations) ? data.recommendations : []
     stateMessage.value = data.message || ''
 

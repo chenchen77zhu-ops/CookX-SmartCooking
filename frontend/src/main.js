@@ -1,4 +1,5 @@
 import './localtest/bootstrap.js'
+import './services/authSession.js'
 import { createApp } from 'vue'
 import App from './App.vue'
 import ElementPlus from 'element-plus'

@@ -19,6 +19,8 @@ def application(monkeypatch, tmp_path):
     monkeypatch.setitem(sys.modules, "ultralytics", types.SimpleNamespace(YOLO=FakeYOLO))
     sys.modules.pop("app.main", None)
     import app.main as main
+    from legacy_storage_fixture import install_legacy_storage
+    install_legacy_storage(monkeypatch, main)
     import app.models.user as users
     monkeypatch.setattr(users, "USERS_FILE", str(tmp_path / "users.json"))
     monkeypatch.setattr(main, "USER_DATA_BASE", str(tmp_path / "data"))
@@ -110,3 +112,12 @@ def test_tts_success_and_failure_contract(application, monkeypatch, fail):
     assert result.status_code == (500 if fail else 200)
     if not fail: assert result.json()["audio_url"] == "/static/audio/test.wav"
     assert client.get("/api/tts",params={"text":""}).status_code == 422
+
+def test_missing_generated_nutrition_is_not_fabricated(application, monkeypatch):
+    client, main = application
+    uid = register(client, 'no-nutrition')
+    async def recipe(*args):
+        yield '{"dish_name":"测试", "steps":["检查"]}'
+    monkeypatch.setattr(main, 'get_recipe_suggestion', recipe)
+    result = client.get('/api/recommend-recipe',params={'user_id':uid,'user_prompt':'测试'}).json()
+    assert result['recipe']['nutrition'] is None

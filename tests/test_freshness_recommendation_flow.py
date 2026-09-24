@@ -25,6 +25,8 @@ def flow_api(monkeypatch, tmp_path):
     monkeypatch.setitem(sys.modules, "ultralytics", types.SimpleNamespace(YOLO=FakeYOLO))
     sys.modules.pop("app.main", None)
     import app.main as main
+    from legacy_storage_fixture import install_legacy_storage
+    install_legacy_storage(monkeypatch, main)
 
     user_id = "flow-test-user"
     data_root = tmp_path / "users"
@@ -310,10 +312,7 @@ def test_same_inventory_produces_stable_recommendation_payload(flow_api):
 
 def test_flow_routes_and_legacy_routes_coexist(flow_api):
     _, main, _, _, _ = flow_api
-    paths = {
-        (route.path, tuple(getattr(route, "methods", None) or []))
-        for route in main.app.routes
-    }
+    paths = {(path, (method.upper(),)) for path, operations in main.app.openapi()["paths"].items() for method in operations if method in {"get", "post", "put", "delete"}}
     assert ("/api/inventory/confirm-recognition", ("POST",)) in paths
     assert ("/api/add-to-inventory", ("POST",)) in paths
     assert ("/api/recommendations", ("POST",)) in paths

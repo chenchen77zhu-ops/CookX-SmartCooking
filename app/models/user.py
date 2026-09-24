@@ -1,153 +1,86 @@
-import os
-import json
-import shutil
+"""Account operations; legacy hashes upgrade only after a successful login."""
 import hashlib
+import hmac
 import uuid
-from datetime import datetime
-from typing import Optional, List
-from pydantic import BaseModel
+from datetime import datetime, timezone
+from pathlib import Path
+from functools import wraps
+from argon2 import PasswordHasher
+from argon2.exceptions import VerificationError, InvalidHashError
+from app.storage import store as storage
 
-# 用户数据文件（基于本文件定位，不依赖运行时的当前工作目录）
-APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-LEGACY_USERS_FILE = os.path.join(APP_DIR, "users.json")
-USERS_FILE = os.path.join(APP_DIR, "data", "users", "users.json")
+USERS_FILE = str(Path(__file__).resolve().parents[1] / 'data/users/users.json')
+_hasher = PasswordHasher(time_cost=2, memory_cost=19456, parallelism=1)
 
-os.makedirs(os.path.dirname(USERS_FILE), exist_ok=True)
-if not os.path.exists(USERS_FILE) and os.path.exists(LEGACY_USERS_FILE):
-    shutil.copy2(LEGACY_USERS_FILE, USERS_FILE)
+def atomic(function):
+    @wraps(function)
+    def wrapped(*args, **kwargs):
+        with storage.transaction(): return function(*args, **kwargs)
+    return wrapped
 
-class User(BaseModel):
-    id: str
-    username: str
-    phone: str
-    nickname: str
-    password_hash: str
-    avatar: Optional[str] = None
-    created_at: str
-    updated_at: str
+def hash_password(password): return _hasher.hash(password)
 
-def hash_password(password: str) -> str:
-    """对密码进行哈希加密"""
-    return hashlib.sha256(password.encode()).hexdigest()
+def verify_password(password, password_hash):
+    if password_hash.startswith('$argon2id$'):
+        try: return _hasher.verify(password_hash, password)
+        except (VerificationError, InvalidHashError): return False
+    return hmac.compare_digest(hashlib.sha256(password.encode()).hexdigest(), password_hash)
 
-def verify_password(password: str, password_hash: str) -> bool:
-    """验证密码是否正确"""
-    return hash_password(password) == password_hash
+def public_user(user): return {k:v for k,v in user.items() if k != 'password_hash'}
+def get_all_users(): return storage.read(USERS_FILE, [])
+def find_user_by_username(username): return next((u for u in get_all_users() if u['nickname']==username),None)
+def find_user_by_phone(phone): return next((u for u in get_all_users() if u['phone']==phone),None)
 
-def get_all_users() -> List[dict]:
-    """获取所有用户"""
-    if not os.path.exists(USERS_FILE):
-        return []
-    try:
-        with open(USERS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except:
-        return []
+@atomic
+def create_user(username, phone, nickname, password):
+    if not nickname.strip() or len(nickname)>64: raise ValueError('昵称应为 1–64 个字符')
+    if len(password)<8 or len(password)>256: raise ValueError('密码应为 8–256 个字符')
+    users=get_all_users()
+    if find_user_by_username(nickname): raise ValueError('昵称已存在')
+    if phone and find_user_by_phone(phone): raise ValueError('手机号已被注册')
+    now=datetime.now(timezone.utc).isoformat()
+    user=dict(id=str(uuid.uuid4()), username=nickname, nickname=nickname, phone=phone,
+              password_hash=hash_password(password), avatar=None, created_at=now, updated_at=now)
+    storage.write(USERS_FILE,[*users,user])
+    return public_user(user)
 
-def find_user_by_username(username: str) -> Optional[dict]:
-    """根据用户名（昵称）查找用户"""
-    users = get_all_users()
+@atomic
+def update_user(user_id, **kwargs):
+    users=get_all_users()
     for user in users:
-        if user["nickname"] == username:  # 使用昵称作为用户名
-            return user
-    return None
+        if user['id']!=user_id: continue
+        nickname=kwargs.get('nickname')
+        phone=kwargs.get('phone')
+        if nickname is not None:
+            if not nickname.strip() or len(nickname)>64: raise ValueError('昵称无效')
+            if any(u['id']!=user_id and u['nickname']==nickname for u in users): raise ValueError('昵称已存在')
+            user['username']=nickname
+        if phone and any(u['id']!=user_id and u['phone']==phone for u in users): raise ValueError('手机号已被注册')
+        for key in ('nickname','phone','avatar'):
+            if kwargs.get(key) is not None: user[key]=kwargs[key]
+        user['updated_at']=datetime.now(timezone.utc).isoformat()
+        storage.write(USERS_FILE,users)
+        return public_user(user)
 
-def find_user_by_phone(phone: str) -> Optional[dict]:
-    """根据手机号查找用户"""
-    users = get_all_users()
-    for user in users:
-        if user["phone"] == phone:
-            return user
-    return None
+@atomic
+def delete_user(user_id):
+    users=get_all_users()
+    if storage.is_sqlite:
+        from app.domain.common import listing,put
+        members=[m for m in listing('membership') if m['user_id']==user_id and m['active']]
+        if any(m['role']=='admin' for m in members): raise ValueError('请先移交家庭管理员，再注销账户')
+        for member in members: put('membership',member['id'],member['owner'],{**member,'active':False},member['version'])
+    remaining=[u for u in users if u['id']!=user_id]
+    if len(remaining)==len(users): return False
+    storage.write(USERS_FILE,remaining)
+    return True
 
-def create_user(username: str, phone: str, nickname: str, password: str) -> dict:
-    """创建新用户"""
-    users = get_all_users()
-    
-    # 检查昵称是否已存在
-    if find_user_by_username(nickname):
-        raise ValueError("昵称已存在")
-    
-    # 检查手机号是否已被注册（如果有手机号）
-    if phone and find_user_by_phone(phone):
-        raise ValueError("手机号已被注册")
-    
-    # 创建用户，使用昵称作为用户名
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    user = {
-        "id": str(uuid.uuid4())[:8],
-        "username": nickname,  # 使用昵称作为用户名
-        "phone": phone,
-        "nickname": nickname,
-        "password_hash": hash_password(password),
-        "avatar": None,
-        "created_at": now,
-        "updated_at": now
-    }
-    
-    users.append(user)
-    
-    # 保存到文件
-    with open(USERS_FILE, "w", encoding="utf-8") as f:
-        json.dump(users, f, ensure_ascii=False, indent=2)
-    
-    return user
-
-def update_user(user_id: str, **kwargs) -> Optional[dict]:
-    """更新用户信息"""
-    users = get_all_users()
-    
-    for i, user in enumerate(users):
-        if user["id"] == user_id:
-            # 更新允许的字段
-            allowed_fields = ["nickname", "phone", "avatar"]
-            for field in allowed_fields:
-                if field in kwargs and kwargs[field] is not None:
-                    user[field] = kwargs[field]
-            
-            user["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            users[i] = user
-            
-            # 保存到文件
-            with open(USERS_FILE, "w", encoding="utf-8") as f:
-                json.dump(users, f, ensure_ascii=False, indent=2)
-            
-            return user
-    
-    return None
-
-def delete_user(user_id: str) -> bool:
-    """删除用户（注销）"""
-    users = get_all_users()
-    
-    for i, user in enumerate(users):
-        if user["id"] == user_id:
-            users.pop(i)
-            
-            # 保存到文件
-            with open(USERS_FILE, "w", encoding="utf-8") as f:
-                json.dump(users, f, ensure_ascii=False, indent=2)
-            
-            return True
-    
-    return False
-
-def authenticate_user(username: str, password: str) -> Optional[dict]:
-    """验证用户登录"""
-    user = find_user_by_username(username)
-    if not user:
-        return None
-    
-    if not verify_password(password, user["password_hash"]):
-        return None
-    
-    # 返回不包含密码哈希的用户信息
-    return {
-        "id": user["id"],
-        "username": user["username"],
-        "phone": user["phone"],
-        "nickname": user["nickname"],
-        "avatar": user["avatar"],
-        "created_at": user["created_at"],
-        "updated_at": user["updated_at"]
-    }
+@atomic
+def authenticate_user(username,password):
+    users=get_all_users()
+    user=next((u for u in users if u['nickname']==username),None)
+    if not user or not verify_password(password,user['password_hash']): return None
+    if not user['password_hash'].startswith('$argon2id$') or _hasher.check_needs_rehash(user['password_hash']):
+        user['password_hash']=hash_password(password)
+        storage.write(USERS_FILE,users)
+    return public_user(user)

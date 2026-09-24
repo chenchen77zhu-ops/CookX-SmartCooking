@@ -16,6 +16,12 @@ if __name__ == "__main__":
         fixture=application.__wrapped__(patch, Path(directory))
         client, main=next(fixture)
         try:
+            from starlette.responses import JSONResponse
+            async def legacy_domain_boundary(scope,receive,send):
+                if scope['type']=='http' and scope['path'].startswith('/api/v3/'):
+                    response=JSONResponse({'detail':'New domain services unavailable in legacy compatibility fixture; validated on the SQLite server'},status_code=503)
+                    await response(scope,receive,send)
+                else:await main.app(scope,receive,send)
             uid=register(client,"acceptance")
             # A legacy row deliberately lacks dates and shelf life.
             inventory=Path(main.get_user_path(uid,"inventory.json"))
@@ -25,6 +31,6 @@ if __name__ == "__main__":
             async def speech(*args): raise RuntimeError("Acceptance server: speech provider deliberately unavailable")
             patch.setattr(main,"get_recipe_suggestion",recipe)
             patch.setattr(main,"generate_voice",speech)
-            uvicorn.run(main.app,host="127.0.0.1",port=8000,log_level="warning")
+            uvicorn.run(legacy_domain_boundary,host="127.0.0.1",port=8000,log_level="warning")
         finally:
             fixture.close()

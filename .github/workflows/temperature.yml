@@ -95,6 +95,7 @@ jobs:
           COOKX_BASE_URL: http://127.0.0.1:4173
         run: |
           export COOKX_PLAYWRIGHT="$RUNNER_TEMP/cookx-browser/node_modules/playwright"
+          python tests/sqlite_browser_server.py > /tmp/cookx-sqlite.log 2>&1 &
           python tests/browser_server.py > /tmp/cookx-backend.log 2>&1 &
           BACKEND_PID=$!
           npm run preview --prefix frontend -- --host 127.0.0.1 > /tmp/cookx-frontend.log 2>&1 &
@@ -102,7 +103,7 @@ jobs:
           trap 'kill "$BACKEND_PID" "$FRONTEND_PID" 2>/dev/null || true' EXIT
           python - <<'PY'
           import time, urllib.request
-          for address in ['http://127.0.0.1:8000/', 'http://127.0.0.1:4173/']:
+          for address in ['http://127.0.0.1:8000/', 'http://127.0.0.1:8001/', 'http://127.0.0.1:4173/']:
               for attempt in range(60):
                   try:
                       with urllib.request.urlopen(address, timeout=1) as response:
@@ -121,6 +122,20 @@ jobs:
           node frontend/scripts/browser-p2-writes.cjs
           node frontend/scripts/browser-copilot.cjs
           node frontend/scripts/browser-online-v2.cjs
+          node frontend/scripts/browser-preferences.cjs
+          node frontend/scripts/browser-sqlite.cjs
+          node frontend/scripts/browser-households.cjs
+          node frontend/scripts/browser-shopping.cjs
+          node frontend/scripts/browser-recipes.cjs
+          node frontend/scripts/browser-community.cjs
+          node frontend/scripts/browser-leftovers.cjs
+          node frontend/scripts/browser-growth.cjs
+          node frontend/scripts/browser-challenges.cjs
+          node frontend/scripts/browser-planning.cjs
+          node frontend/scripts/browser-learning.cjs
+          node frontend/scripts/browser-full-integration.cjs
+          node frontend/scripts/browser-server-config.cjs
+          node frontend/scripts/browser-private-media.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -131,5 +146,18 @@ jobs:
             tmp/p2/
             tmp/copilot/
             tmp/online-v2/
+            tmp/sqlite/
+            tmp/household/
+            tmp/shopping/
+            tmp/recipes/
+            tmp/community/
+            tmp/leftovers/
+            tmp/growth/
+            tmp/challenges/
+            tmp/planning/
+            tmp/learning/
+            tmp/integration/
+            tmp/privacy/
+            /tmp/cookx-sqlite.log
             /tmp/cookx-backend.log
             /tmp/cookx-frontend.log

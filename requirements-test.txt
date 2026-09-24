@@ -1,6 +1,8 @@
 # API tests mock YOLO/cloud calls; no model weights or live credentials required.
 pytest
-fastapi
+fastapi==0.141.1
+pydantic==2.13.5
+starlette==1.7.0
 httpx
 python-multipart
 Pillow
@@ -9,3 +11,7 @@ dashscope
 python-dotenv
 edge-tts
 uvicorn
+
+argon2-cffi==25.1.0
+
+ortools==9.15.6755

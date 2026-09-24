@@ -6,15 +6,17 @@
       <button type="button" class="account-row" @click="router.push({ path: '/profile', query: { edit: '1' } })"><span><el-icon><EditPen /></el-icon></span><div><b>编辑个人资料</b><small>修改昵称、手机号和头像</small></div><el-icon><ArrowRight /></el-icon></button>
       <div class="account-note"><el-icon><Lock /></el-icon><p><b>密码管理</b><span>当前项目尚未提供修改密码接口，因此未展示虚假操作入口。</span></p></div>
       <button type="button" class="delete-account" @click="deleteAccount"><el-icon><Delete /></el-icon>注销账户</button>
-    </section></main>
+    </section><ServerSettings/></main>
   </div>
 </template>
 
 <script setup>
+import ServerSettings from '../components/ServerSettings.vue'
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, ArrowRight, Delete, EditPen, Lock, User } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { clearSession } from '../services/authSession'
 import { authApi } from '@/api/auth'
 import '@/assets/profile-pages.css'
 
@@ -25,11 +27,12 @@ const maskedPhone = computed(() => {
   return /^\d{11}$/.test(phone) ? `${phone.slice(0, 3)}****${phone.slice(-4)}` : (phone || '未设置手机号')
 })
 const deleteAccount = () => {
-  ElMessageBox.confirm('警告：注销后所有冰箱数据和对话记录将永久删除！', '风险提示', { confirmButtonText: '确认注销', type: 'danger' }).then(async () => {
+  ElMessageBox.confirm('注销后个人账号、库存和对话记录将删除，家庭共享记录由家庭保留。请先移交家庭管理员权限。', '风险提示', { confirmButtonText: '确认注销', type: 'danger' }).then(async () => {
     try {
-      await authApi.deleteAccount(user.value.id)
-      localStorage.removeItem('user')
-      ElMessage.success('账户已彻底注销')
+      const response = await authApi.deleteAccount(user.value.id)
+      if(response.data.status !== 'success') throw new Error('注销失败')
+      clearSession()
+      ElMessage.success('账户已注销')
       router.push('/login')
     } catch (error) { ElMessage.error('注销失败') }
   }).catch(() => {})

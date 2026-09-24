@@ -17,6 +17,8 @@ def inventory_api(monkeypatch, tmp_path):
     monkeypatch.setitem(sys.modules, "ultralytics", types.SimpleNamespace(YOLO=FakeYOLO))
     sys.modules.pop("app.main", None)
     import app.main as main
+    from legacy_storage_fixture import install_legacy_storage
+    install_legacy_storage(monkeypatch, main)
 
     user_id = "inventory-test-user"
     monkeypatch.setattr(main, "USER_DATA_BASE", str(tmp_path))

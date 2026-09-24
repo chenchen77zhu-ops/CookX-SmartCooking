@@ -87,3 +87,8 @@ frontend/public/temperature/runtime/
 
 # Public build flag, no credentials
 !frontend/.env.localtest
+# Private SQLite runtime and migration snapshots
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+backups/

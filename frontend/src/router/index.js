@@ -3,6 +3,14 @@ import {localTestRuntime} from '../localtest/bootstrap.js'
 import { createRouter, createWebHashHistory } from 'vue-router'
 
 const routes = [
+  {path:'/learning',component:()=>import('../views/Learning.vue'),meta:{requiresAuth:true}},
+  {path:'/menus',component:()=>import('../views/MenuPlanner.vue'),meta:{requiresAuth:true}},
+  {path:'/growth',component:()=>import('../views/Growth.vue'),meta:{requiresAuth:true}},
+  {path:'/leftovers',component:()=>import('../views/Leftovers.vue'),meta:{requiresAuth:true}},
+  {path:'/community',component:()=>import('../views/Community.vue'),meta:{requiresAuth:true}},
+  {path:'/recipes',component:()=>import('../views/RecipeLibrary.vue'),meta:{requiresAuth:true}},
+  {path:'/shopping',component:()=>import('../views/Shopping.vue'),meta:{requiresAuth:true}},
+  {path:'/household',component:()=>import('../views/Household.vue'),meta:{requiresAuth:true}},
   {
     path: '/login',
     name: 'Login',

@@ -25,11 +25,11 @@ export function createConsumption({read,write,lookup,storage,isCurrent=()=>true,
  async function send(user,tx){
   if(!isCurrent(user))throw new Error('登录用户已变化，已取消本次扣减')
   try {
-   const response=await write(user,{user_id:user,idempotency_key:tx.idempotencyKey,items:tx.items.map(i=>({item_id:String(i.id),quantity:i.consumeQuantity,expected_quantity:i.quantity}))})
+   const response=await write(user,{user_id:user,idempotency_key:tx.idempotencyKey,items:tx.items.map(i=>({item_id:String(i.id),quantity:i.consumeQuantity,expected_quantity:i.quantity,...(i._revision?{expected_revision:i._revision}:{})}))})
    if(response?.status!=='success')throw new Error(response?.message||'扣减未确认，请查询原凭证')
   } catch(error) {
    // Only a definitive rejection AND absent receipt permits a fresh, reviewed transaction.
-   if([409,422].includes(error.response?.status)) {
+   if([409,422,428].includes(error.response?.status)) {
     try{await lookup(user,tx.idempotencyKey)}catch(check){if(check.response?.status===404)persist(user,{...tx,status:'rejected'})}
    }
    throw error
@@ -44,7 +44,7 @@ export function createConsumption({read,write,lookup,storage,isCurrent=()=>true,
    const preview=consumptionPreview(await read(user)),ids=new Set()
    const items=selected.map(item=>{
     const latest=preview.find(r=>String(r.id)===String(item.id)),amount=Number(item.consumeQuantity ?? 1)
-    if(!latest || latest.blocked || latest.quantity!==item.quantity || latest.name!==item.name || ids.has(String(latest.id)) || !Number.isSafeInteger(amount) || amount<1 || amount>latest.quantity)throw new Error('库存或使用数量已变化，请重新读取清单')
+    if(!latest || latest.blocked || latest.quantity!==item.quantity || latest.name!==item.name || latest._revision!==item._revision || ids.has(String(latest.id)) || !Number.isSafeInteger(amount) || amount<1 || amount>latest.quantity)throw new Error('库存或使用数量已变化，请重新读取清单')
     ids.add(String(latest.id));return {...latest,consumeQuantity:amount,after:latest.quantity-amount}
    })
    if(!isCurrent(user))throw new Error('登录用户已变化，已取消本次扣减')

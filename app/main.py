@@ -13,12 +13,17 @@ from functools import wraps
 import inspect
 from app.services.inventory_transactions import inventory_session, consume as consume_batches, receipt as consumption_receipt, read_json
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Request
-from fastapi import Response
+from fastapi import Response, Depends
+from app.storage import store as storage
+from app.auth import require_auth, router as auth_router, issue_session, consume_invitation
 from fastapi import Body
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from ultralytics import YOLO
+try:
+    from ultralytics import YOLO
+except ImportError:
+    YOLO=None
 from PIL import Image
 from pydantic import BaseModel, Field, field_validator, model_validator
 from datetime import datetime, timedelta
@@ -41,7 +46,41 @@ from app.models.user import (
     find_user_by_username, find_user_by_phone, get_all_users
 )
 from app.services.sms_service import send_sms_code, verify_sms_code
-app = FastAPI(title="Smart Cooking API")
+app = FastAPI(title="Smart Cooking API", dependencies=[Depends(require_auth)])
+app.include_router(auth_router)
+from app.domain.households import router as households_router
+app.include_router(households_router)
+from app.domain.shopping import router as shopping_router
+app.include_router(shopping_router)
+from app.domain.recipes import router as recipes_router
+app.include_router(recipes_router)
+from app.domain.community import router as community_router
+app.include_router(community_router)
+from app.domain.comments import router as comments_router
+app.include_router(comments_router)
+from app.domain.likes import router as likes_router
+app.include_router(likes_router)
+from app.domain.ranking import router as ranking_router
+app.include_router(ranking_router)
+from app.domain.leftovers import router as leftovers_router
+app.include_router(leftovers_router)
+from app.domain.growth import router as growth_router
+app.include_router(growth_router)
+from app.domain.challenges import router as challenges_router
+app.include_router(challenges_router)
+from app.domain.badges import router as badges_router
+app.include_router(badges_router)
+from app.domain.planning import router as planning_router
+app.include_router(planning_router)
+from app.domain.learning import router as learning_router
+app.include_router(learning_router)
+from app.domain.family_consumption import router as family_consumption_router
+app.include_router(family_consumption_router)
+from app.domain.preferences import router as preferences_router
+app.include_router(preferences_router)
+from app.domain.private_media import router as private_media_router, PrivateStaticBoundary
+app.include_router(private_media_router)
+app.add_middleware(PrivateStaticBoundary)
 USER_DATA_BASE = "app/data/users"
 # --- 1. 配置与初始化 ---
 UPLOAD_DIR = "app/static/uploads"
@@ -51,10 +90,6 @@ CHAT_HISTORY_FILE = "app/chat_history.json"
 for path in [UPLOAD_DIR, AUDIO_DIR]:
     os.makedirs(path, exist_ok=True)
 
-# 初始化库存文件
-if not os.path.exists(INVENTORY_FILE):
-    with open(INVENTORY_FILE, "w", encoding="utf-8") as f:
-        json.dump([], f)
 
 class LoginRequest(BaseModel):
     username: str
@@ -296,7 +331,10 @@ app.add_middleware(
 )
 
 # 预加载模型 (建议放在全局避免重复加载)
-model = YOLO('app/models/best.pt')
+model=None
+if YOLO is not None:
+    try:model=YOLO('app/models/best.pt')
+    except Exception as error:print('本地视觉模型未加载：'+type(error).__name__+'；库存、菜单及其他本地功能仍可用')
 
 # 挂载静态资源
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
@@ -321,9 +359,8 @@ def update_expiration_notifications(user_id: str):
 
     # 1. 读取该用户现有的通知
     user_notifications = []
-    if os.path.exists(notify_path):
-        with open(notify_path, "r", encoding="utf-8") as f:
-            user_notifications = json.load(f)
+    if storage.exists(notify_path):
+        user_notifications = storage.read(notify_path, [])
 
     # 获取现有通知的 ID 集合，用于去重
     existing_ids = {n['id'] for n in user_notifications}
@@ -344,9 +381,8 @@ def update_expiration_notifications(user_id: str):
                 new_found = True
 
     # 3. 扫描食材过期逻辑 (保持你之前的代码)
-    if os.path.exists(inventory_path):
-        with open(inventory_path, "r", encoding="utf-8") as f:
-            inventory = json.load(f)
+    if storage.exists(inventory_path):
+        inventory = storage.read(inventory_path, [])
         for item in inventory:
             # ... 计算过期天数逻辑 ...
             # title = f"{item['name']}即将过期"
@@ -357,8 +393,7 @@ def update_expiration_notifications(user_id: str):
 
     # 4. 如果有新消息，保存回用户的文件夹
     if new_found:
-        with open(notify_path, "w", encoding="utf-8") as f:
-            json.dump(user_notifications[:50], f, ensure_ascii=False, indent=4)
+        storage.write(notify_path, user_notifications[:50])
 
 def get_user_path(user_id: str, filename: str):
     """
@@ -372,7 +407,7 @@ def get_user_path(user_id: str, filename: str):
     user_dir = os.path.join(USER_DATA_BASE, user_id_str)
 
     # 如果该用户的文件夹不存在，则立即创建它
-    if not os.path.exists(user_dir):
+    if not storage.is_sqlite and not os.path.exists(user_dir):
         os.makedirs(user_dir, exist_ok=True)
         print(f"为用户 {user_id_str} 创建了专属文件夹")
 
@@ -380,22 +415,12 @@ def get_user_path(user_id: str, filename: str):
     return os.path.join(user_dir, filename)
 
 def get_current_inventory_names(user_id: str):
-    # 使用之前定义的 get_user_path 函数
-    path = get_user_path(user_id, "inventory.json")
-    if not os.path.exists(path):
-        return []
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            # 获取名字列表供 AI 分析
-            return list(set([item["name"] for item in data]))
-    except:
-        return []
+    return sorted(safe_inventory_names(storage.read(get_user_path(user_id, "inventory.json"), []),datetime.now()))
 
 def get_user_file_path(user_id: str, file_name: str):
     """为每个用户创建独立文件夹：app/data/users/{user_id}/inventory.json"""
     user_dir = os.path.join(USER_DATA_BASE, user_id)
-    os.makedirs(user_dir, exist_ok=True) # 自动创建用户目录
+    if not storage.is_sqlite: os.makedirs(user_dir, exist_ok=True)
     return os.path.join(user_dir, file_name)
 
 @app.get("/")
@@ -605,25 +630,7 @@ def merge_inventory_items(inventory_data, items, current_time=None):
 
 
 def _write_inventory_atomic(path, data):
-    """在同一目录写入临时文件后原子替换，避免留下半写入 JSON。"""
-    temp_path = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            encoding="utf-8",
-            dir=os.path.dirname(path),
-            prefix="inventory-",
-            suffix=".tmp",
-            delete=False,
-        ) as temp_file:
-            temp_path = temp_file.name
-            json.dump(data, temp_file, ensure_ascii=False, indent=4)
-            temp_file.flush()
-            os.fsync(temp_file.fileno())
-        os.replace(temp_path, path)
-    finally:
-        if temp_path and os.path.exists(temp_path):
-            os.remove(temp_path)
+    storage.write(path, data)
 
 
 def _require_existing_user(user_id: str) -> None:
@@ -643,8 +650,34 @@ def inventory_guard(function):
                     raise HTTPException(422, f"不允许客户端提供{parameter}")
         _require_existing_user(user_id)
         path = os.path.join(USER_DATA_BASE, str(user_id), "inventory.json")
-        with inventory_session(path):
-            return await function(*args, **kwargs)
+        with storage.session(path):
+            context=values.get('request_context')
+            key=context.headers.get('Idempotency-Key') if context is not None and storage.is_sqlite else None
+            fingerprint=None
+            if key:
+                from app.storage import encode
+                from app.services.inventory_transactions import digest
+                if not re.fullmatch(r'[A-Za-z0-9_-]{8,128}',key):raise HTTPException(422,'操作凭证格式无效')
+                def serial(value):
+                    if isinstance(value,list):return [serial(v) for v in value]
+                    return value.model_dump(mode='json') if hasattr(value,'model_dump') else value
+                fingerprint=digest({'operation':function.__name__,'values':{k:serial(v) for k,v in values.items() if k!='request_context'},'if_match':context.headers.get('If-Match')})
+                with storage.transaction() as db:
+                    prior=db.execute('SELECT fingerprint,payload FROM receipts WHERE scope=? AND key=?',(user_id,key)).fetchone()
+                    if prior:
+                        if prior['fingerprint']!=fingerprint:raise HTTPException(409,'原操作凭证不能用于不同内容')
+                        return {**json.loads(prior['payload']),'replayed':True}
+            if storage.is_sqlite and function.__name__ in ('delete_item','update_item'):
+                from app.services.inventory_transactions import digest
+                expected=context.headers.get('If-Match') if context is not None else None
+                if not expected:raise HTTPException(428,'请刷新库存并使用支持版本核对的客户端')
+                existing=next((r for r in storage.read(path,[]) if str(r['id'])==str(values['item_id'])),None)
+                if existing is None:raise HTTPException(404,'库存项目不存在')
+                if digest(existing)!=expected.strip('"'):raise HTTPException(409,'批次已被修改，请刷新后重新核对')
+            result=await function(*args, **kwargs)
+            if key:
+                with storage.transaction() as db:db.execute('INSERT INTO receipts VALUES(?,?,?,?)',(user_id,key,fingerprint,encode(result)))
+            return result
     return wrapped
 
 
@@ -695,14 +728,14 @@ def _confirmed_inventory_records(
 
 @app.post("/api/add-to-inventory")
 @inventory_guard
-async def add_to_inventory(items: List[InventoryCreateItem], user_id: str = Query(...)):
+async def add_to_inventory(items: List[InventoryCreateItem], user_id: str = Query(...), request_context: Request = None):
     """正式入库：按用户隔离，并强制补全日期"""
     _require_existing_user(user_id)
     try:
         # 1. 获取该用户的专属路径
         path = get_user_path(user_id, "inventory.json")
 
-        inventory_data = read_json(path, [])
+        inventory_data = storage.read(path, [])
         if not isinstance(inventory_data, list):
             raise HTTPException(status_code=500, detail="库存格式损坏，未写入")
 
@@ -727,15 +760,14 @@ async def add_to_inventory(items: List[InventoryCreateItem], user_id: str = Quer
 
 @app.post("/api/inventory/confirm-recognition")
 @inventory_guard
-async def confirm_recognized_inventory(request: ConfirmRecognitionRequest):
+async def confirm_recognized_inventory(request: ConfirmRecognitionRequest, request_context: Request = None):
     """Persist user-confirmed candidates, then return real-time FreshFusion results."""
     _require_existing_user(request.user_id)
     path = os.path.join(USER_DATA_BASE, request.user_id, "inventory.json")
     try:
         inventory: List[Dict[str, Any]] = []
-        if os.path.exists(path):
-            with open(path, "r", encoding="utf-8") as inventory_file:
-                loaded = json.load(inventory_file)
+        if storage.exists(path):
+            loaded = storage.read(path, [])
             if not isinstance(loaded, list):
                 raise ValueError("inventory must be an array")
             inventory = loaded
@@ -902,7 +934,15 @@ async def multi_objective_recommendations(request: RecommendationRequest):
     if not any(user.get("id") == request.user_id for user in get_all_users()):
         raise HTTPException(status_code=404, detail="用户不存在")
 
-    scoring_preferences = dict(request.preferences or {})
+    saved_preferences={}
+    if storage.is_sqlite:
+        from app.domain.preferences import scoring_preferences as read_scoring_preferences
+        saved_preferences=read_scoring_preferences(request.user_id)
+    scoring_preferences = {**saved_preferences,**dict(request.preferences or {})}
+    if saved_preferences.get('disliked_ingredients'):
+        incoming=scoring_preferences.get('disliked_ingredients',[])
+        if isinstance(incoming,str):incoming=re.split('[,，、\n]',incoming)
+        scoring_preferences['disliked_ingredients']=list(dict.fromkeys(saved_preferences['disliked_ingredients']+(incoming if isinstance(incoming,list) else [])))
     scoring_preferences.pop("budget", None)
     scoring_preferences.pop("difficulty_target", None)
     scoring_preferences.pop("nutrition_target", None)
@@ -920,11 +960,10 @@ async def multi_objective_recommendations(request: RecommendationRequest):
 
     inventory_path = os.path.join(USER_DATA_BASE, request.user_id, "inventory.json")
     inventory = []
-    if os.path.exists(inventory_path):
+    if storage.exists(inventory_path):
         try:
-            with open(inventory_path, "r", encoding="utf-8") as inventory_file:
-                loaded = json.load(inventory_file)
-                inventory = loaded if isinstance(loaded, list) else []
+            loaded = storage.read(inventory_path, [])
+            inventory = loaded if isinstance(loaded, list) else []
         except (OSError, json.JSONDecodeError) as exc:
             raise HTTPException(status_code=500, detail="用户库存数据无法读取") from exc
 
@@ -965,7 +1004,7 @@ async def multi_objective_recommendations(request: RecommendationRequest):
     try:
         recommendations = recommend_recipes(
             inventory=inventory,
-            top_k=request.top_k,
+            top_k=len(eligible_recipes) if storage.is_sqlite else request.top_k,
             preferences=scoring_preferences,
             weights=request.weights,
             recipes=eligible_recipes,
@@ -973,7 +1012,13 @@ async def multi_objective_recommendations(request: RecommendationRequest):
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    personalization=None
+    if storage.is_sqlite:
+        from app.domain.learning import rerank
+        recommendations,personalization=rerank(request.user_id,recommendations)
+        recommendations=recommendations[:request.top_k]
     return {
+        "personalization":personalization,
         "algorithm_version": algorithm_version_for_recommendations(recommendations),
         "user_id": request.user_id,
         "generated_at": generated_at,
@@ -1005,10 +1050,9 @@ async def evaluate_inventory_freshness(user_id: str, request: Request):
         raise HTTPException(status_code=404, detail="用户不存在")
     inventory_path = os.path.join(USER_DATA_BASE, user_id, "inventory.json")
     inventory: List[Dict[str, Any]] = []
-    if os.path.exists(inventory_path):
+    if storage.exists(inventory_path):
         try:
-            with open(inventory_path, "r", encoding="utf-8") as inventory_file:
-                loaded = json.load(inventory_file)
+            loaded = storage.read(inventory_path, [])
             if not isinstance(loaded, list):
                 raise ValueError("inventory must be an array")
             inventory = loaded
@@ -1076,7 +1120,7 @@ async def recommend_recipe(user_prompt: str, user_id: str, save_history: bool = 
 
         # 补全营养成分
         if "nutrition" not in recipe_data:
-            recipe_data["nutrition"] = {"calories": "200", "protein": "15", "fat": "10", "carbs": "20"}
+            recipe_data["nutrition"] = None
 
         # 补全食材清单
         if "ingredients_list" not in recipe_data:
@@ -1115,6 +1159,7 @@ class ConsumeBatchItem(BaseModel):
     item_id: str = Field(min_length=1, max_length=128)
     quantity: int = Field(strict=True, gt=0)
     expected_quantity: int = Field(strict=True, gt=0)
+    expected_revision: Optional[str] = Field(None,min_length=64,max_length=64)
 
 
 class ConsumeBatchRequest(BaseModel):
@@ -1135,8 +1180,8 @@ class ConsumeBatchRequest(BaseModel):
 async def consume_inventory_batches(request: ConsumeBatchRequest):
     path = os.path.join(USER_DATA_BASE, request.user_id, "inventory.json")
     try:
-        return consume_batches(path, request.idempotency_key,
-                               [row.model_dump() for row in request.items], _write_inventory_atomic)
+        return (storage.consume if storage.is_sqlite else consume_batches)(path, request.idempotency_key,
+                               [row.model_dump(exclude_none=True) for row in request.items], _write_inventory_atomic)
     except OSError as exc:
         raise HTTPException(500, "扣减响应未确认，请使用原幂等键查询结果") from exc
 
@@ -1144,21 +1189,20 @@ async def consume_inventory_batches(request: ConsumeBatchRequest):
 @app.get("/api/inventory/consumption/{idempotency_key}")
 @inventory_guard
 async def get_consumption_receipt(idempotency_key: str, user_id: str):
-    return consumption_receipt(os.path.join(USER_DATA_BASE, user_id, "inventory.json"), idempotency_key)
+    return (storage.receipt if storage.is_sqlite else consumption_receipt)(os.path.join(USER_DATA_BASE, user_id, "inventory.json"), idempotency_key)
 
 
 @app.post("/api/consume-ingredients")
 async def consume_ingredients(used_items: List[str], user_id: str):
     if not any(str(user.get("id")) == str(user_id) for user in get_all_users()):
         return {"status": "error", "message": "用户不存在"}
-    with inventory_session(os.path.join(USER_DATA_BASE, user_id, "inventory.json")):
+    with storage.session(os.path.join(USER_DATA_BASE, user_id, "inventory.json")):
         path = get_user_path(user_id, "inventory.json")
     
-        if not os.path.exists(path):
+        if not storage.exists(path):
             return {"status": "error", "message": "库存文件不存在"}
     
-        with open(path, "r", encoding="utf-8") as f:
-            inventory_data = json.load(f)
+        inventory_data = storage.read(path, [])
     
         used_names = {normalize_inventory_name(name) for name in used_items}
         for name in used_names:
@@ -1193,13 +1237,15 @@ async def get_inventory(user_id: str):  # ✅ 必须有这个参数
     _require_existing_user(user_id)
     path = os.path.join(USER_DATA_BASE, str(user_id), "inventory.json")
 
-    if not os.path.exists(path):
+    if not storage.exists(path):
         return []
 
     try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
+        data = storage.read(path, [])
 
+        if storage.is_sqlite and isinstance(data,list):
+            from app.services.inventory_transactions import digest
+            return [{**row,"_revision":digest(row)} for row in data]
         return data if isinstance(data, list) else []
     except (OSError, json.JSONDecodeError) as e:
         print(f"读取失败: {e}")
@@ -1208,17 +1254,16 @@ async def get_inventory(user_id: str):  # ✅ 必须有这个参数
 
 @app.delete("/api/inventory/{item_id}")
 @inventory_guard
-async def delete_item(item_id: str, user_id: str):  # ✅ 确保接收这两个参数
+async def delete_item(item_id: str, user_id: str, request_context: Request = None):  # ✅ 确保接收这两个参数
     _require_existing_user(user_id)
     try:
         path = os.path.join(USER_DATA_BASE, str(user_id), "inventory.json")
 
-        if not os.path.exists(path):
+        if not storage.exists(path):
             raise HTTPException(status_code=404, detail="库存项目不存在")
 
         # 2. 读取数据
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
+        data = storage.read(path, [])
 
         # 3. 执行过滤（删除匹配 ID 的项）
         # 注意：确保 item["id"] 和传入的 item_id 类型一致（都是字符串）
@@ -1242,14 +1287,13 @@ async def delete_item(item_id: str, user_id: str):  # ✅ 确保接收这两个�
 
 @app.put("/api/inventory/{item_id}")
 @inventory_guard
-async def update_item(item_id: str, item_data: InventoryUpdateItem, user_id: str):
+async def update_item(item_id: str, item_data: InventoryUpdateItem, user_id: str, request_context: Request = None):
     _require_existing_user(user_id)
     path = os.path.join(USER_DATA_BASE, str(user_id), "inventory.json")
-    if not os.path.exists(path):
+    if not storage.exists(path):
         raise HTTPException(status_code=404, detail="库存项目不存在")
     try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
+        data = storage.read(path, [])
 
         updates = item_data.model_dump(exclude_unset=True)
         found = False
@@ -1282,28 +1326,28 @@ async def update_item(item_id: str, item_data: InventoryUpdateItem, user_id: str
 
 
 @app.get("/api/tts")
-async def get_tts(text: str = Query(..., min_length=1)):
+async def get_tts(request: Request, text: str = Query(..., min_length=1, max_length=3000)):
     """
     语音合成接口
     """
     try:
         # 传入文本生成语音，建议在 tts_service 中处理文件名唯一性
         filename = await generate_voice(text)
+        if storage.is_sqlite:
+            from pathlib import Path
+            from app.domain.private_media import save_media
+            root=Path(AUDIO_DIR).resolve();path=(root/filename).resolve()
+            if path.parent!=root or not path.is_file() or path.stat().st_size>10*1024*1024:raise HTTPException(500,'语音文件不可用')
+            url=save_media(request.state.user_id,path.read_bytes(),'audio/mpeg','audio')
+            path.unlink()
+            return {'audio_url':url}
         return {"audio_url": f"/static/audio/{filename}"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/chat-history")
-async def get_chat_history_api(user_id: str): # ✅ 必须接收 user_id
-    path = get_user_path(user_id, "chat_history.json")
-    if os.path.exists(path):
-        with open(path, "r", encoding="utf-8") as f:
-            try:
-                data = json.load(f)
-                return data
-            except:
-                return []
-    return []
+async def get_chat_history_api(user_id: str):
+    return storage.read(get_user_path(user_id, "chat_history.json"), [])
 
 
 # 确保 save_chat_message 接收 user_id 参数
@@ -1312,10 +1356,9 @@ def save_chat_message(user_id: str, role: str, content: str, recipe: dict = None
     path = get_user_path(user_id, "chat_history.json")
 
     history = []
-    if os.path.exists(path):
+    if storage.exists(path):
         try:
-            with open(path, "r", encoding="utf-8") as f:
-                history = json.load(f)
+            history = storage.read(path, [])
         except:
             history = []
 
@@ -1329,21 +1372,21 @@ def save_chat_message(user_id: str, role: str, content: str, recipe: dict = None
     })
 
     # 仅保留最近 20 条，写入该用户文件夹
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(history[-20:], f, ensure_ascii=False, indent=4)
+    storage.write(path, history[-20:])
 
 @app.post("/api/clear-chat")
-async def clear_chat():
-    """清空对话接口"""
-    if os.path.exists(CHAT_HISTORY_FILE):
-        os.remove(CHAT_HISTORY_FILE)
+async def clear_chat(user_id: str):
+    storage.write(get_user_path(user_id, "chat_history.json"), [])
     return {"status": "success"}
 
 # ==================== 用户认证相关接口 ====================
 
 @app.post("/api/upload-avatar")
-async def api_upload_avatar(file: UploadFile = File(...)):
+async def api_upload_avatar(request: Request, file: UploadFile = File(...)):
     """上传头像"""
+    if storage.is_sqlite:
+        from app.domain.private_media import upload_avatar
+        return await upload_avatar(request,file)
     try:
         # 验证文件类型
         if not file.content_type.startswith('image/'):
@@ -1397,6 +1440,7 @@ async def api_send_sms_code(phone: str):
         return {"status": "error", "message": str(e)}
 
 class RegisterRequest(BaseModel):
+    invitation_code: str = ""
     nickname: str
     phone: str = ""
     password: str = ""
@@ -1405,8 +1449,9 @@ class RegisterRequest(BaseModel):
 @app.post("/api/register")
 async def api_register(data: RegisterRequest):
     try:
-        # 逻辑中使用 data.nickname, data.phone 等
-        user = create_user(data.nickname, data.phone, data.nickname, data.password)
+        with storage.transaction():
+            if storage.is_sqlite: consume_invitation(data.invitation_code)
+            user = create_user(data.nickname, data.phone, data.nickname, data.password)
         return {"status": "success", "user": user}
     except Exception as e:
         return {"status": "error", "message": str(e)}
@@ -1422,7 +1467,8 @@ async def api_login(data: LoginRequest):  # ✅ 使用模型接收整个 Body
             return {
                 "status": "success",
                 "message": "登录成功",
-                "user": user
+                "user": user,
+                **(issue_session(user["id"]) if storage.is_sqlite else {})
             }
         else:
             return {"status": "error", "message": "用户名或密码错误"}
@@ -1456,6 +1502,10 @@ async def api_get_user(user_id: str):
 @app.put("/api/user/{user_id}")
 async def api_update_user(user_id: str, nickname: str = None, phone: str = None, avatar: str = None):
     """更新用户信息"""
+    if storage.is_sqlite and avatar is not None:
+        from app.domain.private_media import validate_avatar
+        current=next((u for u in get_all_users() if u['id']==user_id),{})
+        validate_avatar(user_id,avatar,current.get('avatar',''))
     try:
         update_data = {}
         if nickname is not None:
@@ -1508,26 +1558,23 @@ async def get_notifications(user_id: str):
     update_expiration_notifications(user_id)
 
     path = get_user_path(user_id, "notifications.json")
-    if os.path.exists(path):
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
+    if storage.exists(path):
+        return storage.read(path, [])
     return []
 
 
 @app.post("/api/notifications/read")
 async def mark_as_read(user_id: str, msg_id: str = None):
     path = get_user_path(user_id, "notifications.json")
-    if not os.path.exists(path): return {"status": "error"}
+    if not storage.exists(path): return {"status": "error"}
 
-    with open(path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    data = storage.read(path, [])
 
     for m in data:
         if msg_id is None or m['id'] == msg_id:
             m['is_read'] = True
 
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
+    storage.write(path, data)
     return {"status": "success"}
 
 if __name__ == "__main__":

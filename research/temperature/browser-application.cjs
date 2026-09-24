@@ -9,6 +9,9 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
   // Forward to the local acceptance backend; preserve real responses and persistence.
   await page.route('**/api/**',async route=>{
    const u=new URL(route.request().url())
+   // This legacy fixture has no token sessions. Exercise completion sync outage separately
+   // from the real SQLite/auth completion acceptance in browser-growth.cjs.
+   if(u.pathname.startsWith('/api/v3/growth/'))return route.fulfill({status:503,json:{detail:'Growth unavailable in legacy fixture'}})
    const response=await route.fetch({url:'http://127.0.0.1:8000'+u.pathname+u.search})
    await route.fulfill({response})
   })

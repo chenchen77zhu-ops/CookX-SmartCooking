@@ -48,12 +48,14 @@
           还没有账号？
           <router-link to="/register" class="link">立即注册</router-link>
         </div>
-      </el-form>
+      </el-form><ServerSettings/>
     </div>
   </div>
 </template>
 
 <script setup>
+import ServerSettings from '../components/ServerSettings.vue'
+import { saveSession, clearSession } from '../services/authSession'
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -90,7 +92,7 @@ const handleLogin = async () => {
     loading.value = true
 
     // 1. 清理旧缓存
-    localStorage.removeItem('user')
+    clearSession()
 
     // 2. 调用登录接口
     // 请确保 authApi.login 内部实现是 api.post('/login', { username, password })
@@ -99,7 +101,7 @@ const handleLogin = async () => {
     if (response.data.status === 'success') {
       // 3. 存储用户信息
       const userData = response.data.user
-      localStorage.setItem('user', JSON.stringify(userData))
+      saveSession(response.data)
 
       ElMessage.success(`欢迎回来，${userData.nickname || userData.username}！`)
 
