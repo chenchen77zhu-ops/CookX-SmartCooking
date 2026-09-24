@@ -1,0 +1,1043 @@
+{
+  "provenance": "Artificial alternating labels/tags to test training and fallback only. No real longitudinal users.",
+  "config": {
+    "regularization": 0.08,
+    "learning_rate": 0.25,
+    "iterations": 800,
+    "train_fraction": 0.75,
+    "minimum_rows": 12
+  },
+  "datasets": {
+    "separable": [
+      {
+        "id": "artificial-0",
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-1",
+        "created_at": "2026-01-02T00:00:00+00:00",
+        "liked": false,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-2",
+        "created_at": "2026-01-03T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-3",
+        "created_at": "2026-01-04T00:00:00+00:00",
+        "liked": false,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-4",
+        "created_at": "2026-01-05T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-5",
+        "created_at": "2026-01-06T00:00:00+00:00",
+        "liked": false,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-6",
+        "created_at": "2026-01-07T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-7",
+        "created_at": "2026-01-08T00:00:00+00:00",
+        "liked": false,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-8",
+        "created_at": "2026-01-09T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-9",
+        "created_at": "2026-01-10T00:00:00+00:00",
+        "liked": false,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-10",
+        "created_at": "2026-01-11T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-11",
+        "created_at": "2026-01-12T00:00:00+00:00",
+        "liked": false,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-12",
+        "created_at": "2026-01-13T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-13",
+        "created_at": "2026-01-14T00:00:00+00:00",
+        "liked": false,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-14",
+        "created_at": "2026-01-15T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-15",
+        "created_at": "2026-01-16T00:00:00+00:00",
+        "liked": false,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-16",
+        "created_at": "2026-01-17T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-17",
+        "created_at": "2026-01-18T00:00:00+00:00",
+        "liked": false,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-18",
+        "created_at": "2026-01-19T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-19",
+        "created_at": "2026-01-20T00:00:00+00:00",
+        "liked": false,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      }
+    ],
+    "cold_start": [
+      {
+        "id": "artificial-0",
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-1",
+        "created_at": "2026-01-02T00:00:00+00:00",
+        "liked": false,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-2",
+        "created_at": "2026-01-03T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-3",
+        "created_at": "2026-01-04T00:00:00+00:00",
+        "liked": false,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-4",
+        "created_at": "2026-01-05T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      }
+    ],
+    "positive_only": [
+      {
+        "id": "artificial-0",
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-1",
+        "created_at": "2026-01-02T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-2",
+        "created_at": "2026-01-03T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-3",
+        "created_at": "2026-01-04T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-4",
+        "created_at": "2026-01-05T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-5",
+        "created_at": "2026-01-06T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-6",
+        "created_at": "2026-01-07T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-7",
+        "created_at": "2026-01-08T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-8",
+        "created_at": "2026-01-09T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-9",
+        "created_at": "2026-01-10T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-10",
+        "created_at": "2026-01-11T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-11",
+        "created_at": "2026-01-12T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-12",
+        "created_at": "2026-01-13T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-13",
+        "created_at": "2026-01-14T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-14",
+        "created_at": "2026-01-15T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-15",
+        "created_at": "2026-01-16T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-16",
+        "created_at": "2026-01-17T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-17",
+        "created_at": "2026-01-18T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-18",
+        "created_at": "2026-01-19T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-19",
+        "created_at": "2026-01-20T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      }
+    ],
+    "already_perfect_original": [
+      {
+        "id": "artificial-0",
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 100,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-1",
+        "created_at": "2026-01-02T00:00:00+00:00",
+        "liked": false,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 0,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-2",
+        "created_at": "2026-01-03T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 100,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-3",
+        "created_at": "2026-01-04T00:00:00+00:00",
+        "liked": false,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 0,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-4",
+        "created_at": "2026-01-05T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 100,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-5",
+        "created_at": "2026-01-06T00:00:00+00:00",
+        "liked": false,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 0,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-6",
+        "created_at": "2026-01-07T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 100,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-7",
+        "created_at": "2026-01-08T00:00:00+00:00",
+        "liked": false,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 0,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-8",
+        "created_at": "2026-01-09T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 100,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-9",
+        "created_at": "2026-01-10T00:00:00+00:00",
+        "liked": false,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 0,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-10",
+        "created_at": "2026-01-11T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 100,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-11",
+        "created_at": "2026-01-12T00:00:00+00:00",
+        "liked": false,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 0,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-12",
+        "created_at": "2026-01-13T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 100,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-13",
+        "created_at": "2026-01-14T00:00:00+00:00",
+        "liked": false,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 0,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-14",
+        "created_at": "2026-01-15T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 100,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-15",
+        "created_at": "2026-01-16T00:00:00+00:00",
+        "liked": false,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 0,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-16",
+        "created_at": "2026-01-17T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 100,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-17",
+        "created_at": "2026-01-18T00:00:00+00:00",
+        "liked": false,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 0,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-18",
+        "created_at": "2026-01-19T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 100,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-19",
+        "created_at": "2026-01-20T00:00:00+00:00",
+        "liked": false,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 0,
+        "provenance": "synthetic_fixture"
+      }
+    ],
+    "same_timestamp": [
+      {
+        "id": "artificial-0",
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-1",
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "liked": false,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-2",
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-3",
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "liked": false,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-4",
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-5",
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "liked": false,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-6",
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-7",
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "liked": false,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-8",
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-9",
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "liked": false,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-10",
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-11",
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "liked": false,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-12",
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-13",
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "liked": false,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-14",
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-15",
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "liked": false,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-16",
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-17",
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "liked": false,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-18",
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "liked": true,
+        "features": [
+          "清淡"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      },
+      {
+        "id": "artificial-19",
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "liked": false,
+        "features": [
+          "麻辣"
+        ],
+        "original_score": 50,
+        "provenance": "synthetic_fixture"
+      }
+    ]
+  },
+  "results": {
+    "separable": {
+      "algorithm": "tag-logistic-v1",
+      "config": {
+        "regularization": 0.08,
+        "learning_rate": 0.25,
+        "iterations": 800,
+        "train_fraction": 0.75,
+        "minimum_rows": 12
+      },
+      "row_count": 20,
+      "accepted": true,
+      "provenance": [
+        "synthetic_fixture"
+      ],
+      "metrics": {
+        "train_count": 15,
+        "test_count": 5,
+        "train_end": "2026-01-15T00:00:00+00:00",
+        "test_start": "2026-01-16T00:00:00+00:00",
+        "original_pairwise_auc": 0.5,
+        "personalized_pairwise_auc": 1.0,
+        "heldout_log_loss": 0.241568288700967,
+        "constant_preference_log_loss": 0.7087274949970876
+      },
+      "reason": "按时间留出的反馈上排序对照通过，启用标签偏好重排",
+      "evaluation_vocabulary": [
+        "清淡",
+        "麻辣"
+      ],
+      "evaluation_train_ids": [
+        "artificial-0",
+        "artificial-1",
+        "artificial-2",
+        "artificial-3",
+        "artificial-4",
+        "artificial-5",
+        "artificial-6",
+        "artificial-7",
+        "artificial-8",
+        "artificial-9",
+        "artificial-10",
+        "artificial-11",
+        "artificial-12",
+        "artificial-13",
+        "artificial-14"
+      ],
+      "evaluation_test_ids": [
+        "artificial-15",
+        "artificial-16",
+        "artificial-17",
+        "artificial-18",
+        "artificial-19"
+      ],
+      "vocabulary": [
+        "清淡",
+        "麻辣"
+      ],
+      "weights": [
+        1.0061396160665481e-16,
+        1.318830664190607,
+        -1.3188306641906071
+      ],
+      "model_version": "tag-logistic-v1-b155aa8af632",
+      "trained_through": "2026-01-20T00:00:00+00:00"
+    },
+    "cold_start": {
+      "algorithm": "tag-logistic-v1",
+      "config": {
+        "regularization": 0.08,
+        "learning_rate": 0.25,
+        "iterations": 800,
+        "train_fraction": 0.75,
+        "minimum_rows": 12
+      },
+      "row_count": 5,
+      "accepted": false,
+      "provenance": [
+        "synthetic_fixture"
+      ],
+      "reason": "至少需要 12 道菜的明确反馈，并同时包含喜欢与不喜欢；当前继续使用原排序"
+    },
+    "positive_only": {
+      "algorithm": "tag-logistic-v1",
+      "config": {
+        "regularization": 0.08,
+        "learning_rate": 0.25,
+        "iterations": 800,
+        "train_fraction": 0.75,
+        "minimum_rows": 12
+      },
+      "row_count": 20,
+      "accepted": false,
+      "provenance": [
+        "synthetic_fixture"
+      ],
+      "reason": "时间划分后的训练/测试正负反馈不足，继续使用原排序"
+    },
+    "already_perfect_original": {
+      "algorithm": "tag-logistic-v1",
+      "config": {
+        "regularization": 0.08,
+        "learning_rate": 0.25,
+        "iterations": 800,
+        "train_fraction": 0.75,
+        "minimum_rows": 12
+      },
+      "row_count": 20,
+      "accepted": false,
+      "provenance": [
+        "synthetic_fixture"
+      ],
+      "metrics": {
+        "train_count": 15,
+        "test_count": 5,
+        "train_end": "2026-01-15T00:00:00+00:00",
+        "test_start": "2026-01-16T00:00:00+00:00",
+        "original_pairwise_auc": 1.0,
+        "personalized_pairwise_auc": 1.0,
+        "heldout_log_loss": 0.241568288700967,
+        "constant_preference_log_loss": 0.7087274949970876
+      },
+      "reason": "按时间留出的反馈上未优于原排序，继续使用原排序",
+      "evaluation_vocabulary": [
+        "清淡",
+        "麻辣"
+      ],
+      "evaluation_train_ids": [
+        "artificial-0",
+        "artificial-1",
+        "artificial-2",
+        "artificial-3",
+        "artificial-4",
+        "artificial-5",
+        "artificial-6",
+        "artificial-7",
+        "artificial-8",
+        "artificial-9",
+        "artificial-10",
+        "artificial-11",
+        "artificial-12",
+        "artificial-13",
+        "artificial-14"
+      ],
+      "evaluation_test_ids": [
+        "artificial-15",
+        "artificial-16",
+        "artificial-17",
+        "artificial-18",
+        "artificial-19"
+      ]
+    },
+    "same_timestamp": {
+      "algorithm": "tag-logistic-v1",
+      "config": {
+        "regularization": 0.08,
+        "learning_rate": 0.25,
+        "iterations": 800,
+        "train_fraction": 0.75,
+        "minimum_rows": 12
+      },
+      "row_count": 20,
+      "accepted": false,
+      "provenance": [
+        "synthetic_fixture"
+      ],
+      "reason": "时间划分后的训练/测试正负反馈不足，继续使用原排序"
+    }
+  },
+  "reproducible": true,
+  "limitations": "Synthetic separability is deliberately easy; passing this test does not establish actual user benefit or generalization."
+}

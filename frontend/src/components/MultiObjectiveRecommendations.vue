@@ -62,6 +62,7 @@
         <small>算法版本 {{ algorithmVersion }}</small>
       </div>
 
+      <p v-if="personalization">{{ personalization.reason }}</p><button class="secondary-button" @click="router.push('/learning')">管理偏好学习与反馈</button>
       <div class="recommendation-list">
         <article
           v-for="item in recommendations"
@@ -72,7 +73,7 @@
             <span class="rank-badge">TOP {{ item.rank }}</span>
             <span class="score"><strong>{{ formatScore(item.total_score) }}</strong><small>综合推荐分</small></span>
           </div>
-          <h3>{{ item.recipe_name }}</h3>
+          <h3>{{ item.recipe_name }}</h3><p v-if="item.personalization" class="muted">偏好重排依据：{{ item.personalization.reasons.map(r=>r.tag+'（'+r.direction+'）').join('、') || '当前标签模型' }}。此分值不是准确率；原综合推荐分保持不变。</p>
 
           <div class="ingredient-groups">
             <div class="ingredient-group matched">
@@ -161,6 +162,7 @@ const recommendations = ref([])
 const eligibleCount = ref(0)
 const filteredCount = ref(0)
 const algorithmVersion = ref('multi_objective_v1')
+const personalization=ref(null)
 let requestController = null
 let componentActive = true
 
@@ -201,7 +203,7 @@ const readUserId = () => {
 }
 
 const resetResults = () => {
-  recommendations.value = []
+  recommendations.value = [];personalization.value=null
   eligibleCount.value = 0
   filteredCount.value = 0
 }
@@ -240,6 +242,7 @@ const fetchRecommendations = async () => {
     algorithmVersion.value = data.algorithm_version || 'multi_objective_v1'
     eligibleCount.value = Number(data.eligible_recipe_count) || 0
     filteredCount.value = Number(data.filtered_recipe_count) || 0
+    personalization.value=data.personalization||null
     recommendations.value = Array.isArray(data.recommendations) ? data.recommendations : []
     stateMessage.value = data.message || ''
 
