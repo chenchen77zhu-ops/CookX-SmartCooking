@@ -12,6 +12,7 @@
 </section>
 </template>
 <script setup>
+import {completionSync} from '../api/completions'
 import {ref,computed,onMounted,onBeforeUnmount} from 'vue'
 import {readInventory} from '../api/inventoryWrites.js'
 import {consumption} from '../api/consumption.js'
@@ -25,7 +26,7 @@ const uncertain=computed(()=>transaction.value && !['confirmed','rejected'].incl
 const locked=computed(()=>!!uncertain.value || (transaction.value?.status!=='rejected' && transaction.value?.sessionId===props.session.id) || props.session.consumption==='confirmed')
 function readPending(){try{transaction.value=consumption.pending(props.session.user)}catch(e){transaction.value={status:'uncertain'};message.value=e.message}}
 async function load(){const own=++version;busy.value=true;loaded.value=false;readPending();try{const rows=await readInventory(props.session.user);if(!valid() || own!==version)return;items.value=consumptionPreview(rows);selected.value=[];loaded.value=true}catch(e){if(valid())message.value=e.message}finally{if(valid() && own===version)busy.value=false}}
-function completed(){if(props.engine.state.status!=='completed')props.engine.finish();emit('changed')}
+function completed(){if(props.engine.state.status!=='completed')props.engine.finish();try{completionSync.enqueue(props.engine.state);completionSync.sync(props.session.user).catch(()=>{if(valid())message.value='本地完成已保留，成长记录待同步，可在厨艺成长页核对。'})}catch(e){if(valid())message.value='本地完成已保留，成长同步未提交：'+e.message}emit('changed')}
 function finishOnly(){if(!valid() || busy.value)return;completed();emit('close')}
 function changed(){window.dispatchEvent(new CustomEvent('cookx:inventory-changed',{detail:{user:props.session.user}}))}
 async function submit(){if(!valid()||busy.value||locked.value)return;busy.value=true;completed();try{await consumption.submit(props.session.user,props.session.id,items.value.filter(i=>selected.value.includes(i.id)));props.engine.state.consumption='confirmed';props.engine.persist();if(valid())message.value='库存扣减已回读确认。'}catch(e){if(valid())message.value=e.message+'；烹饪已记录完成。'}finally{changed();if(valid()){readPending();busy.value=false;emit('changed')}}}

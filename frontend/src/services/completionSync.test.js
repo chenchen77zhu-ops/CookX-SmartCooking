@@ -1,0 +1,6 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import {createCompletionSync} from './completionSync.js'
+const session={user:'u',status:'completed',id:'session-id',recipeVersion:1,startedAt:1000,completedAt:2000,recipe:{dish_name:'菜',steps:['制作']}}
+test('completion response loss keeps original receipt and account-scoped retry',async()=>{let user='u',calls=[],fail=true;const data=new Map(),sync=createCompletionSync({storage:{getItem:k=>data.get(k),setItem:(k,v)=>data.set(k,v)},currentUser:()=>user,api:async(p,m,b)=>{calls.push(b);if(fail)throw Error('lost response')}});sync.enqueue(session);await assert.rejects(sync.sync('u'));assert.equal(sync.list('u').length,1);sync.enqueue(session);assert.equal(sync.list('u').length,1);user='v';await assert.rejects(sync.sync('u'));assert.equal(sync.list('v').length,0);user='u';fail=false;await sync.sync('u');assert.deepEqual(calls[0],calls[1]);assert.equal(sync.list('u').length,0)})
+test('failed queue persistence does not submit; active session cannot generate completion',()=>{let calls=0;const sync=createCompletionSync({storage:{getItem:()=>null,setItem:()=>{throw Error('full')}},currentUser:()=> 'u',api:()=>{calls++}});assert.throws(()=>sync.enqueue(session));assert.throws(()=>sync.enqueue({...session,status:'active'}));assert.equal(calls,0)})

@@ -61,6 +61,8 @@ from app.domain.ranking import router as ranking_router
 app.include_router(ranking_router)
 from app.domain.leftovers import router as leftovers_router
 app.include_router(leftovers_router)
+from app.domain.growth import router as growth_router
+app.include_router(growth_router)
 USER_DATA_BASE = "app/data/users"
 # --- 1. 配置与初始化 ---
 UPLOAD_DIR = "app/static/uploads"
