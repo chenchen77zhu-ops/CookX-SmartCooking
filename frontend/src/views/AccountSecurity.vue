@@ -15,6 +15,7 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, ArrowRight, Delete, EditPen, Lock, User } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { clearSession } from '../services/authSession'
 import { authApi } from '@/api/auth'
 import '@/assets/profile-pages.css'
 
@@ -27,8 +28,9 @@ const maskedPhone = computed(() => {
 const deleteAccount = () => {
   ElMessageBox.confirm('警告：注销后所有冰箱数据和对话记录将永久删除！', '风险提示', { confirmButtonText: '确认注销', type: 'danger' }).then(async () => {
     try {
-      await authApi.deleteAccount(user.value.id)
-      localStorage.removeItem('user')
+      const response = await authApi.deleteAccount(user.value.id)
+      if(response.data.status !== 'success') throw new Error('注销失败')
+      clearSession()
       ElMessage.success('账户已彻底注销')
       router.push('/login')
     } catch (error) { ElMessage.error('注销失败') }

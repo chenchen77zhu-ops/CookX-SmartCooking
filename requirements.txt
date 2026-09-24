@@ -1,4 +1,6 @@
-fastapi
+fastapi==0.141.1
+pydantic==2.13.5
+starlette==1.7.0
 uvicorn
 python-multipart
 ultralytics
@@ -11,3 +13,5 @@ edge-tts
 aiohttp
 aiofiles
 pytest
+
+argon2-cffi==25.1.0

@@ -202,6 +202,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowRight, Bell, Clock, Connection, EditPen, InfoFilled, Lock, Setting, Star, SwitchButton, UserFilled } from '@element-plus/icons-vue'
 import { authApi } from '@/api/auth'
 import axios from 'axios'
+import { logoutSession } from '../services/authSession'
 import { API_BASE_URL, resolveBackendUrl } from '@/config/backend'
 
 const router = useRouter()
@@ -407,9 +408,9 @@ const handleAvatarChange = async (file) => {
   }
 }
 
-const handleLogoutDirectly = () => {
-  localStorage.removeItem('user')
-  router.push('/login')
+const handleLogoutDirectly = async () => {
+  try { await logoutSession(); router.push('/login') }
+  catch { ElMessage.error('退出未确认，请恢复网络后重试') }
 }
 
 const handleLogout = () => {

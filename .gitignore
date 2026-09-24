@@ -84,3 +84,9 @@ test_food2.png
 # Reproducible temperature datasets and bundled runtime copies
 research/temperature/*.generated.json
 frontend/public/temperature/runtime/
+
+# Private SQLite runtime and migration snapshots
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+backups/
