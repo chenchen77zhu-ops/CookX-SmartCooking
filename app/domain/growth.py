@@ -46,6 +46,8 @@ def complete(request:Request,body:Complete):
         # A semantic recipe identity ignores UI step IDs and timer edits.
         identity=digest({'name':recipe['dish_name'],'ingredients':recipe.get('ingredients_list',[]),'method':recipe.get('method')})
         row=put('completion',id,user,{**payload,'recipe_identity':identity,'fingerprint':fingerprint,'recorded_at':now()})
+        from app.domain.badges import award
+        award(user)
         return {'completion':row,'already_recorded':False}
     return execute(user,'cooking-complete',body,action)
 
