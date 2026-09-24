@@ -13,7 +13,9 @@ from functools import wraps
 import inspect
 from app.services.inventory_transactions import inventory_session, consume as consume_batches, receipt as consumption_receipt, read_json
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Request
-from fastapi import Response
+from fastapi import Response, Depends
+from app.storage import store as storage
+from app.auth import require_auth, router as auth_router, issue_session, consume_invitation
 from fastapi import Body
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -41,7 +43,8 @@ from app.models.user import (
     find_user_by_username, find_user_by_phone, get_all_users
 )
 from app.services.sms_service import send_sms_code, verify_sms_code
-app = FastAPI(title="Smart Cooking API")
+app = FastAPI(title="Smart Cooking API", dependencies=[Depends(require_auth)])
+app.include_router(auth_router)
 USER_DATA_BASE = "app/data/users"
 # --- 1. 配置与初始化 ---
 UPLOAD_DIR = "app/static/uploads"
@@ -51,10 +54,6 @@ CHAT_HISTORY_FILE = "app/chat_history.json"
 for path in [UPLOAD_DIR, AUDIO_DIR]:
     os.makedirs(path, exist_ok=True)
 
-# 初始化库存文件
-if not os.path.exists(INVENTORY_FILE):
-    with open(INVENTORY_FILE, "w", encoding="utf-8") as f:
-        json.dump([], f)
 
 class LoginRequest(BaseModel):
     username: str
@@ -321,9 +320,8 @@ def update_expiration_notifications(user_id: str):
 
     # 1. 读取该用户现有的通知
     user_notifications = []
-    if os.path.exists(notify_path):
-        with open(notify_path, "r", encoding="utf-8") as f:
-            user_notifications = json.load(f)
+    if storage.exists(notify_path):
+        user_notifications = storage.read(notify_path, [])
 
     # 获取现有通知的 ID 集合，用于去重
     existing_ids = {n['id'] for n in user_notifications}
@@ -344,9 +342,8 @@ def update_expiration_notifications(user_id: str):
                 new_found = True
 
     # 3. 扫描食材过期逻辑 (保持你之前的代码)
-    if os.path.exists(inventory_path):
-        with open(inventory_path, "r", encoding="utf-8") as f:
-            inventory = json.load(f)
+    if storage.exists(inventory_path):
+        inventory = storage.read(inventory_path, [])
         for item in inventory:
             # ... 计算过期天数逻辑 ...
             # title = f"{item['name']}即将过期"
@@ -357,8 +354,7 @@ def update_expiration_notifications(user_id: str):
 
     # 4. 如果有新消息，保存回用户的文件夹
     if new_found:
-        with open(notify_path, "w", encoding="utf-8") as f:
-            json.dump(user_notifications[:50], f, ensure_ascii=False, indent=4)
+        storage.write(notify_path, user_notifications[:50])
 
 def get_user_path(user_id: str, filename: str):
     """
@@ -372,7 +368,7 @@ def get_user_path(user_id: str, filename: str):
     user_dir = os.path.join(USER_DATA_BASE, user_id_str)
 
     # 如果该用户的文件夹不存在，则立即创建它
-    if not os.path.exists(user_dir):
+    if not storage.is_sqlite and not os.path.exists(user_dir):
         os.makedirs(user_dir, exist_ok=True)
         print(f"为用户 {user_id_str} 创建了专属文件夹")
 
@@ -380,22 +376,12 @@ def get_user_path(user_id: str, filename: str):
     return os.path.join(user_dir, filename)
 
 def get_current_inventory_names(user_id: str):
-    # 使用之前定义的 get_user_path 函数
-    path = get_user_path(user_id, "inventory.json")
-    if not os.path.exists(path):
-        return []
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            # 获取名字列表供 AI 分析
-            return list(set([item["name"] for item in data]))
-    except:
-        return []
+    return list({row["name"] for row in storage.read(get_user_path(user_id, "inventory.json"), [])})
 
 def get_user_file_path(user_id: str, file_name: str):
     """为每个用户创建独立文件夹：app/data/users/{user_id}/inventory.json"""
     user_dir = os.path.join(USER_DATA_BASE, user_id)
-    os.makedirs(user_dir, exist_ok=True) # 自动创建用户目录
+    if not storage.is_sqlite: os.makedirs(user_dir, exist_ok=True)
     return os.path.join(user_dir, file_name)
 
 @app.get("/")
@@ -605,25 +591,7 @@ def merge_inventory_items(inventory_data, items, current_time=None):
 
 
 def _write_inventory_atomic(path, data):
-    """在同一目录写入临时文件后原子替换，避免留下半写入 JSON。"""
-    temp_path = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            encoding="utf-8",
-            dir=os.path.dirname(path),
-            prefix="inventory-",
-            suffix=".tmp",
-            delete=False,
-        ) as temp_file:
-            temp_path = temp_file.name
-            json.dump(data, temp_file, ensure_ascii=False, indent=4)
-            temp_file.flush()
-            os.fsync(temp_file.fileno())
-        os.replace(temp_path, path)
-    finally:
-        if temp_path and os.path.exists(temp_path):
-            os.remove(temp_path)
+    storage.write(path, data)
 
 
 def _require_existing_user(user_id: str) -> None:
@@ -643,7 +611,7 @@ def inventory_guard(function):
                     raise HTTPException(422, f"不允许客户端提供{parameter}")
         _require_existing_user(user_id)
         path = os.path.join(USER_DATA_BASE, str(user_id), "inventory.json")
-        with inventory_session(path):
+        with storage.session(path):
             return await function(*args, **kwargs)
     return wrapped
 
@@ -702,7 +670,7 @@ async def add_to_inventory(items: List[InventoryCreateItem], user_id: str = Quer
         # 1. 获取该用户的专属路径
         path = get_user_path(user_id, "inventory.json")
 
-        inventory_data = read_json(path, [])
+        inventory_data = storage.read(path, [])
         if not isinstance(inventory_data, list):
             raise HTTPException(status_code=500, detail="库存格式损坏，未写入")
 
@@ -733,9 +701,8 @@ async def confirm_recognized_inventory(request: ConfirmRecognitionRequest):
     path = os.path.join(USER_DATA_BASE, request.user_id, "inventory.json")
     try:
         inventory: List[Dict[str, Any]] = []
-        if os.path.exists(path):
-            with open(path, "r", encoding="utf-8") as inventory_file:
-                loaded = json.load(inventory_file)
+        if storage.exists(path):
+            loaded = storage.read(path, [])
             if not isinstance(loaded, list):
                 raise ValueError("inventory must be an array")
             inventory = loaded
@@ -920,11 +887,10 @@ async def multi_objective_recommendations(request: RecommendationRequest):
 
     inventory_path = os.path.join(USER_DATA_BASE, request.user_id, "inventory.json")
     inventory = []
-    if os.path.exists(inventory_path):
+    if storage.exists(inventory_path):
         try:
-            with open(inventory_path, "r", encoding="utf-8") as inventory_file:
-                loaded = json.load(inventory_file)
-                inventory = loaded if isinstance(loaded, list) else []
+            loaded = storage.read(inventory_path, [])
+            inventory = loaded if isinstance(loaded, list) else []
         except (OSError, json.JSONDecodeError) as exc:
             raise HTTPException(status_code=500, detail="用户库存数据无法读取") from exc
 
@@ -1005,10 +971,9 @@ async def evaluate_inventory_freshness(user_id: str, request: Request):
         raise HTTPException(status_code=404, detail="用户不存在")
     inventory_path = os.path.join(USER_DATA_BASE, user_id, "inventory.json")
     inventory: List[Dict[str, Any]] = []
-    if os.path.exists(inventory_path):
+    if storage.exists(inventory_path):
         try:
-            with open(inventory_path, "r", encoding="utf-8") as inventory_file:
-                loaded = json.load(inventory_file)
+            loaded = storage.read(inventory_path, [])
             if not isinstance(loaded, list):
                 raise ValueError("inventory must be an array")
             inventory = loaded
@@ -1135,7 +1100,7 @@ class ConsumeBatchRequest(BaseModel):
 async def consume_inventory_batches(request: ConsumeBatchRequest):
     path = os.path.join(USER_DATA_BASE, request.user_id, "inventory.json")
     try:
-        return consume_batches(path, request.idempotency_key,
+        return (storage.consume if storage.is_sqlite else consume_batches)(path, request.idempotency_key,
                                [row.model_dump() for row in request.items], _write_inventory_atomic)
     except OSError as exc:
         raise HTTPException(500, "扣减响应未确认，请使用原幂等键查询结果") from exc
@@ -1144,21 +1109,20 @@ async def consume_inventory_batches(request: ConsumeBatchRequest):
 @app.get("/api/inventory/consumption/{idempotency_key}")
 @inventory_guard
 async def get_consumption_receipt(idempotency_key: str, user_id: str):
-    return consumption_receipt(os.path.join(USER_DATA_BASE, user_id, "inventory.json"), idempotency_key)
+    return (storage.receipt if storage.is_sqlite else consumption_receipt)(os.path.join(USER_DATA_BASE, user_id, "inventory.json"), idempotency_key)
 
 
 @app.post("/api/consume-ingredients")
 async def consume_ingredients(used_items: List[str], user_id: str):
     if not any(str(user.get("id")) == str(user_id) for user in get_all_users()):
         return {"status": "error", "message": "用户不存在"}
-    with inventory_session(os.path.join(USER_DATA_BASE, user_id, "inventory.json")):
+    with storage.session(os.path.join(USER_DATA_BASE, user_id, "inventory.json")):
         path = get_user_path(user_id, "inventory.json")
     
-        if not os.path.exists(path):
+        if not storage.exists(path):
             return {"status": "error", "message": "库存文件不存在"}
     
-        with open(path, "r", encoding="utf-8") as f:
-            inventory_data = json.load(f)
+        inventory_data = storage.read(path, [])
     
         used_names = {normalize_inventory_name(name) for name in used_items}
         for name in used_names:
@@ -1193,12 +1157,11 @@ async def get_inventory(user_id: str):  # ✅ 必须有这个参数
     _require_existing_user(user_id)
     path = os.path.join(USER_DATA_BASE, str(user_id), "inventory.json")
 
-    if not os.path.exists(path):
+    if not storage.exists(path):
         return []
 
     try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
+        data = storage.read(path, [])
 
         return data if isinstance(data, list) else []
     except (OSError, json.JSONDecodeError) as e:
@@ -1213,12 +1176,11 @@ async def delete_item(item_id: str, user_id: str):  # ✅ 确保接收这两个�
     try:
         path = os.path.join(USER_DATA_BASE, str(user_id), "inventory.json")
 
-        if not os.path.exists(path):
+        if not storage.exists(path):
             raise HTTPException(status_code=404, detail="库存项目不存在")
 
         # 2. 读取数据
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
+        data = storage.read(path, [])
 
         # 3. 执行过滤（删除匹配 ID 的项）
         # 注意：确保 item["id"] 和传入的 item_id 类型一致（都是字符串）
@@ -1245,11 +1207,10 @@ async def delete_item(item_id: str, user_id: str):  # ✅ 确保接收这两个�
 async def update_item(item_id: str, item_data: InventoryUpdateItem, user_id: str):
     _require_existing_user(user_id)
     path = os.path.join(USER_DATA_BASE, str(user_id), "inventory.json")
-    if not os.path.exists(path):
+    if not storage.exists(path):
         raise HTTPException(status_code=404, detail="库存项目不存在")
     try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
+        data = storage.read(path, [])
 
         updates = item_data.model_dump(exclude_unset=True)
         found = False
@@ -1294,16 +1255,8 @@ async def get_tts(text: str = Query(..., min_length=1)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/chat-history")
-async def get_chat_history_api(user_id: str): # ✅ 必须接收 user_id
-    path = get_user_path(user_id, "chat_history.json")
-    if os.path.exists(path):
-        with open(path, "r", encoding="utf-8") as f:
-            try:
-                data = json.load(f)
-                return data
-            except:
-                return []
-    return []
+async def get_chat_history_api(user_id: str):
+    return storage.read(get_user_path(user_id, "chat_history.json"), [])
 
 
 # 确保 save_chat_message 接收 user_id 参数
@@ -1312,10 +1265,9 @@ def save_chat_message(user_id: str, role: str, content: str, recipe: dict = None
     path = get_user_path(user_id, "chat_history.json")
 
     history = []
-    if os.path.exists(path):
+    if storage.exists(path):
         try:
-            with open(path, "r", encoding="utf-8") as f:
-                history = json.load(f)
+            history = storage.read(path, [])
         except:
             history = []
 
@@ -1329,14 +1281,11 @@ def save_chat_message(user_id: str, role: str, content: str, recipe: dict = None
     })
 
     # 仅保留最近 20 条，写入该用户文件夹
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(history[-20:], f, ensure_ascii=False, indent=4)
+    storage.write(path, history[-20:])
 
 @app.post("/api/clear-chat")
-async def clear_chat():
-    """清空对话接口"""
-    if os.path.exists(CHAT_HISTORY_FILE):
-        os.remove(CHAT_HISTORY_FILE)
+async def clear_chat(user_id: str):
+    storage.write(get_user_path(user_id, "chat_history.json"), [])
     return {"status": "success"}
 
 # ==================== 用户认证相关接口 ====================
@@ -1397,6 +1346,7 @@ async def api_send_sms_code(phone: str):
         return {"status": "error", "message": str(e)}
 
 class RegisterRequest(BaseModel):
+    invitation_code: str = ""
     nickname: str
     phone: str = ""
     password: str = ""
@@ -1405,8 +1355,9 @@ class RegisterRequest(BaseModel):
 @app.post("/api/register")
 async def api_register(data: RegisterRequest):
     try:
-        # 逻辑中使用 data.nickname, data.phone 等
-        user = create_user(data.nickname, data.phone, data.nickname, data.password)
+        with storage.transaction():
+            if storage.is_sqlite: consume_invitation(data.invitation_code)
+            user = create_user(data.nickname, data.phone, data.nickname, data.password)
         return {"status": "success", "user": user}
     except Exception as e:
         return {"status": "error", "message": str(e)}
@@ -1422,7 +1373,8 @@ async def api_login(data: LoginRequest):  # ✅ 使用模型接收整个 Body
             return {
                 "status": "success",
                 "message": "登录成功",
-                "user": user
+                "user": user,
+                **(issue_session(user["id"]) if storage.is_sqlite else {})
             }
         else:
             return {"status": "error", "message": "用户名或密码错误"}
@@ -1508,26 +1460,23 @@ async def get_notifications(user_id: str):
     update_expiration_notifications(user_id)
 
     path = get_user_path(user_id, "notifications.json")
-    if os.path.exists(path):
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
+    if storage.exists(path):
+        return storage.read(path, [])
     return []
 
 
 @app.post("/api/notifications/read")
 async def mark_as_read(user_id: str, msg_id: str = None):
     path = get_user_path(user_id, "notifications.json")
-    if not os.path.exists(path): return {"status": "error"}
+    if not storage.exists(path): return {"status": "error"}
 
-    with open(path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    data = storage.read(path, [])
 
     for m in data:
         if msg_id is None or m['id'] == msg_id:
             m['is_read'] = True
 
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
+    storage.write(path, data)
     return {"status": "success"}
 
 if __name__ == "__main__":

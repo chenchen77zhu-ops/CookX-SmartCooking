@@ -95,6 +95,7 @@ jobs:
           COOKX_BASE_URL: http://127.0.0.1:4173
         run: |
           export COOKX_PLAYWRIGHT="$RUNNER_TEMP/cookx-browser/node_modules/playwright"
+          python tests/sqlite_browser_server.py > /tmp/cookx-sqlite.log 2>&1 &
           python tests/browser_server.py > /tmp/cookx-backend.log 2>&1 &
           BACKEND_PID=$!
           npm run preview --prefix frontend -- --host 127.0.0.1 > /tmp/cookx-frontend.log 2>&1 &
@@ -122,6 +123,7 @@ jobs:
           node frontend/scripts/browser-copilot.cjs
           node frontend/scripts/browser-online-v2.cjs
           node frontend/scripts/browser-preferences.cjs
+          node frontend/scripts/browser-sqlite.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -132,5 +134,7 @@ jobs:
             tmp/p2/
             tmp/copilot/
             tmp/online-v2/
+            tmp/sqlite/
+            /tmp/cookx-sqlite.log
             /tmp/cookx-backend.log
             /tmp/cookx-frontend.log

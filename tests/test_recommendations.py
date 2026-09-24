@@ -302,6 +302,8 @@ def _import_main_without_loading_real_yolo(monkeypatch):
     monkeypatch.setitem(sys.modules, "ultralytics", types.SimpleNamespace(YOLO=FakeYOLO))
     sys.modules.pop("app.main", None)
     import app.main as main
+    from legacy_storage_fixture import install_legacy_storage
+    install_legacy_storage(monkeypatch, main)
     return main
 
 

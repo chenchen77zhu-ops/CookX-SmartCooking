@@ -19,6 +19,8 @@ def application(monkeypatch, tmp_path):
     monkeypatch.setitem(sys.modules, "ultralytics", types.SimpleNamespace(YOLO=FakeYOLO))
     sys.modules.pop("app.main", None)
     import app.main as main
+    from legacy_storage_fixture import install_legacy_storage
+    install_legacy_storage(monkeypatch, main)
     import app.models.user as users
     monkeypatch.setattr(users, "USERS_FILE", str(tmp_path / "users.json"))
     monkeypatch.setattr(main, "USER_DATA_BASE", str(tmp_path / "data"))

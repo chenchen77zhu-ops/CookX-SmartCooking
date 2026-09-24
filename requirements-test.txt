@@ -9,3 +9,5 @@ dashscope
 python-dotenv
 edge-tts
 uvicorn
+
+argon2-cffi==25.1.0

@@ -11,3 +11,5 @@ edge-tts
 aiohttp
 aiofiles
 pytest
+
+argon2-cffi==25.1.0
