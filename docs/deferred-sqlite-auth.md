@@ -4,7 +4,7 @@
 
 ## 本地启动
 
-安装 requirements.txt。首次创建独立测试库：
+安装 requirements.txt（完整视觉环境）；不使用本机视觉模型时可安装 requirements-local.txt，仍运行真实 SQLite 与全部业务接口。首次创建独立测试库：
 
 ```powershell
 python scripts/manage.py --database tmp/private-test.sqlite3 init --admin 管理员
@@ -13,7 +13,7 @@ python scripts/manage.py invite --uses 5
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1
 ```
 
-密码由终端隐藏输入；邀请码只交给内测成员。实际手机与电脑连接同一局域网，用电脑 IPv4 地址。构建 APK 前设置 `VITE_BACKEND_ORIGIN=http://电脑地址:8000`，然后执行 `npm run build`、`npx cap sync android` 和 Android 构建。本机浏览器默认走 Vite 的 8000 端口代理。开发者需在系统防火墙仅允许所用私有网络访问后端。未配置有效云模型服务时，识别和生成会如实报告服务不可用；本地库存、规则及温度能力不依赖云模型。
+密码由终端隐藏输入；邀请码只交给内测成员。实际手机与电脑连接同一局域网，用电脑 IPv4 地址。安装正式 APK 后，在登录页“后端连接设置”填写 `http://电脑地址:8000`。只接受不带路径的地址；更换地址会清除本机登录，旧服务器凭证按原过期时间失效，也可先正常退出以立即撤销。凭证绑定服务器地址，不转发到其他服务器。本机浏览器默认走 Vite 的 8000 端口代理。开发者需在系统防火墙仅允许所用私有网络访问后端。未配置有效云模型服务时，识别和生成会如实报告服务不可用；本地库存、规则及温度能力不依赖云模型。
 
 ## JSON 迁移与回退
 
@@ -33,4 +33,6 @@ python scripts/manage.py backup backups/after-migration.sqlite3
 
 旧文件接口测试通过显式注入 FileStore 保留，用于既有字段和评分契约回归；正式程序不会根据环境或请求切回文件存储，也没有关闭认证的开关。新增 test_sqlite_auth.py 与 browser-sqlite.cjs 使用真实 SQLite、真实会话、两个独立账号，覆盖越权、失效、并发幂等扣减、重启读取、迁移备份与失败回滚。浏览器中的云菜谱和视觉仍为测试替身，不能作为云模型实测。
 
-家庭、社区、菜单及学习仍在后续功能分支实施。本文件不代表全部 13 项验收。
+全部业务的验收状态见 deferred-status.md。图片与语音的历史本地文件目录需随旧 JSON 一起保留备份。
+
+恢复命令：`python scripts/manage.py restore backups/after-migration.sqlite3 tmp/recovered.sqlite3 --server-stopped`。目标必须不存在，验证完整性后再由操作者切换 COOKX_DATABASE；原数据库不会被覆盖。迁移账号可用 `python scripts/manage.py admin --username 已有账号` 指定内测管理员。

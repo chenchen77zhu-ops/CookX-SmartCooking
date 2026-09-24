@@ -1,3 +1,4 @@
+from app.services.inventory_transactions import digest
 """Production SQLite + real sessions. Only external model providers are replaced."""
 import hashlib
 import json
@@ -73,7 +74,7 @@ def test_real_inventory_freshness_concurrent_receipts_restart(sqlite_app):
     rows=c.get('/api/inventory',params=p,headers=h).json();tomato=next(r for r in rows if r['name']=='西红柿')
     assert c.get(f"/api/users/{a['id']}/inventory/freshness",headers=h).json()['total_count']==2
     assert c.post('/api/recommendations',headers=h,json={'user_id':a['id']}).json()['recommendations']
-    body={'user_id':a['id'],'idempotency_key':'same-completion-001','items':[{'item_id':tomato['id'],'quantity':2,'expected_quantity':5}]}
+    body={'user_id':a['id'],'idempotency_key':'same-completion-001','items':[{'item_id':tomato['id'],'quantity':2,'expected_quantity':5,'expected_revision':tomato['_revision']}]}
     with ThreadPoolExecutor(max_workers=4) as pool:
         replies=list(pool.map(lambda _:c.post('/api/inventory/consume',json=body,headers=h),range(4)))
     assert all(r.status_code==200 for r in replies)
@@ -128,7 +129,7 @@ def test_transaction_failure_leaves_inventory_and_receipt_unchanged(sqlite_app,m
         if str(path).endswith('inventory-consumption-receipts.json'): raise OSError('injected storage failure')
         return original(path,value)
     monkeypatch.setattr(store,'write',fail_journal)
-    body={'user_id':a['id'],'idempotency_key':'rollback-case','items':[{'item_id':'batch','quantity':1,'expected_quantity':3}]}
+    body={'user_id':a['id'],'idempotency_key':'rollback-case','items':[{'item_id':'batch','quantity':1,'expected_quantity':3,'expected_revision':digest(store.read(path)[0])}]}
     assert c.post('/api/inventory/consume',json=body,headers=h).status_code==500
     assert store.read(path)[0]['quantity']==3
     assert store.read(path.with_name('inventory-consumption-receipts.json'),{})=={}

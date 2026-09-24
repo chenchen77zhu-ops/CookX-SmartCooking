@@ -34,5 +34,5 @@ def test_raw_leftover_keeps_inventory_dates_and_rechecks_risk(sqlite_app):
     item=post(c,h,'/leftovers',kind='raw',inventory_id=original['id']).json()['item']
     assert item['original_inventory']['add_time']==original['add_time']
     ideas=c.get('/api/v3/leftovers/'+item['id']+'/ideas',headers=h).json();assert ideas['ideas']
-    c.delete('/api/inventory/'+original['id'],headers=h,params={'user_id':u['id']})
+    c.delete('/api/inventory/'+original['id'],headers={**h,'If-Match':original['_revision']},params={'user_id':u['id']})
     assert c.get('/api/v3/leftovers/'+item['id']+'/ideas',headers=h).json()['ideas']==[]

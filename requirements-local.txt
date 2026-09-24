@@ -1,0 +1,13 @@
+# Real local/LAN backend without optional YOLO installation.
+fastapi==0.141.1
+pydantic==2.13.5
+starlette==1.7.0
+uvicorn
+python-multipart
+Pillow
+openai
+dashscope
+python-dotenv
+edge-tts
+argon2-cffi==25.1.0
+ortools==9.15.6755

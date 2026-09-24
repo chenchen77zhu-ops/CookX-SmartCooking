@@ -117,6 +117,8 @@ class SqliteStore:
                 row=by_id.get(item['item_id'])
                 if row is None or type(row.get('quantity')) is not int or row['quantity']!=item['expected_quantity'] or row['quantity']<item['quantity']:
                     raise HTTPException(409,'库存已变化，请重新读取实际清单')
+                if not item.get('expected_revision'):raise HTTPException(428,'请使用支持批次版本核对的客户端')
+                if item['expected_revision']!=digest(row):raise HTTPException(409,'批次已被修改，请刷新后重新核对')
                 changes.append({'item_id':row['id'],'name':row['name'],'before_quantity':row['quantity'],'consumed_quantity':item['quantity'],'after_quantity':row['quantity']-item['quantity']})
             for change in changes: by_id[str(change['item_id'])]['quantity']=change['after_quantity']
             ids={str(c['item_id']) for c in changes}
