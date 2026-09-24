@@ -1,10 +1,11 @@
 <template>
  <aside class="local-test-panel" aria-label="本地测试工具">
   <details><summary>本地测试版 · 无服务器 / 数据库 · 展开测试工具</summary>
-   <p>数据只存于本机。识别、鲜度和推荐为固定示例；新增或编辑食材不生成鲜度评分。温度模块保持原实现。</p>
+   <p>数据只存于本机。识别、鲜度、推荐和多人场景为固定示例，不运行服务端菜单或学习算法，也不跨设备同步；新增或编辑食材不生成鲜度评分。温度模块保持原实现。</p>
    <label>测试账号 <select aria-label="测试账号" :value="user" @change="switchUser($event.target.value)" :disabled="busy"><option v-for="u in TEST_USERS" :key="u.id" :value="u.id">{{ u.nickname }}</option></select></label>
    <button :disabled="busy" @click="recognize">载入识别示例</button><button :disabled="busy" @click="router.push('/home?tab=AiChef')">进入烹饪演练</button>
    <label>下一次请求场景 <select aria-label="下一次请求场景" v-model="fault" @change="applyFault"><option value="normal">正常示例</option><option value="invalid-json">菜谱 JSON 无效</option><option value="empty-recipe">菜谱步骤为空</option><option value="business-error">菜谱业务失败</option><option value="timeout">菜谱超时</option><option value="consume-lost">扣减成功但响应丢失</option></select></label>
+   <button @click="router.push('/offline-examples')">多人功能离线样例</button>
    <button :disabled="busy" @click="reset">重置当前测试账号</button>
    <p>异常场景只生效一次。语音依赖手机系统服务与中文语音包；不可用时使用文字指令和按钮。无需点火即可完成演练。</p>
    <p v-if="message" role="status">{{ message }}</p>

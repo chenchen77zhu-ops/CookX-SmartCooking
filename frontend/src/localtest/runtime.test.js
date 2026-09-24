@@ -23,3 +23,11 @@ test('recognition confirmation preserves supplied historical entry time',async()
  const {app}=setup();await app.request({method:'post',path:'/inventory/confirm-recognition',body:{confirmed:true,items:[{name:'测试',quantity:1,add_time:'2025-01-01T00:00:00Z',expiry_date:'2025-01-02T00:00:00Z'}]}})
  assert.equal((await rows(app)).at(-1).add_time,'2025-01-01T00:00:00Z')
 })
+
+test('new preference and completion adapters stay local and per account',async()=>{
+ const {app}=setup();const p=()=>app.request({path:'/v3/preferences'});assert.equal((await p()).data.preferences.version,0)
+ await app.request({path:'/v3/preferences',method:'put',body:{expected_version:0,values:{dislikedIngredients:'鸡蛋'}}})
+ await assert.rejects(app.request({path:'/v3/preferences',method:'put',body:{expected_version:0,values:{}}}),/已变化/)
+ const body={session_id:'one',recipe:{dish_name:'演练'}};await app.request({path:'/v3/growth/completions',method:'post',body});await app.request({path:'/v3/growth/completions',method:'post',body});assert.equal(app.getState().accounts['local-test-a'].completions.length,1)
+ app.selectUser('local-test-b');assert.equal((await p()).data.preferences.version,0)
+})

@@ -34,6 +34,17 @@ export function createLocalTestRuntime({storage,now=Date.now,id=()=>globalThis.c
  async function request({method='get',path,params={},body=null}){
   const s=getState();method=method.toLowerCase();const user=params.user_id||body?.user_id||s.currentUser;const account=s.accounts[user];if(!account)throw new Error('本地测试账号不存在')
   const result=data=>({status:200,data:clone(data)})
+  if(path==='/auth/logout')return result({status:'success'})
+  if(path==='/v3/preferences'){
+   account.preferences??={version:0,values:{taste:'',spice:'',duration:'',dislikedIngredients:''},recommendation:{}}
+   if(method==='put'){if(body.expected_version!==account.preferences.version)throw Object.assign(new Error('示例偏好已变化，请刷新'),{response:{status:409}});account.preferences={version:account.preferences.version+1,values:body.values||account.preferences.values,recommendation:body.recommendation||account.preferences.recommendation};save(s)}
+   return result({status:'success',preferences:account.preferences})
+  }
+  if(path==='/v3/growth/completions'){
+   account.completions??=[];let completion=account.completions.find(e=>e.session_id===body.session_id)
+   if(!completion){completion={...body,id:id(),provenance:'offline_test_only',recorded_at:date(0)};account.completions.push(completion);save(s)}
+   return result({status:'success',completion})
+  }
   if(path==='/inventory'&&method==='get')return result(account.inventory)
   if(/^\/users\/[^/]+\/inventory\/freshness$/.test(path)){const owner=decodeURIComponent(path.split('/')[2]);if(owner!==user || !s.accounts[owner])throw new Error('账号不匹配');return result(freshness(account.inventory))}
   if((path==='/add-to-inventory'||path==='/inventory/confirm-recognition')&&method==='post'){

@@ -3,6 +3,7 @@ import {localTestRuntime} from '../localtest/bootstrap.js'
 import { createRouter, createWebHashHistory } from 'vue-router'
 
 const routes = [
+  {path:'/offline-examples',name:'OfflineExamples',component:()=>import('../localtest/DeferredExamples.vue'),meta:{requiresAuth:true}},
   {path:'/learning',component:()=>import('../views/Learning.vue'),meta:{requiresAuth:true}},
   {path:'/menus',component:()=>import('../views/MenuPlanner.vue'),meta:{requiresAuth:true}},
   {path:'/growth',component:()=>import('../views/Growth.vue'),meta:{requiresAuth:true}},
@@ -89,6 +90,7 @@ const router = createRouter({
 
 // 路由守卫保持不变...
 router.beforeEach((to, from, next) => {
+  if(LOCAL_TEST_MODE&&['/household','/shopping','/recipes','/community','/leftovers','/growth','/menus','/learning'].includes(to.path))return next({path:'/offline-examples',query:{from:to.path}})
   if(LOCAL_TEST_MODE){localStorage.setItem('user',JSON.stringify(localTestRuntime.currentUser()));if(['/login','/register','/account-security'].includes(to.path))return next('/home')}
   const user = localStorage.getItem('user')
   if (to.meta.requiresAuth && !user) {
