@@ -10,3 +10,16 @@ test('freshness zero, unknown and partial evidence remain distinct and labelled 
 test('recipe failures are one-shot; success explicitly uses a non-cooking preset',async()=>{const {app}=setup();for(const fault of ['invalid-json','empty-recipe','business-error','timeout']){app.setFault(fault);if(fault==='timeout')await assert.rejects(app.request({path:'/recommend-recipe'}),{code:'ECONNABORTED'});else{const result=(await app.request({path:'/recommend-recipe'})).data;if(fault==='invalid-json')assert.throws(()=>JSON.parse(result.recipe));if(fault==='empty-recipe')assert.equal(result.recipe.steps.length,0);if(fault==='business-error')assert.equal(result.status,'error')}const next=(await app.request({path:'/recommend-recipe'})).data.recipe;assert.equal(next.steps.length,4);assert.equal(next.steps[0].time_estimate,null);assert.match(next.description,/无需点火/)}})
 test('lost consumption acknowledgement writes once and reread exposes outcome; multibatch guarded',async()=>{const {app}=setup();app.setFault('consume-lost');await assert.rejects(app.request({method:'post',path:'/consume-ingredients',body:['鸡蛋']}),{code:'ECONNABORTED'});assert.equal((await rows(app))[1].quantity,2);assert.equal(app.getState().fault,'normal');const before=await rows(app);assert.equal((await app.request({method:'post',path:'/consume-ingredients',body:['土豆']})).data.status,'error');assert.deepEqual(await rows(app),before)})
 test('unknown endpoints and accounts fail locally, never network fallback',async()=>{const {app}=setup();await assert.rejects(app.request({path:'/login'}),/未提供此在线功能/);await assert.rejects(app.request({path:'/inventory',params:{user_id:'online'}}),/不存在/);await assert.rejects(app.request({path:'/tts'}),/不调用在线播报/)})
+test('v2 receipts survive lost response and distinguish same-name batches',async()=>{
+ const {app}=setup(),before=await rows(app),potatoes=before.filter(r=>r.name==='土豆')
+ const body={idempotency_key:'local-receipt',items:[{item_id:potatoes[0].id,quantity:1,expected_quantity:potatoes[0].quantity}]}
+ app.setFault('consume-lost');await assert.rejects(app.request({method:'post',path:'/inventory/consume',body}),{code:'ECONNABORTED'})
+ const receipt=(await app.request({path:'/inventory/consumption/local-receipt'})).data;assert.equal(receipt.status,'success')
+ assert.equal((await app.request({method:'post',path:'/inventory/consume',body})).data.replayed,true)
+ assert.equal((await rows(app)).find(r=>r.id===potatoes[0].id).quantity,potatoes[0].quantity-1)
+ assert.equal((await rows(app)).find(r=>r.id===potatoes[1].id).quantity,potatoes[1].quantity)
+})
+test('recognition confirmation preserves supplied historical entry time',async()=>{
+ const {app}=setup();await app.request({method:'post',path:'/inventory/confirm-recognition',body:{confirmed:true,items:[{name:'测试',quantity:1,add_time:'2025-01-01T00:00:00Z',expiry_date:'2025-01-02T00:00:00Z'}]}})
+ assert.equal((await rows(app)).at(-1).add_time,'2025-01-01T00:00:00Z')
+})

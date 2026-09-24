@@ -4,13 +4,13 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "vite --mode localtest",
+    "build": "node scripts/build-localtest.mjs",
     "preview": "vite preview",
     "predev": "node scripts/prepare-temperature-assets.mjs",
     "prebuild": "node scripts/prepare-temperature-assets.mjs",
     "test": "node --test src/services/*.test.js src/temperature/*.test.js",
-    "build:localtest": "npm run prebuild && node scripts/build-localtest.mjs",
+    "build:localtest": "npm run build",
     "test:localtest": "node --test src/localtest/*.test.js"
   },
   "dependencies": {

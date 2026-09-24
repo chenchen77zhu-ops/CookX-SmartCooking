@@ -21,7 +21,7 @@ export function createLocalTestRuntime({storage,now=Date.now,id=()=>globalThis.c
  function selectUser(userId){const s=getState();if(!s.accounts[userId])throw new Error('请选择本地测试账号');s.currentUser=userId;save(s);storage.setItem('user',JSON.stringify(s.accounts[userId].user));return currentUser()}
  function resetCurrent(){const s=getState(),user=s.currentUser;s.accounts[user]={user:clone(TEST_USERS.find(u=>u.id===user)),inventory:seed(),history:[]};s.fault='normal';save(s)
   // Only the selected test account is cleared; never call localStorage.clear().
-  for(const prefix of ['cookx:cooking:v1:','cookx:cooking-history:v1:','cookx:consumption:v1:','cookx:inventory-pending:v1:','cookx:recognition:v1:','cookx:reminders:v1:','cookx-temperature-session-'])storage.removeItem(prefix+user)
+  for(const prefix of ['cookx:cooking:v1:','cookx:cooking-history:v1:','cookx:consumption:v1:','cookx:inventory-pending:v1:','cookx:recognition:v1:','cookx:reminders:v1:','cookx-temperature-session-','cookx:recommendation-preferences:v1:'])storage.removeItem(prefix+user)
   storage.setItem('user',JSON.stringify(s.accounts[user].user))
  }
  function setFault(fault){const s=getState();if(!['normal','invalid-json','empty-recipe','business-error','timeout','consume-lost'].includes(fault))throw new Error('未知场景');s.fault=fault;save(s)}
@@ -36,12 +36,35 @@ export function createLocalTestRuntime({storage,now=Date.now,id=()=>globalThis.c
   const result=data=>({status:200,data:clone(data)})
   if(path==='/inventory'&&method==='get')return result(account.inventory)
   if(/^\/users\/[^/]+\/inventory\/freshness$/.test(path)){const owner=decodeURIComponent(path.split('/')[2]);if(owner!==user || !s.accounts[owner])throw new Error('账号不匹配');return result(freshness(account.inventory))}
-  if(path==='/add-to-inventory'&&method==='post'){
-   if(!Array.isArray(body)||!body.length)throw new Error('入库清单不能为空');const additions=body.map(row=>{const item={...row,id:id(),add_time:date(0),testCase:'unknown'};validateItem(item);return item});account.inventory.push(...additions);save(s);return result({status:'success'})
+  if((path==='/add-to-inventory'||path==='/inventory/confirm-recognition')&&method==='post'){
+   if(path.endsWith('confirm-recognition')){if(body?.confirmed!==true)throw new Error('请先确认识别清单');body=body.items}
+   if(!Array.isArray(body)||!body.length)throw new Error('入库清单不能为空');const additions=body.map(row=>{const item={...row,id:id(),add_time:row.add_time || date(0),testCase:'unknown'};validateItem(item);return item});account.inventory.push(...additions);save(s);return result({status:'success'})
   }
   if(path.startsWith('/inventory/')&&['put','delete'].includes(method)){
    const index=account.inventory.findIndex(r=>String(r.id)===decodeURIComponent(path.split('/').at(-1)));if(index<0)throw new Error('库存记录不存在')
-   if(method==='delete')account.inventory.splice(index,1);else{const allowed=['name','quantity','purchase_time','add_time','expiry_date','shelf_life','storage_type'];const changes=Object.fromEntries(Object.entries(body||{}).filter(([k])=>allowed.includes(k)));const edited={...account.inventory[index],...changes,testCase:'unknown'};validateItem(edited);account.inventory[index]=edited}save(s);return result({status:'success'})
+   if(method==='delete')account.inventory.splice(index,1);else{const allowed=['name','quantity','purchase_time','add_time','expiry_date','shelf_life','storage_type'];const changes=Object.fromEntries(Object.entries(body||{}).filter(([k])=>allowed.includes(k)));const edited={...account.inventory[index],...changes,testCase:'unknown'};if('purchase_time' in changes)delete edited.purchase_date;if('storage_type' in changes){delete edited.storage;delete edited.storage_method}validateItem(edited);account.inventory[index]=edited}save(s);return result({status:'success'})
+  }
+  if(path.startsWith('/inventory/consumption/')&&method==='get'){
+   const receipt=account.receipts?.[decodeURIComponent(path.split('/').at(-1))];if(!receipt)throw Object.assign(new Error('未找到本地扣减凭证'),{response:{status:404}})
+   return result({...receipt.result,replayed:true})
+  }
+  if(path==='/inventory/consume'&&method==='post'){
+   const key=body?.idempotency_key,items=body?.items
+   if(typeof key!=='string'||!Array.isArray(items)||!items.length)throw Object.assign(new Error('扣减参数无效'),{response:{status:422}})
+   const fingerprint=JSON.stringify([...items].sort((a,b)=>a.item_id.localeCompare(b.item_id))),existing=account.receipts?.[key]
+   if(existing){if(existing.fingerprint!==fingerprint)throw Object.assign(new Error('同一凭证不能更换清单'),{response:{status:409}});return result({...existing.result,replayed:true})}
+   const ids=new Set(),changes=items.map(item=>{
+    const row=account.inventory.find(r=>String(r.id)===item.item_id)
+    if(!row||ids.has(item.item_id)||row.quantity!==item.expected_quantity||!Number.isSafeInteger(item.quantity)||item.quantity<1||item.quantity>row.quantity)throw Object.assign(new Error('库存或使用数量已变化'),{response:{status:409}})
+    ids.add(item.item_id);return {item_id:row.id,name:row.name,before_quantity:row.quantity,consumed_quantity:item.quantity,after_quantity:row.quantity-item.quantity}
+   })
+   for(const change of changes)account.inventory.find(r=>r.id===change.item_id).quantity=change.after_quantity
+   account.inventory=account.inventory.filter(r=>r.quantity>0)
+   const receipt={status:'success',schema_version:2,idempotency_key:key,changes,replayed:false}
+   account.receipts??={};account.receipts[key]={fingerprint,result:receipt}
+   const lost=s.fault==='consume-lost';if(lost)s.fault='normal';save(s)
+   if(lost)throw Object.assign(new Error('模拟响应丢失：请查询原凭证'),{code:'ECONNABORTED'})
+   return result(receipt)
   }
   if(path==='/consume-ingredients'){
    const names=new Set((body||[]).map(canonicalName));for(const name of names)if(account.inventory.filter(r=>canonicalName(r.name)===name).length!==1)return result({status:'error',message:'同名多批次或记录已变化，请人工核对'})
@@ -51,7 +74,7 @@ export function createLocalTestRuntime({storage,now=Date.now,id=()=>globalThis.c
    const fault=s.fault;if(['invalid-json','empty-recipe','business-error','timeout'].includes(fault)){s.fault='normal';save(s);if(fault==='timeout')throw Object.assign(new Error('本地模拟：菜谱请求超时'),{code:'ECONNABORTED'});return result(fault==='business-error'?{status:'error',message:'本地模拟：菜谱生成失败'}:{status:'success',recipe:fault==='invalid-json'?'{invalid':{dish_name:'空示例',steps:[]}})}
    const value=recipe(params.user_prompt||'');if(params.save_history===true||params.save_history==='true'){account.history.push({role:'user',content:params.user_prompt||''},{role:'assistant',content:'预置操作演练，不是 AI 生成。',recipe:value});account.history=account.history.slice(-40);save(s)}return result({status:'success',recipe:value})
   }
-  if(path==='/recommendations')return result({status:account.inventory.length?'success':'inventory_required',algorithm_version:'local-fixture-v1',eligible_recipe_count:account.inventory.length?1:0,filtered_recipe_count:0,recommendations:account.inventory.length?[{rank:1,recipe_id:'local-guide',recipe_name:'本地操作演练（示例推荐）',total_score:0,component_scores:{I:null,F:null,P:null,W:null,M:null},effective_weights:{},missing_required_ingredients:['盐'],matched_ingredients:account.inventory.filter(r=>['西红柿','鸡蛋'].includes(r.name)).map(r=>r.name),reasons:['固定展示样例；未运行真实推荐算法，请从下方“咨询教程”进入操作演练。'],unavailable_components:['I','F','P','W','M']}]:[]})
+  if(path==='/recommendations')return result({status:account.inventory.length?'success':'inventory_required',algorithm_version:'local-fixture-v1',eligible_recipe_count:account.inventory.length?1:0,filtered_recipe_count:0,recommendations:account.inventory.length?[{rank:1,recipe_id:'local-guide',recipe_name:'本地操作演练（示例推荐）',total_score:0,component_scores:{I:null,F:null,P:null,W:null,B:null,D:null,N:null,M:null},effective_weights:{},missing_required_ingredients:['盐'],matched_ingredients:account.inventory.filter(r=>['西红柿','鸡蛋'].includes(r.name)).map(r=>r.name),reasons:['固定展示样例；未运行真实推荐算法，请从下方“咨询教程”进入操作演练。'],budget:body?.budget ?? null,difficulty_target:body?.difficulty_target ?? null,nutrition_target:body?.nutrition_target ?? null,cost_status:'本地示例，不计算预算分',difficulty_status:'本地示例，不计算难度分',nutrition_status:'本地示例，不计算营养分',nutrition_disclaimer:'目标仅用于验证输入与保存；离线版没有价格/营养评分。',unavailable_components:['I','F','P','W','B','D','N','M']}]:[]})
   if(path==='/analyze-fridge')return result({status:'success',detected:[{name:'西红柿',quantity:1,freshness_detail:{fresh_score:null,component_scores:{T:null,S:null,V:null,H:null},reasons:['手动载入的识别示例，没有分析图片。'],data_quality_notes:['没有视觉推理结果'],disclaimer:'本地示例，非真实识别。'}}]})
   if(path==='/chat-history')return result(account.history)
   if(path==='/notifications')return result([])

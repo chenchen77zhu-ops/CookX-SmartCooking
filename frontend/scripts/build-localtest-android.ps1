@@ -28,7 +28,7 @@ try {
  }
  $utf8 = [Text.UTF8Encoding]::new($false)
  $gradleFile = Join-Path $stage 'android/app/build.gradle'
- $gradleText = [IO.File]::ReadAllText($gradleFile).Replace('applicationId "com.smartcooking.app"','applicationId "com.smartcooking.app.localtest"').Replace('versionCode 1','versionCode 2').Replace('versionName "1.0"','versionName "1.0.1-localtest-btfix"')
+ $gradleText = [IO.File]::ReadAllText($gradleFile).Replace('applicationId "com.smartcooking.app"','applicationId "com.smartcooking.app.localtest"')
  [IO.File]::WriteAllText($gradleFile,$gradleText,$utf8)
  $stringsFile = Join-Path $stage 'android/app/src/main/res/values/strings.xml'
  $stringsText = [IO.File]::ReadAllText($stringsFile).Replace('>CookX<','>CookX 本地测试<').Replace('>com.smartcooking.app<','>com.smartcooking.app.localtest<')

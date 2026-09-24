@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">CookX</string>
-    <string name="title_activity_main">CookX</string>
-    <string name="package_name">com.smartcooking.app</string>
-    <string name="custom_url_scheme">com.smartcooking.app</string>
+    <string name="app_name">CookX 本地测试</string>
+    <string name="title_activity_main">CookX 本地测试</string>
+    <string name="package_name">com.smartcooking.app.localtest</string>
+    <string name="custom_url_scheme">com.smartcooking.app.localtest</string>
 </resources>

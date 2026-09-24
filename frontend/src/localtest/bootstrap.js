@@ -12,6 +12,6 @@ if(LOCAL_TEST_MODE){
   const path=url.pathname.replace(/^\/api/,'');const params={...Object.fromEntries(url.searchParams),...config.params};let body=config.data
   if(typeof body==='string'){try{body=JSON.parse(body)}catch{body=null}}
   try{const response=await localTestRuntime.request({method:config.method,path,params,body});if(config.signal?.aborted)throw new CanceledError();return {...response,statusText:'Local test',headers:{},config,request:{local:true}}}
-  catch(error){if(error.code==='ERR_CANCELED')throw error;throw new AxiosError(error.message,error.code||'LOCAL_TEST_ERROR',config)}
+  catch(error){if(error.code==='ERR_CANCELED')throw error;throw new AxiosError(error.message,error.code||'LOCAL_TEST_ERROR',config,undefined,error.response)}
  }
 }

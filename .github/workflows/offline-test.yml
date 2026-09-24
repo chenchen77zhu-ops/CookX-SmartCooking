@@ -1,0 +1,61 @@
+name: Offline test APK
+on:
+  push:
+    branches: [feat/p2-local-test-apk]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-apk:
+    if: github.ref == 'refs/heads/feat/p2-local-test-apk'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Build isolated web edition
+        working-directory: frontend
+        run: |
+          npm ci --registry=https://registry.npmjs.org
+          npm test
+          npm run test:localtest
+          npm run build:localtest
+          npx cap sync android
+          node -e "const c=require('./android/app/src/main/assets/capacitor.config.json');if(c.appId!=='com.smartcooking.app.localtest')throw Error('Wrong application ID')"
+          test -f dist/local-test-build.json
+      - name: Android build
+        working-directory: frontend/android
+        run: |
+          sdkmanager "platforms;android-36" "build-tools;35.0.0"
+          chmod +x gradlew
+          ./gradlew assembleDebug testDebugUnitTest --no-daemon
+      - name: Browser test with all API and external traffic blocked
+        run: |
+          npm install --prefix "$RUNNER_TEMP/cookx-browser" playwright@1.62.1 --registry=https://registry.npmjs.org
+          node "$RUNNER_TEMP/cookx-browser/node_modules/playwright/cli.js" install --with-deps chromium
+          export COOKX_PLAYWRIGHT="$RUNNER_TEMP/cookx-browser/node_modules/playwright"
+          export COOKX_BASE_URL=http://127.0.0.1:4175
+          npm run preview --prefix frontend -- --host 127.0.0.1 --port 4175 > /tmp/offline-preview.log 2>&1 &
+          PREVIEW_PID=$!
+          trap 'kill "$PREVIEW_PID" 2>/dev/null || true' EXIT
+          for i in $(seq 1 30); do curl -fsS "$COOKX_BASE_URL" >/dev/null && break || sleep 1; done
+          node frontend/scripts/browser-localtest.cjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CookX-offline-test-${{ github.sha }}
+          path: |
+            frontend/android/app/build/outputs/apk/debug/app-debug.apk
+            frontend/dist/local-test-build.json
+            tmp/localtest/
+          if-no-files-found: error

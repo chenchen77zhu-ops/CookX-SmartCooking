@@ -1,18 +1,11 @@
 {
-  "appId": "com.smartcooking.app",
-  "appName": "CookX",
+  "appId": "com.smartcooking.app.localtest",
+  "appName": "CookX 本地测试",
   "webDir": "dist",
   "android": {
     "allowMixedContent": true
   },
   "server": {
-    "androidScheme": "https",
-    "allowNavigation": [
-      "thermal-armful-surfer.ngrok-free.dev",
-      "*.amap.com",
-      "*.meituan.com",
-      "*.ngrok-free.dev",
-      "*.ngrok-free.app"
-    ]
+    "androidScheme": "https"
   }
 }
