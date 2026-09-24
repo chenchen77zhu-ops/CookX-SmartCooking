@@ -8,7 +8,9 @@ const path = require('node:path')
  try {
  const context=await browser.newContext({viewport:{width:390,height:844},acceptDownloads:true})
  await context.addInitScript(()=>{
-   localStorage.setItem('user',JSON.stringify({id:987654,username:'Local test'}))
+   localStorage.setItem('user',JSON.stringify({id:'987654',username:'Local test'}))
+   // This suite tests fresh sessions; lifecycle flushes may persist on pagehide.
+   localStorage.removeItem('cookx:cooking:v1:987654')
    window.SpeechRecognition=undefined;window.webkitSpeechRecognition=undefined
  })
  const page=await context.newPage(), errors=[]
@@ -37,6 +39,7 @@ const path = require('node:path')
  await page.getByPlaceholder('告诉 CookX 你想做什么…').fill('测试菜谱')
  await page.getByPlaceholder('告诉 CookX 你想做什么…').press('Enter')
  await page.getByRole('button',{name:'开始指导'}).click()
+ await page.getByRole('button',{name:'重试在线播报',exact:true}).click()
  await page.waitForFunction(()=>document.querySelector('.current-step-card .panel-heading')?.innerText.includes('00:29'))
  await page.getByRole('button',{name:'暂停播报',exact:true}).click()
  await page.getByRole('button',{name:'继续播报',exact:true}).click()
@@ -72,10 +75,12 @@ const path = require('node:path')
  // Reload to eliminate preloaded audio before testing provider outages.
  for(const mode of ['error','empty']) {
    speechMode=mode
+   await page.evaluate(()=>localStorage.removeItem('cookx:cooking:v1:987654'))
    await page.reload()
    await page.getByPlaceholder('告诉 CookX 你想做什么…').fill('测试菜谱')
    await page.getByPlaceholder('告诉 CookX 你想做什么…').press('Enter')
    await page.getByRole('button',{name:'开始指导'}).click()
+ await page.getByRole('button',{name:'重试在线播报',exact:true}).click()
    await page.waitForFunction(()=>document.querySelector('.current-step-card .panel-heading')?.innerText.includes('00:29'))
  }
  assert.deepEqual(errors,[])

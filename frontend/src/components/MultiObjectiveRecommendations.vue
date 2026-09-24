@@ -17,6 +17,7 @@
       </button>
     </header>
 
+    <p v-if="viewState === 'stale'" role="status">库存已变化，旧推荐已失效；等待库存刷新后重新推荐。</p>
     <div v-if="viewState === 'initial'" class="state-panel initial-state">
       <span class="state-icon"><el-icon><DataAnalysis /></el-icon></span>
       <div><h3>从真实库存中寻找更合适的一餐</h3><p>算法只会推荐至少匹配一项安全关键食材的标准菜谱。</p></div>
@@ -123,12 +124,14 @@
 </template>
 
 <script setup>
-import { onBeforeUnmount, ref } from 'vue'
+import { onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Box, DataAnalysis, Refresh, User, WarningFilled } from '@element-plus/icons-vue'
 import { getMultiObjectiveRecommendations } from '@/api'
 
 defineEmits(['manage-inventory'])
+const props = defineProps({ inventoryRevision: Number, inventoryReady: Boolean, userId: String })
+let requestVersion = 0
 
 const router = useRouter()
 const loading = ref(false)
@@ -183,7 +186,7 @@ const resetResults = () => {
 }
 
 const fetchRecommendations = async () => {
-  if (loading.value) return
+  if (loading.value || !props.inventoryReady) return
   const userId = readUserId()
   if (!userId) {
     resetResults()
@@ -193,6 +196,8 @@ const fetchRecommendations = async () => {
     return
   }
 
+  const version = ++requestVersion
+  try { sessionStorage.setItem(`cookx:recommendation-requested:${userId}`, '1') } catch {}
   requestController?.abort()
   requestController = new AbortController()
   loading.value = true
@@ -207,7 +212,7 @@ const fetchRecommendations = async () => {
       weights,
       preferences: readPreferences()
     }, requestController.signal)
-    if (!componentActive) return
+    if (!componentActive || version !== requestVersion || readUserId() !== userId) return
     const data = response.data || {}
     algorithmVersion.value = data.algorithm_version || 'multi_objective_v1'
     eligibleCount.value = Number(data.eligible_recipe_count) || 0
@@ -224,14 +229,14 @@ const fetchRecommendations = async () => {
       stateMessage.value = '推荐服务返回了无法识别的状态，请稍后重试。'
     }
   } catch (error) {
-    if (!componentActive || error?.code === 'ERR_CANCELED') return
+    if (!componentActive || version !== requestVersion || readUserId() !== userId || error?.code === 'ERR_CANCELED') return
     resetResults()
     viewState.value = error?.response?.status === 404 ? 'auth_required' : 'error'
     if (error?.response?.status === 404) stateMessage.value = '登录信息可能已失效，请重新登录。'
     else if (error?.response?.status === 422) stateMessage.value = '推荐参数暂时无法处理，请刷新页面后重试。'
     else stateMessage.value = '推荐服务暂时不可用，请检查网络或稍后重试。'
   } finally {
-    if (componentActive) loading.value = false
+    if (componentActive && version === requestVersion) loading.value = false
   }
 }
 
@@ -241,6 +246,16 @@ const metricLabel = key => metricLabels[key] || key
 const scoreMetrics = item => ['I', 'F', 'P', 'W', 'M'].map(key => {
   const value = item.component_scores?.[key]
   return { key, label: metricLabel(key), value: value == null ? null : Number(value), display: value == null ? '数据不足' : formatPercent(value) }
+})
+
+watch(() => [props.inventoryRevision, props.inventoryReady, props.userId], () => {
+  requestVersion++
+  requestController?.abort()
+  loading.value = false
+  resetResults()
+  try { hasRequested.value = sessionStorage.getItem(`cookx:recommendation-requested:${props.userId}`) === '1' } catch { hasRequested.value = false }
+  viewState.value = hasRequested.value ? 'stale' : 'initial'
+  if (hasRequested.value && props.inventoryReady) fetchRecommendations()
 })
 
 onBeforeUnmount(() => {

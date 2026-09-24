@@ -37,7 +37,7 @@
                 <span :class="['expiry-days', expiryStatus(item).className]">{{ expiryStatus(item).label }}</span>
               </button>
             </div>
-            <div v-else class="expiry-empty"><el-icon><KnifeFork /></el-icon><span>暂无临期食材</span></div>
+            <div v-else class="expiry-empty"><el-icon><KnifeFork /></el-icon><span>{{ freshness.status === 'success' ? '未发现已评估的临期项，未知项请补充信息' : '等待鲜度评估' }}</span></div>
           </article>
 
           <article class="health-card">
@@ -49,6 +49,9 @@
     </section>
 
     <main class="inventory-surface">
+      <el-alert v-if="inventoryError" title="库存加载失败，当前显示上次库存；鲜度需重新评估" type="error" :closable="false" />
+      <el-alert v-if="freshness.status === 'error'" :title="freshness.error" type="warning" :closable="false" />
+      <el-button @click="fetchInventory()" :loading="inventoryLoading">刷新库存与鲜度</el-button>
       <section class="inventory-toolbar">
         <el-input v-model="searchKeyword" placeholder="搜索食材名称" :prefix-icon="Search" clearable class="search-input" />
         <button class="compact-add" type="button" @click="showAddDialog = true"><el-icon><Plus /></el-icon><span>添加</span></button>
@@ -75,7 +78,7 @@
           <div class="food-card-body">
             <div class="food-title-row"><h3>{{ getFoodInfo(item.name).cn }}</h3><span :class="`category-${getItemCategory(item)}`">{{ categoryName(getItemCategory(item)) }}</span></div>
             <p class="food-meta">{{ getItemMeasureText(item) }}<span v-if="item.storage_type"> · {{ item.storage_type }}</span></p>
-            <strong :class="['freshness-label', expiryStatus(item).className]">{{ expiryStatus(item).description }}</strong>
+            <FreshnessCard :detail="freshness.items[item.id]" :status="freshness.status" :evaluated-at="freshness.evaluatedAt" />
             <div class="food-footer"><span>添加于 {{ formatDate(item.add_time) }}</span><div class="card-actions"><button type="button" aria-label="编辑食材" @click.stop="editItem(item)"><el-icon><EditPen /></el-icon></button><button type="button" aria-label="删除食材" @click.stop="removeItem(item.id)"><el-icon><Delete /></el-icon></button></div></div>
           </div>
         </article>
@@ -93,7 +96,7 @@
         <div v-if="!inventory.length" class="empty-actions"><button type="button" @click="showAddDialog = true"><el-icon><Plus /></el-icon>添加食材</button></div>
       </section>
 
-      <MultiObjectiveRecommendations @manage-inventory="showAddDialog = true" />
+      <MultiObjectiveRecommendations :inventory-revision="inventoryRevision" :inventory-ready="inventoryReady" :user-id="currentUserId" @manage-inventory="showAddDialog = true" />
 
       <section v-if="inventory.length > 0" class="recommend-section">
         <div class="main-title"><span><el-icon><KnifeFork /></el-icon>AI 生成灵感</span><small>由大模型生成新的菜谱方案</small></div>
@@ -143,33 +146,35 @@
       </section>
     </div>
 
-    <el-dialog v-model="showAddDialog" title="添加食材" width="92%" center>
-       <el-form :model="newItem" label-width="70px">
-          <el-form-item label="名称"><el-input v-model="newItem.name" placeholder="如：牛肉" /></el-form-item>
-          <el-form-item label="数量"><el-input-number v-model="newItem.quantity" :min="1" /></el-form-item>
-          <el-form-item label="保质期"><el-input-number v-model="newItem.shelf_life" :min="1" /> 天</el-form-item>
-       </el-form>
+    <el-dialog v-model="showAddDialog" title="添加食材" width="92%" center :close-on-click-modal="!saving" :close-on-press-escape="!saving" :show-close="!saving">
+       <InventoryFields v-model="newItem" :disabled="saving || pendingWrite" />
+       <InventoryWriteStatus :user="currentUserId" :message="saveError" :pending="pendingWrite" :disabled="saving" @released="pendingWrite = false; saveError = ''" />
        <template #footer>
-         <el-button @click="showAddDialog = false">取消</el-button>
-         <el-button type="primary" @click="saveNewItem">确认添加</el-button>
+         <el-button :disabled="saving" @click="showAddDialog = false">取消</el-button>
+         <el-button type="primary" :loading="saving" @click="saveNewItem">确认添加</el-button>
        </template>
     </el-dialog>
 
-    <el-dialog v-model="editDialogVisible" title="修改信息" width="92%" center>
-       <el-form :model="editingItem" label-width="70px">
-          <el-form-item label="名称"><el-input v-model="editingItem.name" /></el-form-item>
-          <el-form-item label="数量"><el-input-number v-model="editingItem.quantity" :min="1" /></el-form-item>
-          <el-form-item label="保质期"><el-input-number v-model="editingItem.shelf_life" :min="1" /> 天</el-form-item>
-       </el-form>
+    <el-dialog v-model="editDialogVisible" title="修改信息" width="92%" center :close-on-click-modal="!saving" :close-on-press-escape="!saving" :show-close="!saving">
+       <InventoryFields v-model="editingItem" editing :original="editingOriginal" :disabled="saving || pendingWrite" />
+       <InventoryWriteStatus :user="currentUserId" :message="saveError" :pending="pendingWrite" :disabled="saving" @released="pendingWrite = false; saveError = ''" />
        <template #footer>
-         <el-button @click="editDialogVisible = false">取消</el-button>
-         <el-button type="primary" @click="saveEdit">保存修改</el-button>
+         <el-button :disabled="saving" @click="editDialogVisible = false">取消</el-button>
+         <el-button type="primary" :loading="saving" @click="saveEdit">保存修改</el-button>
        </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
+import { saveDraft, recognitionItem } from '../services/recognitionDraft.js'
+import InventoryFields from '../components/InventoryFields.vue'
+import InventoryWriteStatus from '../components/InventoryWriteStatus.vue'
+import { blankItem, inventoryEditForm, serializeItem, inventoryErrorMessage } from '../services/inventoryFields.js'
+import { saveInventory, hasPendingWrite } from '../api/inventoryWrites.js'
+import FreshnessCard from '../components/FreshnessCard.vue'
+import { getInventoryFreshness } from '../api/freshness.js'
+import { createFreshnessLoader, emptyFreshness, freshnessStatus } from '../services/inventoryFreshness.js'
 import { calculateDaysUntilExpiry } from '../services/inventoryExpiry.js'
 import { ref, computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -203,10 +208,16 @@ import doubanjiangImage from '@/assets/images/ingredients/doubanjiang.png'
 
 const router = useRouter()
 const inventory = ref([])
+const freshness = ref(emptyFreshness())
+const freshnessLoader = createFreshnessLoader(getInventoryFreshness, value => { freshness.value = value })
 const searchKeyword = ref('')
 const activeCategory = ref('all')
 const editDialogVisible = ref(false)
 const editingItem = ref({})
+const editingOriginal = ref({})
+const saving = ref(false)
+const saveError = ref('')
+const pendingWrite = ref(false)
 const quickRecipes = ref([])
 const recLoading = ref(false)
 const showAddDialog = ref(false)
@@ -218,6 +229,10 @@ const recognizedItemCount = ref(0)
 const currentUserId = ref(null)
 const inventoryLoading = ref(true)
 const inventoryError = ref(false)
+const inventoryRevision = ref(0)
+const inventoryReady = ref(false)
+let uploadUserId = null
+let quickVersion = 0
 let recognitionTimer = null
 let recognitionSuccessTimer = null
 let userWaitTimer = null
@@ -296,6 +311,8 @@ const resetRecognitionState = () => {
 }
 
 const beforeRecognitionUpload = (file) => {
+  uploadUserId = currentUserId.value
+  if (!uploadUserId) return false
   if (isRecognizing.value) return false
   console.log('CookX upload file', {
     name: file?.name,
@@ -345,18 +362,12 @@ const filteredInventory = computed(() => {
   });
 });
 
-const newItem = ref({
-  name: '',
-  quantity: 1,
-  storage_type: '冷藏',
-  shelf_life: 7
-})
-
-const editItem = (item) => {
-  editingItem.value = { ...item };
-  // 转换显示名称
-  editingItem.value.name = getFoodInfo(item.name).cn;
-  editDialogVisible.value = true;
+const newItem = ref(blankItem())
+const editItem = item => {
+  editingOriginal.value = { ...item }
+  editingItem.value = { ...inventoryEditForm(item), name: getFoodInfo(item.name).cn }
+  saveError.value = ''
+  editDialogVisible.value = true
 }
 
 // 分类筛选
@@ -695,21 +706,14 @@ const totalQuantity = computed(() => inventory.value.reduce((total, item) => {
   return total + (Number.isFinite(quantity) ? quantity : 0)
 }, 0))
 
-const expiringItems = computed(() => inventory.value
-  .filter(item => calculateDaysUntilExpiry(item) <= 5)
-  .sort((a, b) => calculateDaysUntilExpiry(a) - calculateDaysUntilExpiry(b)))
-
-const expiringCount = computed(() => new Set(
-  inventory.value
-    .filter(item => calculateDaysUntilExpiry(item) > 0 && calculateDaysUntilExpiry(item) <= 5)
-    .map(item => String(item.name || '').trim().toLowerCase())
-).size)
-
-const expiredCount = computed(() => new Set(
-  inventory.value
-    .filter(item => calculateDaysUntilExpiry(item) <= 0)
-    .map(item => String(item.name || '').trim().toLowerCase())
-).size)
+const expiringItems = computed(() => inventory.value.filter(item => {
+  const detail = freshness.value.items[item.id]
+  return detail?.expired || detail?.critical || detail?.expiring_soon
+}))
+const countKinds = predicate => freshness.value.status === 'success'
+  ? new Set(inventory.value.filter(item => predicate(freshness.value.items[item.id])).map(item => item.name)).size : '—'
+const expiringCount = computed(() => countKinds(d => d && !d.expired && (d.critical || d.expiring_soon)))
+const expiredCount = computed(() => countKinds(d => d?.expired))
 
 const expiringPreview = computed(() => expiringItems.value.slice(0, 3))
 
@@ -729,14 +733,7 @@ const lastUpdatedText = computed(() => {
 
 const categoryName = (category) => categories.find(item => item.id === category)?.name || '其他'
 
-const expiryStatus = (item) => {
-  const days = calculateDaysUntilExpiry(item)
-  if (!Number.isFinite(days)) return { className: 'unknown', label: '待补充', description: '保质期信息不足' }
-  if (days <= 0) return { className: 'expired', label: '已过期', description: '已过期' }
-  if (days <= 2) return { className: 'urgent', label: `${days}天`, description: `${days} 天后过期` }
-  if (days <= 5) return { className: 'soon', label: `${days}天`, description: `${days} 天后过期` }
-  return { className: 'fresh', label: `${days}天`, description: `${days} 天后过期` }
-}
+const expiryStatus = item => freshnessStatus(freshness.value.items[item.id])
 
 const getItemImage = (item) => {
   const imageUrl = item.image_url || item.image || item.thumbnail
@@ -751,6 +748,12 @@ const fetchInventory = async (requestedUserId = currentUserId.value) => {
     inventoryLoading.value = true
     return
   }
+  freshnessLoader.reset()
+  inventoryReady.value = false
+  inventoryRevision.value++
+  quickVersion++
+  quickRecipes.value = []
+  recLoading.value = false
   const requestVersion = ++inventoryRequestVersion
   inventoryLoading.value = true
   inventoryError.value = false
@@ -758,19 +761,22 @@ const fetchInventory = async (requestedUserId = currentUserId.value) => {
   try {
     const res = await axios.get(`${API_BASE_URL}/inventory`,
     {
-      params: { user_id: requestedUserId }
+      params: { user_id: requestedUserId }, timeout: 15000
     });
     if (requestVersion !== inventoryRequestVersion || requestedUserId !== currentUserId.value) {
       console.log(`[INVENTORY] discard stale response version=${requestVersion} currentVersion=${inventoryRequestVersion}`)
       return
     }
-    const receivedInventory = Array.isArray(res.data) ? res.data : []
+    if (!Array.isArray(res.data)) throw new Error('库存响应异常')
+    const receivedInventory = res.data
     console.log(`[INVENTORY] response user_id=${requestedUserId} version=${requestVersion} status=${res.status} count=${receivedInventory.length}`)
     inventory.value = receivedInventory.map(item => ({
       ...item,
       daysUntilExpiry: calculateDaysUntilExpiry(item)
     }));
+    inventoryReady.value = true
     lastUpdatedAt.value = new Date();
+    freshnessLoader.load(requestedUserId, inventory.value);
     if (inventory.value.length > 0) fetchQuickRecipes();
   } catch (error) {
     if (requestVersion !== inventoryRequestVersion || requestedUserId !== currentUserId.value) return
@@ -783,68 +789,16 @@ const fetchInventory = async (requestedUserId = currentUserId.value) => {
   }
 };
 
-// 1. 打开编辑弹窗
-const openEditDialog = (item) => {
-  // ✅ 核心点：必须使用结构赋值 {...item} 拷贝一份数据
-  // 否则你在弹窗里改字，背景卡片会跟着变，用户点取消也回不去了
-  editingItem.value = { ...item };
-  editDialogVisible.value = true;
-};
-
-// 2. 提交编辑到后端
-const confirmEdit = async () => {
-  const userId = currentUserId.value
-  if (!userId) return;
-
-  try {
-    // 调用后端更新接口
-    const res = await axios.put(
-      `${API_BASE_URL}/inventory/${editingItem.value.id}`,
-      editingItem.value, // 发送修改后的对象
-      {
-        params: { user_id: userId }
-      }
-    );
-
-    if (res.data.status === 'success') {
-      ElMessage.success('修改成功');
-      editDialogVisible.value = false;
-      await fetchInventory(); // 刷新列表
-    } else {
-      ElMessage.error(res.data.message || '修改失败');
-    }
-  } catch (error) {
-    console.error("编辑失败:", error);
-    ElMessage.error('网络错误，无法保存');
-  }
-};
-
 const goToChef = (dishName) => {
   if (!dishName) return;
   // 向父组件 (App.vue) 发送事件，通知它切换页面并传递菜名
   emit('consult-recipe', dishName);
 }
 
-const saveToInventory = async () => {
-  const userId = currentUserId.value
-  if (!userId || tempItems.value.length === 0) return
-
-  try {
-    await axios.post(`${API_BASE_URL}/add-to-inventory`, tempItems.value, {
-      params: { user_id: userId }
-    })
-
-    showConfirm.value = false
-    ElMessage.success('已存入您的私人冰箱')
-    fetchInventory() // 刷新列表
-  } catch (error) {
-    ElMessage.error('入库失败')
-  }
-}
-
 const fetchQuickRecipes = async () => {
   const userId = currentUserId.value
   if (!userId || inventory.value.length === 0) return;
+  const version = ++quickVersion
   recLoading.value = true;
 
   try {
@@ -853,9 +807,10 @@ const fetchQuickRecipes = async () => {
         user_id: userId,
         user_prompt: "根据库存推荐1个中文菜名。只需JSON格式: {\"dish_name\":\"菜名\",\"used_main\":\"主要食材\"}",
         save_history: false
-      }
+      }, timeout: 15000
     });
 
+    if (version !== quickVersion || userId !== currentUserId.value) return
     if (res.data.status === 'success' && res.data.recipe) {
       quickRecipes.value = [res.data.recipe];
     }
@@ -864,46 +819,36 @@ const fetchQuickRecipes = async () => {
     // 💡 调试小技巧：如果报错，弹窗显示具体原因
     // ElMessage.error("推荐失败: " + e.message);
   } finally {
-    recLoading.value = false;
+    if (version === quickVersion) recLoading.value = false;
   }
 };
 
 
-// 保存编辑
-const saveEdit = async () => {
+async function persistForm(editing) {
   const userId = currentUserId.value
-  if (!userId) return
+  if (!userId || saving.value) return
+  saving.value = true; saveError.value = ''
   try {
-    const enName = convertCnToEn(editingItem.value.name);
-
-    // ✅ 构造要发送的数据体，确保包含 shelf_life
-    const submitData = {
-      name: enName,
-      quantity: editingItem.value.quantity,
-      storage_type: editingItem.value.storage_type,
-      shelf_life: Number(editingItem.value.shelf_life) // 强制转为数字发送
-    };
-
-    const res = await axios.put(
-      `${API_BASE_URL}/inventory/${editingItem.value.id}`,
-      submitData,
-      {
-        params: { user_id: userId }
-      }
-    );
-
-    if (res.data.status === 'success') {
-      ElMessage.success('保鲜期已更新');
-      editDialogVisible.value = false;
-
-      // ✅ 关键：必须重新获取后端最新的数据
-      // 只要 inventory.value 变了，你的计算属性 filteredInventory 就会自动重算天数
-      await fetchInventory();
-    }
+    const payload = hasPendingWrite(userId) ? null : serializeItem(editing ? editingItem.value : newItem.value, editing ? editingOriginal.value : null)
+    if (payload && editing && !Object.keys(payload).length) { editDialogVisible.value = false; return }
+    inventoryReady.value = false; inventoryRevision.value++
+    quickVersion++; quickRecipes.value = []
+    await saveInventory(userId, editing ? payload : payload && [payload], editing ? editingOriginal.value.id : null)
+    if (currentUserId.value !== userId) return
+    pendingWrite.value = false
+    if (editing) editDialogVisible.value = false
+    else { showAddDialog.value = false; newItem.value = blankItem() }
+    ElMessage.success('已重新读取库存并确认保存')
+    await fetchInventory()
   } catch (error) {
-    ElMessage.error('修改失败');
-  }
-};
+    if (currentUserId.value === userId) {
+      saveError.value = inventoryErrorMessage(error)
+      pendingWrite.value = hasPendingWrite(userId)
+    }
+  } finally { saving.value = false }
+}
+const saveEdit = () => persistForm(true)
+const saveNewItem = () => persistForm(false)
 
 // 修改 ManageFridge.vue 中的 removeItem 函数
 const removeItem = async (id) => {
@@ -930,7 +875,7 @@ const removeItem = async (id) => {
       await fetchInventory();
 
       // 可选：同时刷新下方的灵感菜谱，因为食材变了
-      await fetchQuickRecipes();
+
     } else {
       ElMessage.error(res.data.message || '移除失败');
     }
@@ -942,22 +887,8 @@ const removeItem = async (id) => {
   }
 }
 
-// 手动添加新食材
-const saveNewItem = async () => {
-  const userId = currentUserId.value
-  if (!newItem.value.name || !userId) return ElMessage.warning('请填写名称');
-  try {
-    // ✅ 修正 3：发送 Body 必须是列表，参数放在 params
-    await axios.post(`${API_BASE_URL}/add-to-inventory`, [newItem.value], {
-      params: { user_id: userId }
-    });
-    ElMessage.success('已加入私人冰箱');
-    showAddDialog.value = false;
-    fetchInventory();
-  } catch (e) { ElMessage.error('存入失败'); }
-};
-
 const handleUploadSuccess = (response) => {
+  if (uploadUserId !== currentUserId.value) { resetRecognitionState(); return }
   const data = response?.data ?? response;
   if (!data) {
     clearRecognitionTimer();
@@ -967,15 +898,10 @@ const handleUploadSuccess = (response) => {
   }
   if (data.status === "success" && data.detected && data.detected.length > 0) {
     // 将识别结果转换为临时数据格式，包含存储方式
-    const itemsWithStorage = data.detected.map(item => ({
-      name: item.name,
-      quantity: item.quantity || 1,
-      storage_type: '冷藏', // 默认冷藏
-      shelf_life: 7 // 默认 7 天
-    }));
-    
+    const itemsWithStorage = data.detected.map(recognitionItem);
+
     // 存储到 localStorage 以便在确认页使用
-    localStorage.setItem('tempIdentifiedItems', JSON.stringify(itemsWithStorage));
+    try { saveDraft(uploadUserId, itemsWithStorage) } catch { handleRecognitionError(new Error('识别草稿保存失败，请检查本地存储')); return }
 
     clearRecognitionTimer();
     recognizedItemCount.value = data.detected.length;
@@ -991,6 +917,13 @@ const handleUploadSuccess = (response) => {
 }
 
 watch(currentUserId, (id, previousId) => {
+  inventoryRequestVersion++
+  freshnessLoader.reset()
+  inventoryReady.value = false
+  quickVersion++; quickRecipes.value = []
+  resetRecognitionState()
+  if (id !== previousId) { inventory.value = []; newItem.value = blankItem(); editingItem.value = {}; showAddDialog.value = false; editDialogVisible.value = false; saveError.value = '' }
+  pendingWrite.value = id ? hasPendingWrite(id) : false
   if (!id) {
     inventoryLoading.value = true
     return
@@ -1005,6 +938,8 @@ onMounted(() => {
   waitForCurrentUser()
 });
 onBeforeUnmount(() => {
+  freshnessLoader.dispose()
+  quickVersion++
   inventoryRequestVersion += 1
   if (userWaitTimer) clearTimeout(userWaitTimer)
   window.removeEventListener('storage', handleStoredUserChange)
@@ -1012,6 +947,9 @@ onBeforeUnmount(() => {
   clearRecognitionTimer();
   if (recognitionSuccessTimer) clearTimeout(recognitionSuccessTimer);
 });
+const consumptionChanged=event=>{if(event.detail?.user===currentUserId.value)fetchInventory()}
+onMounted(()=>window.addEventListener('cookx:inventory-changed',consumptionChanged))
+onBeforeUnmount(()=>window.removeEventListener('cookx:inventory-changed',consumptionChanged))
 </script>
 
 <style scoped>

@@ -77,7 +77,7 @@
             <button class="expiry-row" type="button" @click="openInventory">
               <el-icon><AlarmClock /></el-icon>
               <span v-if="expiringNames.length">建议优先食用：{{ expiringNames.join(' · ') }}</span>
-              <span v-else>食材整体保持新鲜，可以放心烹饪</span>
+              <span v-else>{{ freshness.status === 'error' ? '鲜度暂不可用，请进入冰箱重试' : '暂无已评估的临期项；未知与过期项请查看冰箱详情' }}</span>
               <el-icon class="row-arrow"><ArrowRight /></el-icon>
             </button>
           </template>
@@ -147,7 +147,7 @@
                 <strong>建议优先食用</strong><p>冰箱中有 {{ expiringKindCount }} 种食材需要尽快使用。</p>
               </template>
               <template v-else>
-                <strong>整体新鲜</strong><p>冰箱里的食材状态良好，可以放心烹饪。</p>
+                <strong>查看评估依据</strong><p>未显示临期项不代表食品安全；请核对日期、储存条件与数据不足项。</p>
               </template>
               <button class="insight-button" type="button" @click="openInventory">
                 查看冰箱详情 <el-icon><ArrowRight /></el-icon>
@@ -196,8 +196,10 @@
 </template>
 
 <script setup>
-import { calculateDaysUntilExpiry } from '../services/inventoryExpiry.js'
-import { computed, onMounted, ref, shallowRef, watch } from 'vue'
+import { getInventoryFreshness } from '../api/freshness.js'
+import { createFreshnessLoader, emptyFreshness } from '../services/inventoryFreshness.js'
+import { readUserId } from '../services/recognitionDraft.js'
+import { computed, onMounted, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import {
@@ -229,9 +231,13 @@ const pendingDish = ref('')
 const inventory = ref([])
 const inventoryLoading = ref(false)
 const inventoryError = ref(false)
-const userInfo = JSON.parse(localStorage.getItem('user') || '{}')
-const userId = userInfo.id
-const userName = userInfo.nickname || userInfo.username || ''
+const freshness = ref(emptyFreshness())
+const freshnessLoader = createFreshnessLoader(getInventoryFreshness, value => { freshness.value = value })
+let inventoryVersion = 0
+let lastUserId = null
+const readUser = () => { try { return JSON.parse(localStorage.getItem('user') || '{}') || {} } catch { return {} } }
+const userInfo = ref(readUser())
+const userName = computed(() => userInfo.value.nickname || userInfo.value.username || '')
 
 const greeting = computed(() => {
   const hour = new Date().getHours()
@@ -250,32 +256,39 @@ const expiringKinds = computed(() => {
   const kinds = new Map()
   inventory.value.forEach(item => {
     const key = String(item.name || '').trim().toLowerCase()
-    if (key && calculateDaysUntilExpiry(item) <= 3 && !kinds.has(key)) kinds.set(key, item)
+    const detail = freshness.value.items[item.id]
+    if (key && detail && !detail.expired && (detail.critical || detail.expiring_soon) && !kinds.has(key)) kinds.set(key, item)
   })
   return [...kinds.values()]
 })
-const expiringKindCount = computed(() => expiringKinds.value.length)
+const expiringKindCount = computed(() => freshness.value.status === 'success' ? expiringKinds.value.length : '—')
 const expiringNames = computed(() => expiringKinds.value.slice(0, 3).map(item => item.name))
 
 const fetchInventory = async () => {
-  if (!userId || inventoryLoading.value) return
-  inventoryLoading.value = true
-  inventoryError.value = false
+  const userId = readUserId(), version = ++inventoryVersion
+  freshnessLoader.reset()
+  if (userId !== lastUserId) inventory.value = []
+  lastUserId = userId
+  if (!userId) { inventoryLoading.value = false; return }
+  inventoryLoading.value = true; inventoryError.value = false
   try {
-    const response = await axios.get(`${API_BASE_URL}/inventory`, { params: { user_id: userId } })
-    inventory.value = Array.isArray(response.data) ? response.data : []
-  } catch (error) {
-    inventoryError.value = true
-    console.warn('首页库存概览加载失败:', error)
-  } finally {
-    inventoryLoading.value = false
-  }
+    const response = await axios.get(`${API_BASE_URL}/inventory`, { params: { user_id: userId }, timeout:15000 })
+    if (version !== inventoryVersion || readUserId() !== userId) return
+    if (!Array.isArray(response.data)) throw new Error('库存响应异常')
+    inventory.value = response.data
+    freshnessLoader.load(userId, inventory.value)
+  } catch { if (version === inventoryVersion) inventoryError.value = true }
+  finally { if (version === inventoryVersion) inventoryLoading.value = false }
 }
+const syncHomeUser = () => { userInfo.value = readUser(); if (readUserId() !== lastUserId && !currentView.value) fetchInventory() }
+onBeforeUnmount(() => { inventoryVersion++; freshnessLoader.dispose(); window.removeEventListener('storage', syncHomeUser); document.removeEventListener('visibilitychange', syncHomeUser) })
 
 const openInventory = () => router.push({ path: '/home', query: { tab: 'Manage' } })
 const openAiChef = () => router.push({ path: '/home', query: { tab: 'AiChef' } })
 
 onMounted(() => {
+  window.addEventListener('storage', syncHomeUser)
+  document.addEventListener('visibilitychange', syncHomeUser)
   if (!currentView.value) fetchInventory()
 })
 
@@ -296,6 +309,9 @@ const handleStartCooking = (recipe) => {
 const handleBack = () => {
   currentView.value = currentView.value === CookingMode ? AiChef : ManageFridge
 }
+const consumptionChanged=event=>{if(event.detail?.user===readUserId())fetchInventory()}
+onMounted(()=>window.addEventListener('cookx:inventory-changed',consumptionChanged))
+onBeforeUnmount(()=>window.removeEventListener('cookx:inventory-changed',consumptionChanged))
 </script>
 
 <style scoped>

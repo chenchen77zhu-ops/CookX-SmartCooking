@@ -34,19 +34,23 @@
           <p>从菜谱推荐到语音步骤指导，让每一步都更从容。</p>
         </div>
 
-        <div v-if="activeReminders.length" class="active-tasks">
-          <span v-for="reminder in activeReminders" :key="reminder.id"><el-icon><Timer /></el-icon>{{ reminder.dishName }} 计时中</span>
-        </div>
+
       </div>
     </header>
 
     <main class="chef-content">
+      <CookingCompletion v-if="completionVisible && session" :key="session.id" :session="session" :engine="cookingStore.engine" @changed="completionChanged" @close="completionVisible=false" />
+      <button v-if="session?.status === 'completed' && !completionVisible" @click="completionVisible=true">查看完成与库存核对</button>
+      <details class="device-diagnostics"><summary>设备状态与诊断</summary><p>{{ temperatureConnectionText }}；恢复页面后等待新测量。后台连续采集能力待真机验证。</p><button @click="openTemperatureDialog">扫描与连接设备</button><button @click="refreshDevice">重新核对设备状态</button><button @click="exportDeviceLog">导出设备诊断</button><p role="status">{{ deviceDiagnosticMessage }}</p></details>
+      <p v-if="sessionMessage" role="status">{{ sessionMessage }}</p>
+      <section v-if="!navigationVisible && session?.status === 'active'" class="chef-state-card"><p>发现未完成的烹饪，计时按实际经过时间核对。</p><button @click="restoreCooking">恢复烹饪</button></section>
+      <section v-if="recipeError" class="chef-state-card" role="alert"><p>{{ recipeError }}</p><button type="button" @click="sendMessage(lastRecipePrompt)">重新生成菜谱</button></section>
       <template v-if="navigationVisible && activeSteps.length">
         <section class="cooking-grid">
           <article :class="['current-step-card', 'panel-card', { 'is-voice-active': isVoicePlaying }]">
             <div class="panel-heading">
               <span><el-icon><Food /></el-icon>当前步骤</span>
-              <b v-if="currentStepDuration"><el-icon><Timer /></el-icon>剩余 {{ formatTime(timeLeft) }}</b>
+              <b v-if="currentStepDuration || session?.timers[currentStepIdx]?.round > 0"><el-icon><Timer /></el-icon>剩余 {{ formatTime(timeLeft) }}</b><b v-else>时长未提供</b>
             </div>
             <div class="step-count">第 <strong>{{ currentStepIdx + 1 }}</strong> / {{ activeSteps.length }} 步</div>
             <h2>{{ currentStepTitle }}</h2>
@@ -69,11 +73,19 @@
               <span v-for="meta in currentStepMeta" :key="meta.label"><b>{{ meta.label }}</b>{{ meta.value }}</span>
             </div>
             <aside v-if="currentStepTip" class="step-tip"><el-icon><Bell /></el-icon><span><b>CookX 提醒</b>{{ currentStepTip }}</span></aside>
-            <button v-if="currentStepDuration >= 60" type="button" class="reminder-button" @click="setReminder(currentStep, activeRecipe.dish_name)"><el-icon><AlarmClock /></el-icon>为本步设置提醒</button>
+            <p v-if="voiceMessage" role="status">{{ voiceMessage }}</p>
+            <button type="button" @click="runCloudStep">重试在线播报</button>
+            <VoiceCommands @before-listen="silenceSpeech" @command="executeVoiceCommand" />
+            <div class="timer-controls">
+              <button @click="pauseTimer">暂停计时</button><button @click="resumeTimer">继续计时</button>
+              <label>手动计时（秒）<input v-model="timerSeconds" type="number" min="1" max="86400" /></label><button @click="setManualTimer">开始计时</button>
+            </div>
+            <CookingReminders :key="session.id" :store="cookingStore" :assessment="thermalAssessment" :replaying="thermalReplaying" @changed="refreshSession" />
+            <CookingAdjustments :key="session.id" :session="session" :engine="cookingStore.engine" @changed="refreshSession" />
             <div class="step-switcher">
               <button type="button" :disabled="currentStepIdx === 0" @click="prevStep"><el-icon><ArrowLeft /></el-icon>上一步</button>
               <span>第 {{ currentStepIdx + 1 }} / {{ activeSteps.length }} 步</span>
-              <button type="button" class="next" :disabled="isLastStep" @click="nextStep">下一步<el-icon><ArrowRight /></el-icon></button>
+              <button type="button" class="next" @click="nextStep">{{ isLastStep ? '完成烹饪' : '下一步' }}<el-icon><ArrowRight /></el-icon></button>
             </div>
           </article>
 
@@ -86,7 +98,7 @@
               <div><span>环境温度</span><strong>{{ ambientTemperature === null ? '--' : ambientTemperature.toFixed(1) }}<small>°C</small></strong><p>{{ ambientTemperature === null ? '当前硬件固件未上传环境温度' : '设备环境温度' }}</p></div>
               <div><span>锅面温度</span><strong>{{ currentTemperature === null ? '--' : currentTemperature.toFixed(1) }}<small>°C</small></strong><p>{{ currentTemperature === null ? '等待数据' : temperatureLevel.status }}</p></div>
             </div>
-            <div v-if="temperatureConnected" class="sense-update"><el-icon><CircleCheckFilled /></el-icon><span><b>{{ currentTemperature === null ? '数据暂未更新' : '设备已连接，数据实时更新' }}</b>最后更新 {{ lastTemperatureTime }}</span></div>
+            <div v-if="temperatureConnected" class="sense-update"><el-icon><CircleCheckFilled /></el-icon><span><b>{{ currentTemperature === null ? '数据暂未更新' : '已收到设备读数，请结合测量质量查看' }}</b>最后更新 {{ lastTemperatureTime }}</span></div>
             <div v-else class="sense-empty"><el-icon><Connection /></el-icon><div><b>尚未连接 CookX Sense</b><span>连接设备后可实时查看温度</span></div></div>
             <TemperatureInsight :assessment="thermalAssessment" :history="thermalHistory" :prediction="thermalPrediction"
               :model-state="thermalModelState" :experimental="thermalExperimental" :replaying="thermalReplaying"
@@ -186,6 +198,15 @@
 </template>
 
 <script setup>
+import CookingReminders from '../components/CookingReminders.vue'
+import CookingCompletion from '../components/CookingCompletion.vue'
+import {reconcileTimer} from '../services/cookingNotifications.js'
+import CookingAdjustments from '../components/CookingAdjustments.vue'
+import VoiceCommands from '../components/VoiceCommands.vue'
+import { speakSystem, stopSystemSpeech, stopListening } from '../services/systemVoice.js'
+import { getCookingStore, suspendCookingStores } from '../services/cookingStore.js'
+import { normalizeRecipe, safeHistory } from '../services/recipeAdapter.js'
+import { readUserId } from '../services/recognitionDraft.js'
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import axios from 'axios'
 import {
@@ -195,6 +216,8 @@ import {
 } from '@element-plus/icons-vue'
 import { ElMessage, ElNotification, ElMessageBox } from 'element-plus'
 import {
+  reconcileTemperatureDevice,
+  exportTemperatureDiagnostics,
   connectTemperatureDevice,
   disconnectTemperatureDevice,
   requestBluetoothPermissions,
@@ -218,26 +241,38 @@ const props = defineProps(['pendingDish'])
 const emit = defineEmits(['clear-pending'])
 const userInput = ref('')
 const loading = ref(false)
+const recipeError = ref('')
+const lastRecipePrompt = ref('')
+let recipeRequestVersion = 0, recipeController, pageActive = true
 const chatBox = ref(null)
 const recipeInput = ref(null)
 const messages = ref([])
-const userStr = localStorage.getItem('user');
-const userId = JSON.parse(userStr || '{}').id;
+const userId = readUserId();
 const thermal = useTemperatureIntelligence('cookx-temperature-session-' + (userId ?? 'guest'))
 const { assessment: thermalAssessment, history: thermalHistory, prediction: thermalPrediction, modelState: thermalModelState, experimental: thermalExperimental, replaying: thermalReplaying, storageMessage: thermalStorageMessage } = thermal
 // --- 导航与提醒状态 ---
 const navigationVisible = ref(false)
-const activeRecipe = ref({ steps: [] })
-const currentStepIdx = ref(0)
-const timeLeft = ref(0)
+const cookingStore=getCookingStore(userId)
+const session=cookingStore.state
+const tick=ref(Date.now())
+const activeRecipe=computed(()=>session.value?.recipe || {steps:[]})
+const currentStepIdx=computed(()=>session.value?.stepIndex || 0)
+const timeLeft=computed(()=>{tick.value;return Math.ceil(cookingStore.engine.remaining()/1000)})
+const timerSeconds=ref(60)
+const sessionMessage=ref(cookingStore.engine.warning)
+const refreshSession=()=>{cookingStore.refresh();tick.value=Date.now();sessionMessage.value=cookingStore.engine.warning}
+const pauseTimer=()=>{cookingStore.engine.pause();refreshSession()}
+const resumeTimer=()=>{cookingStore.engine.resume();refreshSession()}
+const setManualTimer=()=>{try{cookingStore.engine.setTimer(Number(timerSeconds.value));refreshSession()}catch(error){ElMessage.warning(error.message)}}
 const isListening = ref(false)
-const isCookingPaused = ref(false)
+const isCookingPaused = computed(()=>session.value?.timers[currentStepIdx.value]?.deadline==null)
 const voicePlaybackState = ref('idle')
 const voiceCurrentTime = ref(0)
 const voiceDuration = ref(0)
-const activeReminders = ref([])
+const completionVisible=ref(false)
+const completionChanged=()=>{refreshSession();reconcileTimer(cookingStore);if(session.value?.status==='completed'){stopNavigation();navigationVisible.value=false}}
 let timer = null
-let recognition = null
+const voiceMessage=ref('')
 let currentAudio = null // 当前正在播放的音频对象
 let currentAudioBlobUrl = null
 let voiceRequestVersion = 0
@@ -355,6 +390,8 @@ const ambientTemperature = ref(null)
 const lastTemperatureTimestamp = ref(null)
 const temperatureConnected = ref(false)
 const temperatureConnecting = ref(false)
+const temperatureState=ref('idle')
+const deviceDiagnosticMessage=ref('')
 const temperatureAcceptingData = ref(false)
 const temperatureDialogVisible = ref(false)
 const temperatureDeviceAddress = ref(localStorage.getItem('temperatureDeviceAddress') || '')
@@ -366,7 +403,6 @@ const bluetoothScanText = computed(() => temperatureScanning.value ? '正在扫�
 
 const clearTemperatureReading = () => {
   thermal.invalidate()
-  resetTemperatureBuffer()
   if (temperatureStaleTimer) {
     window.clearTimeout(temperatureStaleTimer)
     temperatureStaleTimer = null
@@ -386,8 +422,9 @@ const scheduleTemperatureStaleTimeout = () => {
 }
 
 const temperatureConnectionText = computed(() => {
-  if (temperatureConnecting.value) return '连接中'
-  return temperatureConnected.value ? '已连接' : '未连接'
+ if(temperatureConnecting.value)return '连接中'
+ const labels={'bluetooth-off':'蓝牙关闭','permission-denied':'需要附近设备权限',reconnecting:'正在重连',connecting:'连接中',error:'连接异常',unsupported:'需 Android App'}
+ return labels[temperatureState.value] || (temperatureConnected.value ? (currentTemperature.value===null?'已连接 · 等待新数据':'已连接'):'未连接')
 })
 
 const lastTemperatureTime = computed(() => {
@@ -488,10 +525,19 @@ const disconnectTemperature = async () => {
   }
 }
 
+const refreshDevice = async () => {
+ clearTemperatureReading();temperatureAcceptingData.value=false
+ try{const result=await reconcileTemperatureDevice();if(!pageActive)return;temperatureState.value=result.status==='unsupported'?'unsupported':result.state;temperatureConnected.value=result.state==='connected' && result.connected!==false;temperatureAcceptingData.value=temperatureConnected.value;deviceDiagnosticMessage.value=result.status==='unsupported'?'浏览器不支持 Bluetooth Classic，请使用 Android 安装包。':'状态已核对；等待新的连续测量窗口。'}catch(error){if(pageActive)deviceDiagnosticMessage.value=bluetoothErrorMessage(error)}
+}
+const exportDeviceLog = async()=>{try{await exportTemperatureDiagnostics();deviceDiagnosticMessage.value='诊断文件已导出；包含设备信息、原始温度帧及连接事件。'}catch(error){deviceDiagnosticMessage.value=error.message}}
+const temperatureForeground=()=>{if(document.hidden){temperatureAcceptingData.value=false;clearTemperatureReading()}else refreshDevice()}
+onMounted(()=>{document.addEventListener('visibilitychange',temperatureForeground);window.addEventListener('cookx:foreground',temperatureForeground)})
+onUnmounted(()=>{document.removeEventListener('visibilitychange',temperatureForeground);window.removeEventListener('cookx:foreground',temperatureForeground)})
+
 const registerTemperatureListener = async () => {
   try {
     temperatureListener = await onTemperatureData((data) => {
-      if (!temperatureAcceptingData.value) return
+      if (!pageActive || document.hidden || !temperatureAcceptingData.value) return
       thermal.receive(data)
       ambientTemperature.value = Number.isFinite(data.ambientTemperature) ? data.ambientTemperature : null
       if (data.valid === false) { currentTemperature.value = null; return }
@@ -507,12 +553,17 @@ const registerTemperatureListener = async () => {
       else temperatureDevices.value.push(device)
     })
     temperatureConnectionStateListener = await onTemperatureConnectionStateChanged((connection) => {
+      if(!pageActive)return
+      temperatureState.value=connection.state
+      if(connection.awaitingSample)clearTemperatureReading()
       temperatureScanning.value = connection.state === 'scanning'
       temperatureConnected.value = connection.state === 'connected'
       temperatureAcceptingData.value = temperatureConnected.value
       if (!temperatureConnected.value) clearTemperatureReading()
       if (connection.state === 'error' && connection.message) ElMessage.error(connection.message)
     })
+    if(!pageActive){await cleanupTemperatureDevice();return}
+    await refreshDevice()
   } catch (error) {
     console.error('注册温度监听失败:', error)
     ElMessage.error('无法监听测温设备数据')
@@ -537,11 +588,7 @@ const cleanupTemperatureDevice = async () => {
   temperatureDeviceFoundListener = null
   temperatureConnectionStateListener = null
   await stopTemperatureScan()
-  try {
-    await disconnectTemperatureDevice()
-  } catch (error) {
-    console.warn('清理测温设备连接失败:', error)
-  }
+  // The application owns the connection; page teardown only removes view subscribers.
   temperatureConnected.value = false
 }
 
@@ -563,7 +610,7 @@ const formatTime = (totalSeconds) => {
 const stepPercentage = computed(() => {
   if (!activeRecipe.value?.steps?.length) return 0
   const step = activeRecipe.value.steps[currentStepIdx.value]
-  const total = Math.max(step?.time_estimate || 60, 1)
+  const total = Math.max(step?.time_estimate || 0, 1)
   return Math.floor(((total - timeLeft.value) / total) * 100)
 })
 
@@ -671,8 +718,9 @@ const fetchHistory = async () => {
     const res = await axios.get(`${API_BASE_URL}/chat-history`, {
       params: { user_id: user.id }
     });
-    if (res.data && res.data.length > 0) {
-      messages.value = res.data;
+    if (!pageActive || readUserId() !== user.id || loading.value) return
+    if (Array.isArray(res.data) && res.data.length > 0) {
+      messages.value = safeHistory(res.data);
     } else {
       messages.value = [{ role: 'assistant', content: '你好！我是你的智能厨房助手。' }];
     }
@@ -704,80 +752,48 @@ watch(() => props.pendingDish, (newDish) => {
 }, { immediate: true })
 
 const sendMessage = async (val = null) => {
-  // 1. 获取文本并清空输入框
-  const text = (val && typeof val === 'string') ? val : userInput.value;
-  if (!text || !text.trim() || loading.value) return;
-
-  userInput.value = '';
-
-  // 2. 展示用户气泡
-  messages.value.push({ role: 'user', content: text });
-
-  // 3. 开启加载状态
-  loading.value = true;
-  await scrollToBottom();
-
+  const text=typeof val==='string'?val:userInput.value, requestedUser=readUserId()
+  if (!text?.trim() || !requestedUser) return
+  const version=++recipeRequestVersion
+  recipeController?.abort();recipeController=new AbortController()
+  lastRecipePrompt.value=text;recipeError.value='';loading.value=true
+  messages.value.push({role:'user',content:text})
   try {
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-
-    // 4. 发起标准的 Axios 请求 (不再使用 fetch 流)
-    const res = await axios.get(`${API_BASE_URL}/recommend-recipe`, {
-      params: {
-        user_prompt: text,
-        user_id: user.id,
-        save_history: true
-      }
-    });
-
-    if (res.data.status === 'success') {
-      const recipe = res.data.recipe;
-
-      // 5. 将 AI 回复推入列表
-      messages.value.push({
-        role: 'assistant',
-        content: `为你准备好了：${recipe.dish_name}`,
-        recipe: recipe,
-        missing: recipe.missing || []
-      });
-    } else {
-      messages.value.push({ role: 'assistant', content: res.data.message });
-    }
-  } catch (e) {
-    console.error("请求失败:", e);
-    messages.value.push({ role: 'assistant', content: '抱歉，连接服务器失败。' });
-  } finally {
-    loading.value = false; // 结束加载
-    await scrollToBottom();
-  }
-};
+    const res=await axios.get(`${API_BASE_URL}/recommend-recipe`,{params:{user_id:requestedUser,user_prompt:text,save_history:true},signal:recipeController.signal,timeout:45000})
+    if (!pageActive || version!==recipeRequestVersion || readUserId()!==requestedUser) return
+    if(res.data?.status!=='success')throw new Error(res.data?.message || '菜谱服务未返回成功结果')
+    const recipe=normalizeRecipe(res.data.recipe)
+    messages.value.push({role:'assistant',content:`为你准备好了：${recipe.dish_name}`,recipe,missing:recipe.missing})
+    if(userInput.value===text)userInput.value=''
+  } catch(error) {
+    if(pageActive && version===recipeRequestVersion && readUserId()===requestedUser && error.code!=='ERR_CANCELED') recipeError.value=error.code==='ECONNABORTED'?'菜谱请求超时，请重试':error.message || '菜谱请求失败'
+  } finally {if(version===recipeRequestVersion){loading.value=false;await scrollToBottom()}}
+}
+const recipeUserChanged = () => {
+  if(readUserId()!==userId){suspendCookingStores();recipeRequestVersion++;recipeController?.abort();messages.value=[];recipeError.value='';loading.value=false;stopNavigation();navigationVisible.value=false}
+}
+onMounted(()=>window.addEventListener('storage',recipeUserChanged))
+onUnmounted(()=>{pageActive=false;recipeRequestVersion++;recipeController?.abort();window.removeEventListener('storage',recipeUserChanged)})
 
 // --- 导航与消耗逻辑 ---
-const startNavigation = (recipe) => {
-  clearPreloadedVoice()
-  activeRecipe.value = recipe
-  currentStepIdx.value = 0
-  isCookingPaused.value = false
-  navigationVisible.value = true
-  initVoiceRecognition()
-  runStep()
+const restoreCooking = () => {cookingStore.ready=true;navigationVisible.value=true;refreshSession();startStepTimer()}
+const startNavigation = async recipe => {
+  try {
+    recipe=normalizeRecipe(recipe)
+    if(session.value?.status==='active')await ElMessageBox.confirm('开始新的菜谱将替换当前烹饪记录，是否继续？','替换烹饪',{confirmButtonText:'替换',cancelButtonText:'保留当前'})
+    clearPreloadedVoice();cookingStore.engine.start(recipe,true);cookingStore.ready=true;refreshSession();navigationVisible.value=true;startStepTimer();runStep()
+  } catch(error) {if(error!=='cancel'&&error!=='close')recipeError.value=error.message}
 }
-
-const startStepTimer = () => {
-  if (timer) clearInterval(timer)
-  timer = setInterval(() => {
-    if (!isCookingPaused.value && timeLeft.value > 0) timeLeft.value--
-  }, 1000)
-}
+const startStepTimer = () => {if(timer)clearInterval(timer);timer=setInterval(()=>{tick.value=Date.now()},250)}
+onMounted(()=>{if(cookingStore.ready && session.value?.status==='active')restoreCooking()})
 
 // 修改 runStep 函数
-const runStep = async () => {
+const runCloudStep = async () => {
+  await stopSystemSpeech(); await stopListening()
   const requestVersion = ++voiceRequestVersion
   stopCurrentAudio()
-  isCookingPaused.value = false
 
   // 1. 物理级清理计时器
-  if (timer) { clearInterval(timer); timer = null; }
-
   const step = activeRecipe.value.steps[currentStepIdx.value];
   if (!step) return;
   const stepIndex = currentStepIdx.value;
@@ -785,20 +801,8 @@ const runStep = async () => {
   voicePlaybackState.value = 'loading';
   console.log(`[Voice] runStep version=${requestVersion} step=${stepNumber}`);
 
-  timeLeft.value = Number(step.time_estimate) || 60;
   // Cooking time must continue even when the optional speech service fails.
   startStepTimer();
-
-  // ✅ 核心修复 1：播报前彻底注销识别器，防止它在后台偷偷重启
-  if (recognition) {
-    try {
-      recognition.onend = null;
-      recognition.onerror = null;
-      recognition.stop();
-      isListening.value = false;
-      console.log("🔇 准备播报，已物理切断麦克风");
-    } catch(e) { console.log("麦克风停止中...") }
-  }
 
   // 2. 请求并播放语音
   let blobUrl = null;
@@ -859,14 +863,14 @@ const runStep = async () => {
     audio.onended = () => {
       if (currentAudio === audio) {
         stopCurrentAudio();
-        if (requestVersion === voiceRequestVersion) initVoiceRecognition();
+        
       }
     };
 
     audio.onerror = () => {
       if (currentAudio === audio) {
         stopCurrentAudio();
-        if (requestVersion === voiceRequestVersion) initVoiceRecognition();
+        
       }
     };
 
@@ -885,7 +889,7 @@ const runStep = async () => {
 
     voicePlaybackState.value = 'playing';
 
-    void preloadNextStep(stepIndex);
+    // Online speech is requested only by the explicit fallback button.
   } catch (e) {
     if (discardStaleVoiceRequest(requestVersion)) {
       if (audio || blobUrl) discardStepAudio(audio, blobUrl);
@@ -893,110 +897,24 @@ const runStep = async () => {
     }
     stopCurrentAudio();
     console.error("语音播报全链路失败:", e);
-    initVoiceRecognition();
+    voiceMessage.value='在线播报不可用，步骤与计时不受影响';
   }
 };
 
-const setLongTimeReminder = (step, dishName) => {
-  const seconds = step.time_estimate
-  const minutes = Math.floor(seconds / 60)
-
-  ElNotification({
-    title: '定时提醒已开启',
-    message: `将在 ${minutes} 分钟后大声提醒您：${step.text.substring(0, 10)}...`,
-    type: 'success'
-  })
-
-  // 启动后台 setTimeout (即使关闭弹窗也会执行)
-  setTimeout(() => {
-    // 1. 播放闹钟铃声
-    const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3")
-    audio.loop = true
-    audio.play()
-
-    // 2. 弹出强提醒弹窗
-    ElMessageBox.alert(
-      `时间到啦！请进行下一步操作：${step.text}`,
-      `⏰ [${dishName}] 提醒`,
-      {
-        confirmButtonText: '关闭闹钟',
-        callback: () => audio.pause()
-      }
-    )
-  }, seconds * 1000)
-}
-
 const nextStep = async () => {
-  voiceRequestVersion++
-  stopCurrentAudio()
-  isCookingPaused.value = false
-  if (timer) { clearInterval(timer); timer = null; }
-
-  if (currentStepIdx.value < activeRecipe.value.steps.length - 1) {
-    currentStepIdx.value++
-    runStep()
-  } else {
-    try {
-      const used = activeRecipe.value.used_ingredients || []
-      if (used.length > 0) {
-        if (!userId) {
-          ElMessage.error('登录状态已失效，请重新登录')
-          navigationVisible.value = false
-          return
-        }
-        await axios.post(`${API_BASE_URL}/consume-ingredients`, used, {
-          params: { user_id: userId }
-        })
-      }
-      ElMessage.success("烹饪完成，库存已更新！")
-    } catch (e) { console.error(e) }
-    stopNavigation()
-    navigationVisible.value = false
+  silenceSpeech()
+  if(isLastStep.value) {
+    completionVisible.value=true;silenceSpeech()
+    return
   }
+  voiceRequestVersion++;stopCurrentAudio();cookingStore.engine.move(1);refreshSession();runStep()
 }
-
-const prevStep = () => {
-  if (currentStepIdx.value > 0) {
-    voiceRequestVersion++
-    stopCurrentAudio()
-    isCookingPaused.value = false
-    if (timer) { clearInterval(timer); timer = null; }
-    currentStepIdx.value--
-    runStep()
-  }
-}
-
-const replayCurrentStep = () => {
-  isCookingPaused.value = false
-  runStep()
-}
-
+const prevStep = () => {if(currentStepIdx.value>0){silenceSpeech();voiceRequestVersion++;stopCurrentAudio();cookingStore.engine.move(-1);refreshSession();runStep()}}
+const replayCurrentStep = () => runStep()
 const toggleVoicePlayback = async () => {
-  if (!navigationVisible.value) return
-  if (voicePlaybackState.value === 'playing') {
-    isCookingPaused.value = true
-    if (timer) { clearInterval(timer); timer = null }
-    if (currentAudio) {
-      try { currentAudio.pause() } catch (error) { console.warn('暂停语音失败:', error) }
-    }
-    voicePlaybackState.value = 'paused'
-    return
-  }
-
-  if (voicePlaybackState.value === 'paused' && currentAudio) {
-    try {
-      isCookingPaused.value = false
-      await currentAudio.play()
-      voicePlaybackState.value = 'playing'
-      startStepTimer()
-    } catch (error) {
-      console.warn('继续语音失败，重新播报当前步骤:', error)
-      runStep()
-    }
-    return
-  }
-
-  isCookingPaused.value = false
+  if(voicePlaybackState.value==='playing' && !currentAudio){await stopSystemSpeech();voicePlaybackState.value='paused';voiceMessage.value='系统播报已暂停，再次播放将从本步开头播报';return}
+  if(voicePlaybackState.value==='playing' && currentAudio){currentAudio.pause();voicePlaybackState.value='paused';return}
+  if(voicePlaybackState.value==='paused' && currentAudio){try{await currentAudio.play();voicePlaybackState.value='playing'}catch{runStep()}return}
   runStep()
 }
 
@@ -1065,95 +983,21 @@ const orderDelivery = (dishName) => {
   }).catch(() => {});
 };
 
-// --- 语音识别与定时器 ---
-const initVoiceRecognition = () => {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) return;
-
-  if (recognition) {
-     try { recognition.stop(); } catch(e) {}
-  }
-
-  recognition = new SpeechRecognition();
-  recognition.continuous = true;
-  recognition.lang = 'zh-CN';
-
-  recognition.onstart = () => {
-    isListening.value = true;
-    console.log("🎙️ 麦克风已就绪...");
-  };
-
-  recognition.onresult = (event) => {
-    const text = event.results[event.results.length - 1][0].transcript.trim();
-    console.log("👂 听到了:", text);
-    if (text.includes("下一步") || text.includes("下一位")) {
-      nextStep();
-    }
-  };
-
-  recognition.onerror = (event) => {
-    console.warn("语音识别详情错误:", event.error);
-    if (event.error === 'aborted') {
-      // ✅ 如果是由于系统原因被切断，不要立即重启，设为 False
-      isListening.value = false;
-    }
-  };
-
-  // 只有在弹窗还开着的情况下，非主动停止才尝试重启
-  recognition.onend = () => {
-    if (navigationVisible.value && isListening.value) {
-      setTimeout(() => {
-        try { recognition.start(); } catch(e) {}
-      }, 1000); // 延迟1秒重启，给硬件喘息时间
-    } else {
-      isListening.value = false;
-    }
-  };
-
-  try {
-    recognition.start();
-  } catch (e) {
-    console.error("启动失败:", e);
-  }
-};
-
-const stopNavigation = () => {
-  voiceRequestVersion++
-  stopCurrentAudio()
-  clearPreloadedVoice()
-  isCookingPaused.value = false
-
-  if (timer) { clearInterval(timer); timer = null; }
-
-  if (recognition) {
-    console.log("正在销毁识别实例...");
-    isListening.value = false; // 先设为 false 防止 onend 自动重启
-    recognition.onend = null;
-    recognition.onerror = null;
-    try { recognition.stop(); } catch(e) {}
-    recognition = null;
-  }
-};
-
-const setReminder = (step, dishName) => {
-  const seconds = step.time_estimate || 0
-  const reminder = {
-    id: Date.now(), dishName, stepText: getStepText(step),
-    timer: setTimeout(() => triggerAlarm(reminder), seconds * 1000)
-  }
-  activeReminders.value.push(reminder)
-  ElNotification.success({ title: '提醒已设置', message: `${Math.floor(seconds/60)}分钟后提醒` })
+const silenceSpeech = () => {voiceRequestVersion++;stopCurrentAudio();stopSystemSpeech();stopListening();voicePlaybackState.value='idle'}
+const stopNavigation = () => {silenceSpeech();clearPreloadedVoice();if(timer){clearInterval(timer);timer=null}}
+const foregroundVoice = () => {if(document.hidden)silenceSpeech()}
+onMounted(()=>document.addEventListener('visibilitychange',foregroundVoice))
+onUnmounted(()=>document.removeEventListener('visibilitychange',foregroundVoice))
+const runStep = async () => {
+  stopListening()
+  const version=++voiceRequestVersion;stopCurrentAudio();voiceMessage.value='';voicePlaybackState.value='loading'
+  try{await speakSystem(`第${currentStepIdx.value+1}步：${currentStepText.value}`,state=>{if(version===voiceRequestVersion){voicePlaybackState.value=state==='error'?'idle':state;if(state==='error')voiceMessage.value='系统播报失败，可手动重试在线播报'}})}
+  catch(error){if(version===voiceRequestVersion){voicePlaybackState.value='idle';voiceMessage.value=error.message}}
 }
-
-const triggerAlarm = (reminder) => {
-  const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3")
-  audio.loop = true; audio.play()
-  ElMessageBox.confirm(`[${reminder.dishName}] 阶段完成！内容：${reminder.stepText}`, '⏰ 时间到', {
-    confirmButtonText: '确定', showCancelButton: false, type: 'warning'
-  }).then(() => {
-    audio.pause()
-    activeReminders.value = activeReminders.value.filter(r => r.id !== reminder.id)
-  })
+const executeVoiceCommand = command => {
+  if(!navigationVisible.value || readUserId()!==userId)return
+  const actions={next:nextStep,previous:prevStep,repeat:replayCurrentStep,pauseTimer,resumeTimer,startTimer:()=>{if(currentStepDuration.value>0){timerSeconds.value=currentStepDuration.value;setManualTimer()}else voiceMessage.value='本步未提供时长，请填写手动计时秒数并确认开始'},temperature:()=>{voiceMessage.value=currentTemperature.value===null?'暂无有效实时温度，请检查设备与测量状态':`${thermalReplaying.value?'回放数据':'当前测量'}：${currentTemperature.value.toFixed(1)}℃；${temperatureLevel.value.status}`}}
+  actions[command]?.()
 }
 
 onUnmounted(stopNavigation)
@@ -1161,6 +1005,18 @@ onUnmounted(cleanupTemperatureDevice)
 </script>
 
 <style scoped>
+.device-diagnostics{margin:12px 0;padding:16px;border:1px solid #dce6df;border-radius:16px;background:#fff;color:#315340;font-size:13px;line-height:1.7}
+.device-diagnostics summary{cursor:pointer;font-weight:600}
+.device-diagnostics button{min-height:42px;padding:8px 10px;margin:4px 4px 4px 0;border:1px solid #c7d6cb;border-radius:9px;background:#eff5f0;color:#284b37;font:inherit}
+.chef-state-card{padding:16px;margin:12px 0;border:1px solid #dce6df;border-radius:16px;background:white;line-height:1.6}
+.timer-controls{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:10px 0;font-size:13px}
+.timer-controls label{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.timer-controls input{width:78px;min-height:40px;padding:6px;border:1px solid #c7d6cb;border-radius:9px;font:inherit;box-sizing:border-box}
+.timer-controls button,.chef-state-card button{min-height:42px;padding:8px 10px;border:1px solid #c7d6cb;border-radius:9px;background:#eff5f0;color:#284b37;font:inherit}
+
+.timer-controls { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0; }
+.timer-controls button,.timer-controls input { padding:8px; border:1px solid #cddbd3; border-radius:8px; background:#fff; color:#234c3b; }
+.timer-controls input { width:80px; }
 .ai-chef-container {
   height: calc(100vh - 70px);
   display: flex;
