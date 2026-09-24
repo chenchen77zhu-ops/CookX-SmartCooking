@@ -18,7 +18,7 @@
             </div>
             <div class="overview-metrics">
               <div><el-icon><KnifeFork /></el-icon><span>食材种类</span><strong>{{ inventoryKindCount }}<small>种</small></strong></div>
-              <div><el-icon><Box /></el-icon><span>库存总量</span><strong>{{ totalQuantity }}<small>份</small></strong></div>
+              <div><el-icon><Box /></el-icon><span>库存总量</span><strong>{{ totalQuantity }}<small>库存计数</small></strong></div>
               <div><el-icon><AlarmClock /></el-icon><span>即将过期</span><strong>{{ expiringCount }}<small>种</small></strong></div>
               <div><el-icon><WarningFilled /></el-icon><span>已过期</span><strong>{{ expiredCount }}<small>种</small></strong></div>
             </div>
@@ -171,7 +171,7 @@ import { saveDraft, recognitionItem } from '../services/recognitionDraft.js'
 import InventoryFields from '../components/InventoryFields.vue'
 import InventoryWriteStatus from '../components/InventoryWriteStatus.vue'
 import { blankItem, inventoryEditForm, serializeItem, inventoryErrorMessage } from '../services/inventoryFields.js'
-import { saveInventory, hasPendingWrite } from '../api/inventoryWrites.js'
+import { deleteInventory, saveInventory, hasPendingWrite } from '../api/inventoryWrites.js'
 import FreshnessCard from '../components/FreshnessCard.vue'
 import { getInventoryFreshness } from '../api/freshness.js'
 import { createFreshnessLoader, emptyFreshness, freshnessStatus } from '../services/inventoryFreshness.js'
@@ -640,29 +640,6 @@ const ingredientImages = {
   doubanjiang: doubanjiangImage
 }
 
-const estimatedMeasurePerItem = {
-  tomato: { value: 150, unit: 'g' },
-  potato: { value: 150, unit: 'g' },
-  carrot: { value: 100, unit: 'g' },
-  onion: { value: 150, unit: 'g' },
-  egg: { value: 60, unit: 'g' },
-  chicken: { value: 200, unit: 'g' },
-  lettuce: { value: 300, unit: 'g' },
-  broccoli: { value: 250, unit: 'g' },
-  rice: { value: 500, unit: 'g' },
-  milk: { value: 250, unit: 'ml' },
-  beef: { value: 200, unit: 'g' },
-  pork: { value: 200, unit: 'g' },
-  cabbage: { value: 500, unit: 'g' },
-  spinach: { value: 250, unit: 'g' },
-  tofu: { value: 300, unit: 'g' },
-  cilantro: { value: 50, unit: 'g' },
-  green_chili: { value: 50, unit: 'g' },
-  ginger: { value: 100, unit: 'g' },
-  kimchi: { value: 200, unit: 'g' },
-  doubanjiang: { value: 200, unit: 'g' }
-}
-
 const formatMeasure = (value, unit) => {
   if (typeof value === 'string' && /[a-zA-Z\u4e00-\u9fa5]/.test(value.trim())) return value.trim()
   const number = Number(value)
@@ -672,7 +649,7 @@ const formatMeasure = (value, unit) => {
 
 const getItemMeasureText = (item) => {
   const quantity = Number(item?.quantity)
-  const quantityText = `${Number.isFinite(quantity) ? quantity : 0} ${item?.quantity_unit || '份'}`
+  const quantityText = `${Number.isFinite(quantity) ? quantity : 0} ${item?.unit || item?.quantity_unit || '库存计数'}`
 
   const actualWeight = item?.weight_g ?? item?.grams
   if (actualWeight != null) return `${quantityText} · ${formatMeasure(actualWeight, 'g')}`
@@ -683,10 +660,6 @@ const getItemMeasureText = (item) => {
   if (item?.amount != null && item?.unit) return formatMeasure(item.amount, ` ${item.unit}`)
   if (item?.unit && item.unit !== '份') return `${Number.isFinite(quantity) ? quantity : 0} ${item.unit}`
 
-  const estimate = estimatedMeasurePerItem[convertCnToEn(item?.name)]
-  if (estimate && Number.isFinite(quantity) && quantity > 0) {
-    return `${quantityText} · 约 ${formatMeasure(quantity * estimate.value, estimate.unit)}`
-  }
   return quantityText
 }
 
@@ -833,7 +806,7 @@ async function persistForm(editing) {
     if (payload && editing && !Object.keys(payload).length) { editDialogVisible.value = false; return }
     inventoryReady.value = false; inventoryRevision.value++
     quickVersion++; quickRecipes.value = []
-    await saveInventory(userId, editing ? payload : payload && [payload], editing ? editingOriginal.value.id : null)
+    await saveInventory(userId, editing ? payload : payload && [payload], editing ? editingOriginal.value.id : null, false, editing ? editingOriginal.value._revision : null)
     if (currentUserId.value !== userId) return
     pendingWrite.value = false
     if (editing) editDialogVisible.value = false
@@ -864,9 +837,7 @@ const removeItem = async (id) => {
 
     // 2. 发送请求
     // 注意：Axios DELETE 的参数放在第二个参数的 params 里
-    const res = await axios.delete(`${API_BASE_URL}/inventory/${id}`, {
-      params: { user_id: userId }
-    });
+    const res = await deleteInventory(userId,id,inventory.value.find(row=>String(row.id)===String(id))?._revision);
 
     if (res.data.status === 'success') {
       ElMessage.success('已移出冰箱');
@@ -882,7 +853,7 @@ const removeItem = async (id) => {
   } catch (error) {
     if (error !== 'cancel') {
       console.error("删除出错:", error);
-      ElMessage.error('网络错误，请重试');
+      ElMessage.error(inventoryErrorMessage(error));
     }
   }
 }

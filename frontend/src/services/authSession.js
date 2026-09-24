@@ -2,8 +2,9 @@ import axios from 'axios'
 import { BACKEND_BASE_URL, API_BASE_URL } from '../config/backend'
 
 const KEY='cookx:session:v1'
+const sessionOrigin=()=>new URL(BACKEND_BASE_URL||window.location.origin,window.location.href).origin
 export function readSession() {
-  try { const s=JSON.parse(sessionStorage.getItem(KEY)||'null'); return s?.expires_at*1000>Date.now()?s:null } catch { return null }
+  try { const s=JSON.parse(sessionStorage.getItem(KEY)||'null'); return s?.expires_at*1000>Date.now()&&s.origin===sessionOrigin()?s:null } catch { return null }
 }
 export function clearSession() {
   sessionStorage.removeItem(KEY)
@@ -12,7 +13,7 @@ export function clearSession() {
 }
 export function saveSession(data) {
   sessionStorage.removeItem(KEY)
-  if(data.access_token) sessionStorage.setItem(KEY,JSON.stringify({access_token:data.access_token,expires_at:data.expires_at,user_id:data.user.id}))
+  if(data.access_token) sessionStorage.setItem(KEY,JSON.stringify({access_token:data.access_token,expires_at:data.expires_at,user_id:data.user.id,origin:sessionOrigin()}))
   localStorage.setItem('user',JSON.stringify(data.user))
   window.dispatchEvent(new Event('storage'))
 }

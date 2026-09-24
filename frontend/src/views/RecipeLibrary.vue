@@ -17,10 +17,11 @@ import '../assets/business.css'
 const props=defineProps({onlyFavorites:Boolean}),router=useRouter(),route=useRoute(),kind=ref(props.onlyFavorites?'favorite':'standard'),items=ref([]),checked=ref(null)
 const labels={standard:'标准菜谱',history:'我的历史',favorite:'我的收藏',copy:'独立副本',community:'社区菜谱',menu:'已保存菜单'},statuses={missing:'库存未找到该食材，请准备后再开始',needs_freshness_check:'存在同名库存，但日期或鲜度需核查，请检查实物',needs_quantity_check:'找到可评估批次，仍需手动核对数量与单位'}
 const {pending,busy,error,send,retry}=usePendingCommand('recipes',async result=>{await load();if(result.copy)await check(result.copy.id)})
-async function load(){items.value=[];try{items.value=(await businessApi('/recipes/sources?kind='+kind.value)).items}catch(e){error.value=apiError(e)}}
+let loadRevision=0,checkRevision=0
+async function load(){const version=++loadRevision;checkRevision++;items.value=[];checked.value=null;try{const result=await businessApi('/recipes/sources?kind='+kind.value);if(version===loadRevision)items.value=result.items}catch(e){if(version===loadRevision)error.value=apiError(e)}}
 function source(item){return {source_type:kind.value,source_id:item.id,expected_source_version:String(item.source_version)}}
 const clone=item=>send('/recipes/copies','post',source(item)),favorite=item=>send('/recipes/favorites','post',source(item)),removeFavorite=item=>send('/recipes/favorites/'+item.id,'delete',{expected_version:item.version})
-async function check(id){checked.value=null;try{checked.value=await businessApi('/recipes/copies/'+id+'/check')}catch(e){error.value=apiError(e)}}
+async function check(id){const version=++checkRevision;checked.value=null;try{const result=await businessApi('/recipes/copies/'+id+'/check');if(version===checkRevision)checked.value=result}catch(e){if(version===checkRevision)error.value=apiError(e)}}
 function prepare(){try{const copy=checked.value.copy;queueRecipeDraft(readUserId(),{...copy.recipe,cookx_copy_id:copy.id,source_meta:copy.source,copy_version:copy.version});router.push('/home?tab=AiChef')}catch(e){error.value=e.message}}
 onMounted(async()=>{await load();if(route.query.copy)await check(String(route.query.copy))})
 </script>

@@ -48,12 +48,13 @@
           还没有账号？
           <router-link to="/register" class="link">立即注册</router-link>
         </div>
-      </el-form>
+      </el-form><ServerSettings/>
     </div>
   </div>
 </template>
 
 <script setup>
+import ServerSettings from '../components/ServerSettings.vue'
 import { saveSession, clearSession } from '../services/authSession'
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'

@@ -103,7 +103,7 @@ jobs:
           trap 'kill "$BACKEND_PID" "$FRONTEND_PID" 2>/dev/null || true' EXIT
           python - <<'PY'
           import time, urllib.request
-          for address in ['http://127.0.0.1:8000/', 'http://127.0.0.1:4173/']:
+          for address in ['http://127.0.0.1:8000/', 'http://127.0.0.1:8001/', 'http://127.0.0.1:4173/']:
               for attempt in range(60):
                   try:
                       with urllib.request.urlopen(address, timeout=1) as response:
@@ -133,6 +133,8 @@ jobs:
           node frontend/scripts/browser-challenges.cjs
           node frontend/scripts/browser-planning.cjs
           node frontend/scripts/browser-learning.cjs
+          node frontend/scripts/browser-full-integration.cjs
+          node frontend/scripts/browser-server-config.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -153,6 +155,7 @@ jobs:
             tmp/challenges/
             tmp/planning/
             tmp/learning/
+            tmp/integration/
             /tmp/cookx-sqlite.log
             /tmp/cookx-backend.log
             /tmp/cookx-frontend.log

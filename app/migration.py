@@ -91,3 +91,22 @@ def backup_database(destination):
         src.backup(target)
         if target.execute('PRAGMA integrity_check').fetchone()[0]!='ok': raise ValueError('备份完整性检查失败')
     return {'status':'success','backup':str(destination)}
+
+def restore_database(source,destination):
+    """Restore to a NEW path only. Never overwrite post-migration writes."""
+    source=Path(source).resolve();destination=Path(destination).resolve()
+    if not source.is_file():raise ValueError('备份文件不存在')
+    if destination.exists():raise ValueError('恢复目标已存在；请使用新路径，禁止覆盖现有写入')
+    with sqlite3.connect(source.as_uri()+'?mode=ro',uri=True) as src:
+        if src.execute('PRAGMA integrity_check').fetchone()[0]!='ok':raise ValueError('备份完整性检查失败')
+        if src.execute("SELECT value FROM meta WHERE key='ready'").fetchone()!=('1',):raise ValueError('备份不是已启用的 CookX 数据库')
+        destination.parent.mkdir(parents=True,exist_ok=True)
+        # Exclusive placeholder prevents an accidental overwrite race with another operator.
+        with destination.open('xb'):pass
+        try:
+            with sqlite3.connect(destination) as target:
+                src.backup(target)
+                if target.execute('PRAGMA integrity_check').fetchone()[0]!='ok':raise ValueError('恢复后的完整性检查失败')
+        except Exception:
+            destination.unlink(missing_ok=True);raise
+    return {'status':'restored_to_new_path','database':str(destination),'note':'请停止服务并核对数据后显式切换 COOKX_DATABASE；原数据库保持不变'}

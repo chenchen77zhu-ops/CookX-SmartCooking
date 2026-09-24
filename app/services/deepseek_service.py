@@ -9,7 +9,7 @@ load_dotenv()
 client = AsyncOpenAI(
     api_key=os.getenv("DEEPSEEK_API_KEY"),
     base_url="https://api.deepseek.com"
-)
+) if os.getenv("DEEPSEEK_API_KEY") else None
 
 # 之前的翻译映射表保持不变
 TRANSLATE_MAP = {
@@ -19,6 +19,7 @@ TRANSLATE_MAP = {
 }
 
 async def get_recipe_suggestion(inventory, user_prompt):
+    if client is None:raise RuntimeError("AI 菜谱服务未配置，可先使用标准菜谱复刻与本地菜单规划")
     # 1. 翻译食材
     inventory_cn = [TRANSLATE_MAP.get(i.lower().strip(), i) for i in inventory]
     inventory_str = "、".join(inventory_cn)

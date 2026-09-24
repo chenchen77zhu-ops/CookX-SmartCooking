@@ -6,11 +6,12 @@
       <button type="button" class="account-row" @click="router.push({ path: '/profile', query: { edit: '1' } })"><span><el-icon><EditPen /></el-icon></span><div><b>编辑个人资料</b><small>修改昵称、手机号和头像</small></div><el-icon><ArrowRight /></el-icon></button>
       <div class="account-note"><el-icon><Lock /></el-icon><p><b>密码管理</b><span>当前项目尚未提供修改密码接口，因此未展示虚假操作入口。</span></p></div>
       <button type="button" class="delete-account" @click="deleteAccount"><el-icon><Delete /></el-icon>注销账户</button>
-    </section></main>
+    </section><ServerSettings/></main>
   </div>
 </template>
 
 <script setup>
+import ServerSettings from '../components/ServerSettings.vue'
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, ArrowRight, Delete, EditPen, Lock, User } from '@element-plus/icons-vue'

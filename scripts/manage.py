@@ -7,7 +7,7 @@ from pathlib import Path
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from app.storage import store, database_path, encode
-from app.migration import inspect_legacy, migrate, backup_database
+from app.migration import inspect_legacy, migrate, backup_database, restore_database
 from app.models.user import create_user, USERS_FILE
 from app.auth import create_invitation
 
@@ -21,6 +21,8 @@ def run():
         if command=='migrate': cmd.add_argument('--server-stopped',action='store_true',required=True);cmd.add_argument('--backup-dir',default='backups')
     invite=commands.add_parser('invite');invite.add_argument('--uses',type=int,default=1)
     backup=commands.add_parser('backup');backup.add_argument('destination')
+    restore=commands.add_parser('restore');restore.add_argument('source');restore.add_argument('destination');restore.add_argument('--server-stopped',action='store_true',required=True)
+    admin=commands.add_parser('admin');admin.add_argument('--username',required=True)
     args=parser.parse_args()
     if args.database: os.environ['COOKX_DATABASE']=args.database
     if args.command=='init':
@@ -42,6 +44,12 @@ def run():
     elif args.command=='invite':
         if not 1<=args.uses<=100: raise ValueError('邀请次数应为 1–100')
         result={'invitation_code':create_invitation('operator',uses=args.uses)}
+    elif args.command=='restore':result=restore_database(args.source,args.destination)
+    elif args.command=='admin':
+        with store.transaction():
+            users=store.read(USERS_FILE,[]);user=next((u for u in users if u.get('username',u.get('nickname'))==args.username),None)
+            if user is None:raise ValueError('账号不存在')
+            user['role']='admin';store.write(USERS_FILE,users);result={'status':'administrator_assigned','user_id':user['id']}
     else: result=backup_database(args.destination)
     print(json.dumps(result,ensure_ascii=False,indent=2))
 

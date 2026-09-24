@@ -20,7 +20,10 @@ from fastapi import Body
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from ultralytics import YOLO
+try:
+    from ultralytics import YOLO
+except ImportError:
+    YOLO=None
 from PIL import Image
 from pydantic import BaseModel, Field, field_validator, model_validator
 from datetime import datetime, timedelta
@@ -71,6 +74,10 @@ from app.domain.planning import router as planning_router
 app.include_router(planning_router)
 from app.domain.learning import router as learning_router
 app.include_router(learning_router)
+from app.domain.family_consumption import router as family_consumption_router
+app.include_router(family_consumption_router)
+from app.domain.preferences import router as preferences_router
+app.include_router(preferences_router)
 USER_DATA_BASE = "app/data/users"
 # --- 1. 配置与初始化 ---
 UPLOAD_DIR = "app/static/uploads"
@@ -321,7 +328,10 @@ app.add_middleware(
 )
 
 # 预加载模型 (建议放在全局避免重复加载)
-model = YOLO('app/models/best.pt')
+model=None
+if YOLO is not None:
+    try:model=YOLO('app/models/best.pt')
+    except Exception as error:print('本地视觉模型未加载：'+type(error).__name__+'；库存、菜单及其他本地功能仍可用')
 
 # 挂载静态资源
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
@@ -402,7 +412,7 @@ def get_user_path(user_id: str, filename: str):
     return os.path.join(user_dir, filename)
 
 def get_current_inventory_names(user_id: str):
-    return list({row["name"] for row in storage.read(get_user_path(user_id, "inventory.json"), [])})
+    return sorted(safe_inventory_names(storage.read(get_user_path(user_id, "inventory.json"), []),datetime.now()))
 
 def get_user_file_path(user_id: str, file_name: str):
     """为每个用户创建独立文件夹：app/data/users/{user_id}/inventory.json"""
@@ -638,7 +648,33 @@ def inventory_guard(function):
         _require_existing_user(user_id)
         path = os.path.join(USER_DATA_BASE, str(user_id), "inventory.json")
         with storage.session(path):
-            return await function(*args, **kwargs)
+            context=values.get('request_context')
+            key=context.headers.get('Idempotency-Key') if context is not None and storage.is_sqlite else None
+            fingerprint=None
+            if key:
+                from app.storage import encode
+                from app.services.inventory_transactions import digest
+                if not re.fullmatch(r'[A-Za-z0-9_-]{8,128}',key):raise HTTPException(422,'操作凭证格式无效')
+                def serial(value):
+                    if isinstance(value,list):return [serial(v) for v in value]
+                    return value.model_dump(mode='json') if hasattr(value,'model_dump') else value
+                fingerprint=digest({'operation':function.__name__,'values':{k:serial(v) for k,v in values.items() if k!='request_context'},'if_match':context.headers.get('If-Match')})
+                with storage.transaction() as db:
+                    prior=db.execute('SELECT fingerprint,payload FROM receipts WHERE scope=? AND key=?',(user_id,key)).fetchone()
+                    if prior:
+                        if prior['fingerprint']!=fingerprint:raise HTTPException(409,'原操作凭证不能用于不同内容')
+                        return {**json.loads(prior['payload']),'replayed':True}
+            if storage.is_sqlite and function.__name__ in ('delete_item','update_item'):
+                from app.services.inventory_transactions import digest
+                expected=context.headers.get('If-Match') if context is not None else None
+                if not expected:raise HTTPException(428,'请刷新库存并使用支持版本核对的客户端')
+                existing=next((r for r in storage.read(path,[]) if str(r['id'])==str(values['item_id'])),None)
+                if existing is None:raise HTTPException(404,'库存项目不存在')
+                if digest(existing)!=expected.strip('"'):raise HTTPException(409,'批次已被修改，请刷新后重新核对')
+            result=await function(*args, **kwargs)
+            if key:
+                with storage.transaction() as db:db.execute('INSERT INTO receipts VALUES(?,?,?,?)',(user_id,key,fingerprint,encode(result)))
+            return result
     return wrapped
 
 
@@ -689,7 +725,7 @@ def _confirmed_inventory_records(
 
 @app.post("/api/add-to-inventory")
 @inventory_guard
-async def add_to_inventory(items: List[InventoryCreateItem], user_id: str = Query(...)):
+async def add_to_inventory(items: List[InventoryCreateItem], user_id: str = Query(...), request_context: Request = None):
     """正式入库：按用户隔离，并强制补全日期"""
     _require_existing_user(user_id)
     try:
@@ -721,7 +757,7 @@ async def add_to_inventory(items: List[InventoryCreateItem], user_id: str = Quer
 
 @app.post("/api/inventory/confirm-recognition")
 @inventory_guard
-async def confirm_recognized_inventory(request: ConfirmRecognitionRequest):
+async def confirm_recognized_inventory(request: ConfirmRecognitionRequest, request_context: Request = None):
     """Persist user-confirmed candidates, then return real-time FreshFusion results."""
     _require_existing_user(request.user_id)
     path = os.path.join(USER_DATA_BASE, request.user_id, "inventory.json")
@@ -895,7 +931,15 @@ async def multi_objective_recommendations(request: RecommendationRequest):
     if not any(user.get("id") == request.user_id for user in get_all_users()):
         raise HTTPException(status_code=404, detail="用户不存在")
 
-    scoring_preferences = dict(request.preferences or {})
+    saved_preferences={}
+    if storage.is_sqlite:
+        from app.domain.preferences import scoring_preferences as read_scoring_preferences
+        saved_preferences=read_scoring_preferences(request.user_id)
+    scoring_preferences = {**saved_preferences,**dict(request.preferences or {})}
+    if saved_preferences.get('disliked_ingredients'):
+        incoming=scoring_preferences.get('disliked_ingredients',[])
+        if isinstance(incoming,str):incoming=re.split('[,，、\n]',incoming)
+        scoring_preferences['disliked_ingredients']=list(dict.fromkeys(saved_preferences['disliked_ingredients']+(incoming if isinstance(incoming,list) else [])))
     scoring_preferences.pop("budget", None)
     scoring_preferences.pop("difficulty_target", None)
     scoring_preferences.pop("nutrition_target", None)
@@ -1112,6 +1156,7 @@ class ConsumeBatchItem(BaseModel):
     item_id: str = Field(min_length=1, max_length=128)
     quantity: int = Field(strict=True, gt=0)
     expected_quantity: int = Field(strict=True, gt=0)
+    expected_revision: Optional[str] = Field(None,min_length=64,max_length=64)
 
 
 class ConsumeBatchRequest(BaseModel):
@@ -1133,7 +1178,7 @@ async def consume_inventory_batches(request: ConsumeBatchRequest):
     path = os.path.join(USER_DATA_BASE, request.user_id, "inventory.json")
     try:
         return (storage.consume if storage.is_sqlite else consume_batches)(path, request.idempotency_key,
-                               [row.model_dump() for row in request.items], _write_inventory_atomic)
+                               [row.model_dump(exclude_none=True) for row in request.items], _write_inventory_atomic)
     except OSError as exc:
         raise HTTPException(500, "扣减响应未确认，请使用原幂等键查询结果") from exc
 
@@ -1195,6 +1240,9 @@ async def get_inventory(user_id: str):  # ✅ 必须有这个参数
     try:
         data = storage.read(path, [])
 
+        if storage.is_sqlite and isinstance(data,list):
+            from app.services.inventory_transactions import digest
+            return [{**row,"_revision":digest(row)} for row in data]
         return data if isinstance(data, list) else []
     except (OSError, json.JSONDecodeError) as e:
         print(f"读取失败: {e}")
@@ -1203,7 +1251,7 @@ async def get_inventory(user_id: str):  # ✅ 必须有这个参数
 
 @app.delete("/api/inventory/{item_id}")
 @inventory_guard
-async def delete_item(item_id: str, user_id: str):  # ✅ 确保接收这两个参数
+async def delete_item(item_id: str, user_id: str, request_context: Request = None):  # ✅ 确保接收这两个参数
     _require_existing_user(user_id)
     try:
         path = os.path.join(USER_DATA_BASE, str(user_id), "inventory.json")
@@ -1236,7 +1284,7 @@ async def delete_item(item_id: str, user_id: str):  # ✅ 确保接收这两个�
 
 @app.put("/api/inventory/{item_id}")
 @inventory_guard
-async def update_item(item_id: str, item_data: InventoryUpdateItem, user_id: str):
+async def update_item(item_id: str, item_data: InventoryUpdateItem, user_id: str, request_context: Request = None):
     _require_existing_user(user_id)
     path = os.path.join(USER_DATA_BASE, str(user_id), "inventory.json")
     if not storage.exists(path):

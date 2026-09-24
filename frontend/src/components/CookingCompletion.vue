@@ -1,5 +1,5 @@
 <template>
-<section class="completion" aria-label="完成核对">
+<SharedCookingCompletion v-if="session.recipe?.inventory_scope?.family_id" :session="session" :engine="engine" @changed="$emit('changed')" @close="$emit('close')"/><section v-else class="completion" aria-label="完成核对">
  <h3>完成烹饪 · 实际使用清单</h3><p>请勾选实际使用的库存记录。按批次填写实际使用的库存计数，不代表克数或份量换算。</p>
  <p v-if="message" role="status">{{ message }}</p>
  <button :disabled="busy" @click="load">重新读取库存</button>
@@ -12,6 +12,7 @@
 </section>
 </template>
 <script setup>
+import SharedCookingCompletion from './SharedCookingCompletion.vue'
 import {completionSync} from '../api/completions'
 import {ref,computed,onMounted,onBeforeUnmount} from 'vue'
 import {readInventory} from '../api/inventoryWrites.js'
@@ -32,7 +33,7 @@ function changed(){window.dispatchEvent(new CustomEvent('cookx:inventory-changed
 async function submit(){if(!valid()||busy.value||locked.value)return;busy.value=true;completed();try{await consumption.submit(props.session.user,props.session.id,items.value.filter(i=>selected.value.includes(i.id)));props.engine.state.consumption='confirmed';props.engine.persist();if(valid())message.value='库存扣减已回读确认。'}catch(e){if(valid())message.value=e.message+'；烹饪已记录完成。'}finally{changed();if(valid()){readPending();busy.value=false;emit('changed')}}}
 async function retry(){if(!valid()||busy.value)return;busy.value=true;try{await consumption.retry(props.session.user);message.value='原凭证已确认，库存已重新读取。';if(valid()){props.engine.state.consumption='confirmed';props.engine.persist();changed()}}catch(e){if(valid())message.value=e.message}finally{if(valid()){readPending();busy.value=false;emit('changed')}}}
 async function reconcile(){if(!valid()||busy.value)return;busy.value=true;try{await consumption.reconcile(props.session.user);if(valid()){readPending();if(transaction.value.sessionId===props.session.id){props.engine.state.consumption='confirmed';props.engine.persist()}message.value='服务端原凭证已确认，当前库存已重新读取；其他设备后续修改不会触发再次扣减。';emit('changed');changed()}}catch(e){if(valid())message.value=e.message}finally{if(valid())busy.value=false}}
-onMounted(load);onBeforeUnmount(()=>{active=false;version++})
+onMounted(()=>{if(!props.session.recipe?.inventory_scope?.family_id)load()});onBeforeUnmount(()=>{active=false;version++})
 </script>
 <style scoped>
 .completion{padding:18px;margin:12px 0;background:white;border:1px solid #b8cbbf;border-radius:16px;line-height:1.7}.completion label{display:block;margin:8px 0}.completion button{padding:8px;margin:5px;border:1px solid #b8cbbf;border-radius:8px;background:#edf5ef;color:#244c36}.completion span{color:#97543a}.completion input[type=number]{display:block;width:85px;padding:8px;margin:5px 0;border:1px solid #b8cbbf;border-radius:7px}
