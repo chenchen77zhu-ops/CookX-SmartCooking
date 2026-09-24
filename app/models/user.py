@@ -65,6 +65,11 @@ def update_user(user_id, **kwargs):
 @atomic
 def delete_user(user_id):
     users=get_all_users()
+    if storage.is_sqlite:
+        from app.domain.common import listing,put
+        members=[m for m in listing('membership') if m['user_id']==user_id and m['active']]
+        if any(m['role']=='admin' for m in members): raise ValueError('请先移交家庭管理员，再注销账户')
+        for member in members: put('membership',member['id'],member['owner'],{**member,'active':False},member['version'])
     remaining=[u for u in users if u['id']!=user_id]
     if len(remaining)==len(users): return False
     storage.write(USERS_FILE,remaining)

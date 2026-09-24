@@ -26,12 +26,12 @@ const maskedPhone = computed(() => {
   return /^\d{11}$/.test(phone) ? `${phone.slice(0, 3)}****${phone.slice(-4)}` : (phone || '未设置手机号')
 })
 const deleteAccount = () => {
-  ElMessageBox.confirm('警告：注销后所有冰箱数据和对话记录将永久删除！', '风险提示', { confirmButtonText: '确认注销', type: 'danger' }).then(async () => {
+  ElMessageBox.confirm('注销后个人账号、库存和对话记录将删除，家庭共享记录由家庭保留。请先移交家庭管理员权限。', '风险提示', { confirmButtonText: '确认注销', type: 'danger' }).then(async () => {
     try {
       const response = await authApi.deleteAccount(user.value.id)
       if(response.data.status !== 'success') throw new Error('注销失败')
       clearSession()
-      ElMessage.success('账户已彻底注销')
+      ElMessage.success('账户已注销')
       router.push('/login')
     } catch (error) { ElMessage.error('注销失败') }
   }).catch(() => {})

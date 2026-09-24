@@ -124,6 +124,7 @@ jobs:
           node frontend/scripts/browser-online-v2.cjs
           node frontend/scripts/browser-preferences.cjs
           node frontend/scripts/browser-sqlite.cjs
+          node frontend/scripts/browser-households.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -135,6 +136,7 @@ jobs:
             tmp/copilot/
             tmp/online-v2/
             tmp/sqlite/
+            tmp/household/
             /tmp/cookx-sqlite.log
             /tmp/cookx-backend.log
             /tmp/cookx-frontend.log
