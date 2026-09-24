@@ -3,7 +3,7 @@
  <h3>完成烹饪 · 实际使用清单</h3><p>请勾选实际使用的库存记录。按批次填写实际使用的库存计数，不代表克数或份量换算。</p>
  <p v-if="message" role="status">{{ message }}</p>
  <button :disabled="busy" @click="load">重新读取库存</button>
- <label v-for="item in items" :key="item.id"><input v-model="selected" type="checkbox" :value="item.id" :disabled="busy || !!item.blocked || locked" />{{ item.name }}：{{ item.quantity }} → {{ Math.max(0,item.quantity-Number(item.consumeQuantity)) }} · 入库 {{ item.add_time || '未知' }} · 到期 {{ item.expiry_date || '未知' }} <span>{{ item.blocked }}</span><input v-model.number="item.consumeQuantity" type="number" min="1" :max="item.quantity" step="1" :aria-label="item.name+'使用数量（批次 '+item.id+'）'" :disabled="busy || locked || !!item.blocked" /></label>
+ <label v-for="item in items" :key="item.id"><input v-model="selected" type="checkbox" :value="item.id" :disabled="busy || !!item.blocked || locked" />{{ item.name }}：{{ item.quantity }} → {{ Math.max(0,item.quantity-Number(item.consumeQuantity)) }} · 批次 {{ String(item.id).slice(-6) }} · {{ item.storage_type || '储存未知' }} · 保质期 {{ item.shelf_life ?? '未知' }} 天 · 入库 {{ displayDate(item.add_time) }} · 到期 {{ displayDate(item.expiry_date) }} <span>{{ item.blocked }}</span><input v-model.number="item.consumeQuantity" type="number" min="1" :max="item.quantity" step="1" :aria-label="item.name+'使用数量（批次 '+item.id+'）'" :disabled="busy || locked || !!item.blocked" /></label>
  <button :disabled="busy" @click="finishOnly">{{ session.status==='completed'?'关闭核对':'仅记录完成，不扣库存' }}</button>
  <button v-if="!locked" :disabled="busy || !selected.length || !loaded" @click="submit">确认完成并扣减所选</button>
  <button v-if="uncertain" :disabled="busy" @click="reconcile">核对扣减结果（不重发）</button>
@@ -17,6 +17,7 @@ import {readInventory} from '../api/inventoryWrites.js'
 import {consumption} from '../api/consumption.js'
 import {consumptionPreview} from '../services/inventoryConsumption.js'
 import {readUserId} from '../services/recognitionDraft.js'
+const displayDate=value=>value && Number.isFinite(Date.parse(value))?new Date(value).toLocaleString('zh-CN',{hour12:false}):'未知'
 const props=defineProps({session:Object,engine:Object});const emit=defineEmits(['changed','close'])
 const items=ref([]),selected=ref([]),busy=ref(false),loaded=ref(false),message=ref(''),transaction=ref(null);let active=true,version=0
 const valid=()=>active && readUserId()===props.session.user
@@ -33,5 +34,5 @@ async function reconcile(){if(!valid()||busy.value)return;busy.value=true;try{aw
 onMounted(load);onBeforeUnmount(()=>{active=false;version++})
 </script>
 <style scoped>
-.completion{padding:18px;margin:12px 0;background:white;border:1px solid #b8cbbf;border-radius:16px;line-height:1.7}.completion label{display:block;margin:8px 0}.completion button{padding:8px;margin:5px;border:1px solid #b8cbbf;border-radius:8px;background:#edf5ef;color:#244c36}.completion span{color:#97543a}
+.completion{padding:18px;margin:12px 0;background:white;border:1px solid #b8cbbf;border-radius:16px;line-height:1.7}.completion label{display:block;margin:8px 0}.completion button{padding:8px;margin:5px;border:1px solid #b8cbbf;border-radius:8px;background:#edf5ef;color:#244c36}.completion span{color:#97543a}.completion input[type=number]{display:block;width:85px;padding:8px;margin:5px 0;border:1px solid #b8cbbf;border-radius:7px}
 </style>
