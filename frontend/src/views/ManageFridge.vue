@@ -655,8 +655,8 @@ const getItemMeasureText = (item) => {
   if (actualWeight != null) return `${quantityText} · ${formatMeasure(actualWeight, 'g')}`
   const actualVolume = item?.volume_ml ?? item?.ml
   if (actualVolume != null) return `${quantityText} · ${formatMeasure(actualVolume, 'ml')}`
-  if (item?.weight != null) return `${quantityText} · ${formatMeasure(item.weight, item.weight_unit || item.unit || 'g')}`
-  if (item?.volume != null) return `${quantityText} · ${formatMeasure(item.volume, item.volume_unit || item.unit || 'ml')}`
+  if (item?.weight != null) return `${quantityText} · ${formatMeasure(item.weight, item.weight_unit || item.unit || '单位未知')}`
+  if (item?.volume != null) return `${quantityText} · ${formatMeasure(item.volume, item.volume_unit || item.unit || '单位未知')}`
   if (item?.amount != null && item?.unit) return formatMeasure(item.amount, ` ${item.unit}`)
   if (item?.unit && item.unit !== '份') return `${Number.isFinite(quantity) ? quantity : 0} ${item.unit}`
 

@@ -56,3 +56,26 @@ def test_seven_day_breakfast_side_locked_and_recomputed_constraints():
     result=solve(cfg,[],all_prices());assert result['solver_status'] in ('OPTIMAL','FEASIBLE');audit(cfg,result,[])
     assert len(result['meals'])==21 and len(result['meals'][2]['dishes'])==3
     assert result['meals'][0]['dishes'][0]['recipe_id']=='plan-breakfast-tofu'
+
+def test_saved_menu_time_and_preferences_revalidation(sqlite_app,monkeypatch):
+    c,_=sqlite_app;u,h=signup(c,'revalidate-menu');family=post(c,h,'/households',name='时效家庭').json()['household']['id']
+    item=post(c,h,'/households/'+family+'/inventory',name='大米',unit='克',quantity=100,shelf_life=30).json()['item']
+    draft=post(c,h,'/planning/preview',**config(family_id=family,locks=[{'day':0,'meal':'lunch','role':'staple','recipe_id':'plan-rice'}])).json()['preview']
+    menu=post(c,h,'/planning/menus',preview_id=draft['id'],expected_version=1,name='时效菜单').json()['menu']
+    from app.domain.planning import revalidation_issues
+    assert not revalidation_issues(menu,[item])
+    assert revalidation_issues(menu,[item],datetime.now(timezone.utc)+timedelta(days=40))
+    import app.domain.planning as planning
+    monkeypatch.setattr(planning,'revalidation_issues',lambda *a:['原批次已经失效'])
+    r=post(c,h,'/households/'+family+'/shopping/generate',source_type='menu',source_id=menu['id']);assert r.status_code==409,r.text
+    assert c.get('/api/v3/planning/menus/'+menu['id']+'/check',headers=h).json()['revalidation_issues']==['原批次已经失效']
+    monkeypatch.setattr(planning,'revalidation_issues',revalidation_issues)
+    c.put('/api/v3/preferences',headers=h,json={'idempotency_key':key(),'expected_version':0,'values':{'dislikedIngredients':'鸡蛋'}})
+    preview=post(c,h,'/planning/preview',**config(locks=[{'day':0,'meal':'lunch','role':'main','recipe_id':'recipe_001'}])).json()['preview']
+    assert '鸡蛋' in preview['config']['avoid_ingredients'] and preview['result']['solver_status']=='INFEASIBLE'
+
+def test_tiny_quantity_is_not_rounded_up_or_divided_by_zero():
+    item={'id':'tiny','name':'大米','unit':'克','quantity':.000001,'add_time':datetime.now(timezone.utc).isoformat(),'shelf_life':20}
+    result=solve(config(locks=[{'day':0,'meal':'lunch','role':'staple','recipe_id':'plan-rice'}]),[item],[])
+    assert result['solver_status'] in ('OPTIMAL','FEASIBLE') and not result['inventory_allocations']
+
