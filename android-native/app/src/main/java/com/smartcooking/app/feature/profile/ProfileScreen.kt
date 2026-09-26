@@ -1,11 +1,21 @@
 package com.smartcooking.app.feature.profile
 
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.GroupAdd
+import androidx.compose.material.icons.outlined.Palette
+import com.smartcooking.app.ui.components.GroupedList
+import com.smartcooking.app.ui.components.GroupedRow
+import com.smartcooking.app.ui.components.NumberText
+import com.smartcooking.app.ui.components.SectionLabel
+import com.smartcooking.app.ui.components.SoftCard
+import com.smartcooking.app.ui.theme.Appearance
+import androidx.compose.foundation.layout.Arrangement
+
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -101,8 +111,13 @@ fun ProfileScreen(navigator: Navigator) {
     var showNotices by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
     var confirmLogout by remember { mutableStateOf(false) }
+    var appearance by remember { mutableStateOf(false) }
+    val openNotices by container.events.openNotices.collectAsStateWithLifecycle()
     androidx.compose.runtime.LaunchedEffect(Unit) {
         if (container.events.editProfile.value) { container.events.editProfile.value = false; editing = true }
+    }
+    androidx.compose.runtime.LaunchedEffect(openNotices) {
+        if (openNotices) { container.events.openNotices.value = false; showNotices = true; vm.loadNotices() }
     }
 
     ProfileContent(
@@ -115,7 +130,25 @@ fun ProfileScreen(navigator: Navigator) {
         onOpen = navigator::open,
         onKitchen = { navigator.tab(Routes.KITCHEN) },
         onLogout = { confirmLogout = true },
+        onAppearance = { appearance = true },
     )
+    if (appearance) CookXSheet("外观", { appearance = false }, subtitle = "默认浅色；实时厨房与烹饪页面始终使用深色摄影风格。") {
+        Appearance.options.forEach { (value, label) ->
+            Row(
+                Modifier.fillMaxWidth().clip(CookXShapes.Tile).pressable({
+                    Appearance.preference = value
+                    container.store.put(Appearance.KEY, value)
+                }).padding(vertical = 14.dp, horizontal = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(label, style = MaterialTheme.typography.titleMedium, color = CookX.Text, modifier = Modifier.weight(1f))
+                androidx.compose.material3.RadioButton(Appearance.preference == value, onClick = {
+                    Appearance.preference = value
+                    container.store.put(Appearance.KEY, value)
+                })
+            }
+        }
+    }
     if (showNotices) NotificationsSheet(state, { showNotices = false }) { id -> vm.markRead(id, messenger::show) }
     if (editing) session?.let { EditProfileSheet(it, vm, state) { editing = false } }
     if (confirmLogout) ConfirmDialog("退出登录", "确定要退出登录吗？", { confirmLogout = false; vm.logout(messenger::show) }, { confirmLogout = false }, confirmText = "退出")
@@ -132,78 +165,93 @@ fun ProfileContent(
     onOpen: (String) -> Unit,
     onKitchen: () -> Unit,
     onLogout: () -> Unit,
+    onAppearance: () -> Unit = {},
 ) {
     val user = session?.user
-    LazyColumn(Modifier.fillMaxSize().background(CookX.Bg), contentPadding = PaddingValues(bottom = 28.dp)) {
+    LazyColumn(Modifier.fillMaxSize().background(CookX.Bg), contentPadding = PaddingValues(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
-            HeroHeader(section = "我的", actions = { HeroIconButton(Icons.Outlined.NotificationsNone, "打开消息中心", onNotices, badge = state.unread > 0) }, bottomOverlap = 46) {
-                Spacer(Modifier.height(18.dp))
+            HeroHeader(section = "我的", actions = { HeroIconButton(Icons.Outlined.NotificationsNone, "打开消息中心", onNotices, badge = state.unread > 0) }, bottomOverlap = 0)
+        }
+        item {
+            SoftCard(Modifier.padding(horizontal = 20.dp).fillMaxWidth(), onClick = onEdit, padding = PaddingValues(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.pressable(onEdit)) {
-                        Avatar(user?.str("avatar"), 80.dp, Modifier.border(3.dp, Color.White.copy(alpha = 0.25f), CircleShape))
-                        Box(Modifier.align(Alignment.BottomEnd).size(26.dp).clip(CircleShape).background(CookX.Accent), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Outlined.Edit, "编辑资料", tint = Color.White, modifier = Modifier.size(14.dp))
+                    Box {
+                        Avatar(user?.str("avatar"), 64.dp)
+                        Box(Modifier.align(Alignment.BottomEnd).size(22.dp).clip(CircleShape).background(CookX.Accent), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Outlined.Edit, "编辑资料", tint = Color.White, modifier = Modifier.size(12.dp))
                         }
                     }
-                    Spacer(Modifier.width(16.dp))
+                    Spacer(Modifier.width(14.dp))
                     Column(Modifier.weight(1f)) {
-                        Kicker("COOKX MEMBER")
-                        Text(session?.displayName?.ifBlank { null } ?: "未设置昵称", color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.Bold)
-                        user?.str("username")?.let { Text("@$it", color = CookX.OnDarkMuted, fontSize = 13.sp) }
-                        Text("让烹饪更简单，让生活更美味", color = CookX.OnDarkMuted, fontSize = 11.5.sp, modifier = Modifier.padding(top = 2.dp))
+                        Text(session?.displayName?.ifBlank { null } ?: "未设置昵称", color = CookX.Text, fontSize = 21.sp, fontWeight = FontWeight.Bold)
+                        Text(listOfNotNull(user?.str("username")?.let { "@$it" }, if (session?.isAdmin == true) "管理员" else null).joinToString(" · ").ifBlank { "CookX 会员" }, color = CookX.TextSecondary, fontSize = 13.sp)
                     }
+                    Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = CookX.TextTertiary)
                 }
-            }
-        }
-        item {
-            val stats = listOfNotNull(
-                state.recipeCount?.let { Triple("$it", "菜谱记录", "真实 AI 菜谱") },
-                state.notices?.let { Triple("${state.unread}", "未读消息", "待查看提醒") },
-                usageDays(user)?.let { Triple("$it", "使用天数", "自注册起") },
-            )
-            if (stats.isNotEmpty()) CookXCard(Modifier.padding(horizontal = 16.dp).padding(top = 0.dp).offsetUp()) {
-                Row {
-                    stats.forEachIndexed { i, (value, label, desc) ->
-                        if (i > 0) Box(Modifier.padding(horizontal = 4.dp).width(1.dp).height(46.dp).background(CookX.Border).align(Alignment.CenterVertically))
-                        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(value, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = CookX.Primary)
-                            Text(label, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = CookX.Text)
-                            Text(desc, fontSize = 10.5.sp, color = CookX.TextTertiary)
+                val stats = listOfNotNull(
+                    state.recipeCount?.let { "$it" to "菜谱记录" },
+                    state.notices?.let { "${state.unread}" to "未读消息" },
+                    usageDays(user)?.let { "$it" to "使用天数" },
+                )
+                if (stats.isNotEmpty()) {
+                    Spacer(Modifier.height(14.dp))
+                    Row(Modifier.fillMaxWidth().clip(CookXShapes.Tile).background(CookX.SurfaceMuted).padding(vertical = 12.dp)) {
+                        stats.forEachIndexed { i, (value, label) ->
+                            if (i > 0) Box(Modifier.width(0.8.dp).height(36.dp).background(CookX.Border).align(Alignment.CenterVertically))
+                            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                                NumberText(value, size = 22.sp, color = CookX.Text)
+                                Text(label, fontSize = 12.sp, color = CookX.TextSecondary)
+                            }
                         }
                     }
                 }
             }
         }
         item {
-            DarkPanel(Modifier.padding(horizontal = 16.dp).padding(top = 14.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconBadge(Icons.Outlined.Bluetooth, Tone.OnDark, size = 44.dp)
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Kicker("COOKX SENSE")
-                        Text("CookX Sense 测温", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                        Text(if (savedDevice) "已保存测温设备，可在 AI 厨房快速重连" else "尚未连接测温设备", color = CookX.OnDarkMuted, fontSize = 12.sp)
-                    }
-                    StatusChip(connection.label, if (connection.connected) Tone.Fresh else Tone.OnDark, dot = true)
+            Column(Modifier.padding(horizontal = 20.dp)) {
+                SectionLabel("我的")
+                GroupedList {
+                    GroupedRow("我的收藏", Icons.Outlined.StarOutline, Color(0xFFE9A23B), subtitle = "收藏的菜谱", onClick = { onOpen(Routes.recipes(favorites = true)) })
+                    GroupedRow("烹饪记录", Icons.Outlined.History, Color(0xFFF0701E), subtitle = "AI 菜谱生成与烹饪历史", onClick = { onOpen(Routes.HISTORY) })
+                    GroupedRow("偏好设置", Icons.Outlined.Settings, Color(0xFF3F8A62), subtitle = "口味、辣度与食材禁忌", onClick = { onOpen(Routes.PREFERENCES) })
+                    GroupedRow("消息中心", Icons.Outlined.NotificationsNone, Color(0xFFE5483A), subtitle = "食材临期与系统通知", badge = state.unread, divider = false, onClick = onNotices)
                 }
-                Spacer(Modifier.height(14.dp))
-                TonalButton("进入 AI 厨房", onKitchen, Modifier.fillMaxWidth(), tone = Tone.OnDark)
             }
         }
         item {
-            CookXCard(Modifier.padding(horizontal = 16.dp).padding(top = 14.dp), padding = PaddingValues(horizontal = 14.dp, vertical = 10.dp)) {
-                SectionHeader("功能入口", kicker = "账户服务", modifier = Modifier.padding(start = 4.dp, top = 6.dp, bottom = 4.dp))
-                ListRow("我的收藏", subtitle = "查看我收藏的菜谱", icon = Icons.Outlined.StarOutline, tone = Tone.Gold, onClick = { onOpen(Routes.recipes(favorites = true)) })
-                ListRow("烹饪记录", subtitle = "查看真实 AI 菜谱生成记录", icon = Icons.Outlined.History, tone = Tone.Warm, onClick = { onOpen(Routes.HISTORY) })
-                ListRow("偏好设置", subtitle = "口味、辣度与食材禁忌", icon = Icons.Outlined.Settings, onClick = { onOpen(Routes.PREFERENCES) })
-                ListRow("账号与安全", subtitle = "账号资料、后端地址与注销", icon = Icons.Outlined.Lock, onClick = { onOpen(Routes.ACCOUNT) })
-                ListRow("消息中心", subtitle = "查看食材临期与系统通知", icon = Icons.Outlined.NotificationsNone, tone = Tone.Warm, badge = state.unread, onClick = onNotices)
-                ListRow("关于 CookX", subtitle = "产品介绍、版本与隐私说明", icon = Icons.Outlined.Info, onClick = { onOpen(Routes.ABOUT) })
+            Column(Modifier.padding(horizontal = 20.dp)) {
+                SectionLabel("家庭与社区")
+                GroupedList {
+                    val services = com.smartcooking.app.feature.home.cookxServices.filter { it.route != "capture" }
+                    services.forEachIndexed { i, s -> GroupedRow(s.label, s.icon, s.tint, divider = i < services.size - 1, onClick = { onOpen(s.route) }) }
+                }
             }
         }
         item {
-            AnimatedBanner(state.error, BannerKind.Warning, Modifier.padding(horizontal = 16.dp).padding(top = 12.dp))
-            OutlineButton("退出登录", onLogout, Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 16.dp), icon = Icons.AutoMirrored.Outlined.Logout, color = CookX.Danger)
+            Column(Modifier.padding(horizontal = 20.dp)) {
+                SectionLabel("设备与外观")
+                GroupedList {
+                    GroupedRow("CookX Sense 设备", Icons.Outlined.Bluetooth, Color(0xFF5B7FD6), subtitle = if (savedDevice) "已保存测温设备" else "尚未连接测温设备", value = connection.label, onClick = onKitchen)
+                    GroupedRow("外观", Icons.Outlined.Palette, Color(0xFF8E6CD8), value = Appearance.options.firstOrNull { it.first == Appearance.preference }?.second ?: "浅色", divider = false, onClick = onAppearance)
+                }
+            }
+        }
+        item {
+            Column(Modifier.padding(horizontal = 20.dp)) {
+                SectionLabel("账户")
+                GroupedList {
+                    GroupedRow("账号与安全", Icons.Outlined.Lock, Color(0xFF7A807C), subtitle = "资料、后端地址与登录状态", onClick = { onOpen(Routes.ACCOUNT) })
+                    if (session?.isAdmin == true) GroupedRow("邀请内测成员", Icons.Outlined.GroupAdd, Color(0xFF24A148), subtitle = "生成一次性注册邀请码", onClick = { onOpen(Routes.INVITES) })
+                    GroupedRow("关于 CookX", Icons.Outlined.Info, Color(0xFF7A807C), subtitle = "版本与隐私说明", divider = false, onClick = { onOpen(Routes.ABOUT) })
+                }
+            }
+        }
+        item {
+            AnimatedBanner(state.error, BannerKind.Warning, Modifier.padding(horizontal = 20.dp))
+            Box(
+                Modifier.padding(horizontal = 20.dp).fillMaxWidth().clip(CookXShapes.Tile).background(CookX.Surface).pressable(onLogout).padding(vertical = 14.dp),
+                contentAlignment = Alignment.Center,
+            ) { Text("退出登录", color = CookX.Danger, fontSize = 16.sp, fontWeight = FontWeight.SemiBold) }
             Text("CookX · 感知每一度 · 智烹每一步", fontSize = 11.sp, color = CookX.TextTertiary, modifier = Modifier.fillMaxWidth().padding(top = 16.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         }
     }

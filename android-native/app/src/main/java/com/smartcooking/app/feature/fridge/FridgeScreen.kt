@@ -79,6 +79,10 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.smartcooking.app.core.LocalAppContainer
 import com.smartcooking.app.core.Time
+import com.smartcooking.app.core.str
+import com.smartcooking.app.ui.components.topInset
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import kotlin.math.ceil
 import com.smartcooking.app.core.clean
 import com.smartcooking.app.data.FoodCategory
 import com.smartcooking.app.data.FreshnessState
@@ -117,6 +121,44 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 
+/** Category colours and fallback pictures for the overview tiles. */
+private val categoryTints = mapOf(
+    FoodCategory.VEGETABLE to Color(0xFF3F8A62), FoodCategory.MEAT to Color(0xFFE5483A), FoodCategory.FRUIT to Color(0xFFF0701E),
+    FoodCategory.DAIRY to Color(0xFFE9A23B), FoodCategory.STAPLE to Color(0xFFB7791F), FoodCategory.CONDIMENT to Color(0xFF8E6CD8),
+    FoodCategory.OTHER to Color(0xFF7A807C),
+)
+
+private fun daysLeft(state: FridgeState, item: InventoryItem): Int? {
+    val expiry = Time.parseMillis(state.freshness.detail(item.id)?.timeDetails?.str("expiry_time")) ?: return null
+    return ceil((expiry - System.currentTimeMillis()) / 86_400_000.0).toInt()
+}
+
+/** Maps the fridge state to the overview card numbers, urgent items and category tiles. */
+fun overviewOf(state: FridgeState): FridgeOverviewUi {
+    val ready = state.freshness is FreshnessState.Ready
+    val urgent = state.attention
+        .map { it to daysLeft(state, it) }
+        .sortedWith(compareBy({ if (state.freshness.detail(it.first.id)?.expired == true) -1 else 0 }, { it.second ?: Int.MAX_VALUE }))
+        .distinctBy { it.first.info.cn }
+    val categories = state.inventory.groupBy { it.category }
+        .filterKeys { it != FoodCategory.ALL }
+        .map { (category, rows) ->
+            CategoryUi(category.id, category.label, rows.map { it.info.cn }.toSet().size, rows.firstNotNullOfOrNull { it.info.image }, categoryTints[category] ?: Color(0xFF7A807C))
+        }
+        .sortedByDescending { it.kinds }
+    return FridgeOverviewUi(
+        kinds = state.kindCount,
+        total = Math.round(state.totalQuantity).toInt(),
+        expiringCount = if (ready) state.attention.map { it.info.cn }.toSet().size else null,
+        expiring = urgent.map { (item, days) -> ExpiringUi(item.id, item.info.cn, item.info.image, days, state.freshness.detail(item.id)?.expired == true) },
+        categories = categories,
+        loading = state.loading && state.inventory.isEmpty(),
+        error = state.error && state.inventory.isEmpty(),
+        freshnessReady = ready,
+    )
+}
+
+/** 冰箱 tab: the Apple Home–style overview. The full list is [FridgeItemsScreen]. */
 @Composable
 fun FridgeScreen(navigator: Navigator) {
     val vm = cookxViewModel { FridgeViewModel(it) }
@@ -125,6 +167,7 @@ fun FridgeScreen(navigator: Navigator) {
     val messenger = LocalMessenger.current
     val context = LocalContext.current
     var pickSource by remember { mutableStateOf(false) }
+    var recommend by remember { mutableStateOf(false) }
     var cameraUri by rememberSaveable { mutableStateOf<Uri?>(null) }
 
     fun recognize(uri: Uri) = vm.recognize(
@@ -145,23 +188,48 @@ fun FridgeScreen(navigator: Navigator) {
         if (startRecognition) { container.events.startRecognition.value = false; pickSource = true }
     }
 
-    FridgeContent(
-        state = state,
-        onRefresh = vm::refresh,
-        onSearch = vm::setSearch,
-        onCategory = vm::setCategory,
-        onAdd = vm::openAdd,
-        onEdit = vm::openEdit,
-        onDelete = { item -> vm.delete(item, messenger::show) },
-        onRecognize = { pickSource = true },
-        onConsult = { dish -> container.events.pendingDish.value = dish; navigator.tab(Routes.KITCHEN) },
-        recommendations = {
-            RecommendationsSection(state.revision, state.ready, vm::openAdd, { navigator.open(Routes.LEARNING) }) { dish ->
-                container.events.pendingDish.value = dish; navigator.tab(Routes.KITCHEN)
-            }
-        },
+    FridgeOverviewContent(
+        overviewOf(state),
+        actions = FridgeActions(
+            onBell = { container.events.openNotices.value = true; navigator.tab(Routes.PROFILE) },
+            onCapture = { pickSource = true },
+            onAdd = vm::openAdd,
+            onDetails = { navigator.open(Routes.fridgeItems()) },
+            onExpiring = { navigator.open(Routes.fridgeItems("expiring")) },
+            onItem = { id -> state.inventory.firstOrNull { it.id == id }?.let(vm::openEdit) },
+            onCategory = { id -> navigator.open(Routes.fridgeItems(id)) },
+            onRecommend = { recommend = true },
+            onRetry = vm::refresh,
+        ),
     )
 
+    FridgeEditorSheet(vm, state)
+
+    if (recommend) CookXSheet("用这些食材能做什么", { recommend = false }, subtitle = "按新鲜度、营养、口味与难度综合排序；只使用冰箱里已确认的食材。") {
+        LaunchedEffect(Unit) { vm.loadInspiration() }
+        RecommendationsSection(state.revision, state.ready, { recommend = false; vm.openAdd() }, { recommend = false; navigator.open(Routes.LEARNING) }) { dish ->
+            recommend = false
+            container.events.pendingDish.value = dish; navigator.tab(Routes.CHEF)
+        }
+        if (state.inventory.isNotEmpty()) InspirationCard(state) { dish -> recommend = false; container.events.pendingDish.value = dish; navigator.tab(Routes.CHEF) }
+    }
+
+    if (pickSource) CookXSheet("识别冰箱食材", { pickSource = false }, subtitle = "拍一张冰箱或食材照片，CookX 会识别后交给你确认") {
+        ListRow("拍照识别", subtitle = "使用相机拍摄冰箱或台面上的食材", icon = Icons.Outlined.CameraAlt, onClick = { pickSource = false; openCamera() })
+        ListRow("从相册选择", subtitle = "选择一张已有的食材照片", icon = Icons.Outlined.PhotoLibrary, tone = Tone.Warm,
+            onClick = { pickSource = false; gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) })
+        ListRow("手动添加", subtitle = "填写名称、数量与保质期", icon = Icons.Outlined.EditNote, tone = Tone.Neutral, onClick = { pickSource = false; vm.openAdd() })
+        Spacer(Modifier.height(8.dp))
+        Text("识别结果仅作为候选，确认后才会入库；图片在上传前会压缩。", style = MaterialTheme.typography.bodySmall, color = CookX.TextSecondary)
+    }
+
+    if (state.recognition != RecognitionStatus.IDLE) RecognitionOverlay(state, vm.lastRecognitionError, vm::resetRecognition)
+}
+
+/** Add / edit sheet shared by the overview and the full list. */
+@Composable
+private fun FridgeEditorSheet(vm: FridgeViewModel, state: FridgeState) {
+    val messenger = LocalMessenger.current
     state.editor?.let { editor ->
         CookXSheet(if (editor.editing != null) "修改食材信息" else "添加食材", vm::closeEditor, dismissible = !editor.saving,
             subtitle = editor.editing?.let { "批次 ${it.id.takeLast(6)} · ${it.measureText}" }) {
@@ -179,51 +247,49 @@ fun FridgeScreen(navigator: Navigator) {
             OutlineButton("取消", vm::closeEditor, Modifier.fillMaxWidth(), enabled = !editor.saving, color = CookX.TextSecondary)
         }
     }
-
-    if (pickSource) CookXSheet("识别冰箱食材", { pickSource = false }, subtitle = "拍一张冰箱或食材照片，CookX 会识别后交给你确认") {
-        ListRow("拍照识别", subtitle = "使用相机拍摄冰箱或台面上的食材", icon = Icons.Outlined.CameraAlt, onClick = { pickSource = false; openCamera() })
-        ListRow("从相册选择", subtitle = "选择一张已有的食材照片", icon = Icons.Outlined.PhotoLibrary, tone = Tone.Warm,
-            onClick = { pickSource = false; gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) })
-        Spacer(Modifier.height(8.dp))
-        Text("识别结果仅作为候选，确认后才会入库；图片在上传前会压缩。", style = MaterialTheme.typography.bodySmall, color = CookX.TextSecondary)
-    }
-
-    if (state.recognition != RecognitionStatus.IDLE) RecognitionOverlay(state, vm.lastRecognitionError, vm::resetRecognition)
 }
 
+/**
+ * 全部食材: searchable, filterable grid of every batch ("expiring" shows only urgent ones).
+ * Editing, deleting and freshness details open from each card.
+ */
 @Composable
-fun FridgeContent(
-    state: FridgeState,
-    onRefresh: () -> Unit,
-    onSearch: (String) -> Unit,
-    onCategory: (FoodCategory) -> Unit,
-    onAdd: () -> Unit,
-    onEdit: (InventoryItem) -> Unit,
-    onDelete: (InventoryItem) -> Unit,
-    onRecognize: () -> Unit,
-    onConsult: (String) -> Unit,
-    recommendations: @Composable () -> Unit,
-) {
+fun FridgeItemsScreen(navigator: Navigator, filter: String) {
+    val vm = cookxViewModel(key = "items") { FridgeViewModel(it) }
+    val state by vm.state.collectAsStateWithLifecycle()
+    val messenger = LocalMessenger.current
+    val expiringOnly = filter == "expiring"
+    LaunchedEffect(filter) { if (!expiringOnly && filter != "all") vm.setCategory(FoodCategory.of(filter)) }
     var deleting by remember { mutableStateOf<InventoryItem?>(null) }
-    Box(Modifier.fillMaxSize().background(CookX.Bg)) {
+    val list = if (expiringOnly) state.attention.filter { state.search.isBlank() || it.info.cn.contains(state.search.trim()) } else state.filtered
+
+    Column(Modifier.fillMaxSize().background(CookX.Bg)) {
         LazyVerticalGrid(
             GridCells.Fixed(2), Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 96.dp),
+            contentPadding = PaddingValues(bottom = 32.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            full { FridgeHero(state, onAdd) }
-            full { AttentionCard(state, onEdit) }
             full {
-                Column(Modifier.padding(horizontal = 16.dp).padding(top = 16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        CookXTextField(state.search, onSearch, "搜索食材名称", Modifier.weight(1f), leadingIcon = Icons.Outlined.Search, clearable = true)
-                        Spacer(Modifier.width(8.dp))
-                        IconBadge(Icons.Outlined.Refresh, Tone.Green, size = 52.dp, modifier = Modifier.clip(CookXShapes.Input).pressable(onRefresh))
+                Column(Modifier.topInset().padding(horizontal = 16.dp)) {
+                    Row(Modifier.fillMaxWidth().height(52.dp), verticalAlignment = Alignment.CenterVertically) {
+                        HeroIconButton(Icons.AutoMirrored.Outlined.ArrowBack, "返回", navigator::back)
+                        Spacer(Modifier.weight(1f))
+                        HeroIconButton(Icons.Outlined.Refresh, "刷新库存与鲜度", vm::refresh)
+                        Spacer(Modifier.width(10.dp))
+                        HeroIconButton(Icons.Outlined.Add, "添加食材", vm::openAdd)
                     }
-                    Spacer(Modifier.height(10.dp))
-                    FilterChips(state.categories, state.category, onCategory)
+                    Text(if (expiringOnly) "临期食材" else "全部食材", style = MaterialTheme.typography.displaySmall, color = CookX.Text, modifier = Modifier.padding(top = 6.dp, start = 4.dp))
+                    Text(
+                        "${state.kindCount} 种 · 最后更新 ${state.lastUpdated?.let(Time::clock) ?: "等待同步"}",
+                        style = MaterialTheme.typography.bodySmall, color = CookX.TextSecondary, modifier = Modifier.padding(start = 4.dp, top = 2.dp, bottom = 12.dp),
+                    )
+                    CookXTextField(state.search, vm::setSearch, "搜索食材名称", Modifier.fillMaxWidth(), leadingIcon = Icons.Outlined.Search, clearable = true)
+                    if (!expiringOnly) {
+                        Spacer(Modifier.height(10.dp))
+                        FilterChips(state.categories, state.category, vm::setCategory)
+                    }
                     if (state.error && state.inventory.isNotEmpty()) Banner("库存加载失败，当前显示上次库存；鲜度需重新评估。", BannerKind.Error, Modifier.padding(top = 10.dp))
-                    if (state.freshness is FreshnessState.Failed) Banner(state.freshness.message, BannerKind.Warning, Modifier.padding(top = 10.dp))
+                    if (state.freshness is FreshnessState.Failed) Banner((state.freshness as FreshnessState.Failed).message, BannerKind.Warning, Modifier.padding(top = 10.dp))
                     Spacer(Modifier.height(12.dp))
                 }
             }
@@ -231,96 +297,30 @@ fun FridgeContent(
                 state.loading && state.inventory.isEmpty() -> full { LoadingBlock("正在同步库存…") }
                 state.error && state.inventory.isEmpty() -> full {
                     EmptyState(Icons.Outlined.WarningAmber, "库存加载失败", "请检查网络连接后重新加载，已有库存数据不会因此被清空。", tone = Tone.Danger) {
-                        PrimaryButton("重新加载", onRefresh, icon = Icons.Outlined.Refresh)
+                        PrimaryButton("重新加载", vm::refresh, icon = Icons.Outlined.Refresh)
                     }
                 }
-                state.filtered.isEmpty() -> full {
-                    EmptyState(Icons.Outlined.Kitchen, if (state.inventory.isEmpty()) "冰箱还是空的" else "没有匹配的食材",
-                        if (state.inventory.isEmpty()) "拍照识别或手动添加食材，CookX 就能开始为你规划下一餐" else "换个关键词或分类看看吧") {
-                        if (state.inventory.isEmpty()) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            PrimaryButton("拍照识别", onRecognize, icon = Icons.Outlined.CameraAlt)
-                            OutlineButton("手动添加", onAdd, icon = Icons.Outlined.Add)
-                        }
+                list.isEmpty() -> full {
+                    EmptyState(Icons.Outlined.Kitchen, if (state.inventory.isEmpty()) "冰箱还是空的" else if (expiringOnly) "暂无临期食材" else "没有匹配的食材",
+                        if (state.inventory.isEmpty()) "回到冰箱页拍照识别，或手动添加食材" else "换个关键词或分类看看吧") {
+                        if (state.inventory.isEmpty()) OutlineButton("手动添加", vm::openAdd, icon = Icons.Outlined.Add)
                     }
                 }
-                else -> items(state.filtered, key = { it.id }) { item ->
-                    val index = state.filtered.indexOf(item)
-                    FoodCard(item, state.freshness, { onEdit(item) }, { deleting = item },
+                else -> items(list, key = { it.id }) { item ->
+                    val index = list.indexOf(item)
+                    FoodCard(item, state.freshness, { vm.openEdit(item) }, { deleting = item },
                         Modifier.padding(start = if (index % 2 == 0) 16.dp else 0.dp, end = if (index % 2 == 1) 16.dp else 0.dp, bottom = 12.dp))
                 }
             }
-            full { Box(Modifier.padding(horizontal = 16.dp).padding(top = 8.dp)) { recommendations() } }
-            if (state.inventory.isNotEmpty()) full { InspirationCard(state, onConsult) }
-            full {
-                Row(Modifier.padding(16.dp).fillMaxWidth().clip(CookXShapes.Tile).background(CookX.Mint).padding(14.dp)) {
-                    Icon(Icons.Outlined.Lightbulb, null, tint = CookX.Primary, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("CookX 小贴士：定期清理过期食材，保持冰箱整洁；合理搭配食材，吃得健康又美味。", style = MaterialTheme.typography.bodySmall, color = CookX.Primary)
-                }
-            }
         }
-        AccentButton("识别食材", onRecognize, Modifier.align(Alignment.BottomEnd).padding(end = 18.dp, bottom = 18.dp), icon = Icons.Outlined.CameraAlt)
     }
+    FridgeEditorSheet(vm, state)
     deleting?.let { item ->
-        ConfirmDialog("移除食材", "确定要从冰箱移除「${item.info.cn}」这一批次吗？", { deleting = null; onDelete(item) }, { deleting = null }, confirmText = "移除", danger = true)
+        ConfirmDialog("移除食材", "确定要从冰箱移除「${item.info.cn}」这一批次吗？", { deleting = null; vm.delete(item, messenger::show) }, { deleting = null }, confirmText = "移除", danger = true)
     }
 }
 
 private fun LazyGridScope.full(content: @Composable () -> Unit) = item(span = { GridItemSpan(maxLineSpan) }) { content() }
-
-@Composable
-private fun FridgeHero(state: FridgeState, onAdd: () -> Unit) {
-    HeroHeader(section = "我的冰箱", actions = { HeroIconButton(Icons.Outlined.Add, "添加食材", onAdd) }, bottomOverlap = 22) {
-        Spacer(Modifier.height(12.dp))
-        Column(Modifier.fillMaxWidth().clip(CookXShapes.Card).background(Color.White.copy(alpha = 0.07f)).border(1.dp, Color.White.copy(alpha = 0.1f), CookXShapes.Card).padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("库存概览", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.weight(1f))
-                Text("最后更新 ${state.lastUpdated?.let(Time::clock) ?: "等待同步"}", color = CookX.OnDarkMuted, fontSize = 11.sp)
-            }
-            Spacer(Modifier.height(14.dp))
-            Row {
-                HeroMetric("食材种类", "${state.kindCount}", "种", Modifier.weight(1f))
-                HeroMetric("库存总量", state.totalQuantity.clean(), "计数", Modifier.weight(1f))
-                HeroMetric("即将过期", state.expiringText, "种", Modifier.weight(1f), CookX.Gold)
-                HeroMetric("已过期", state.expiredText, "种", Modifier.weight(1f), Color(0xFFFF9A8A))
-            }
-        }
-    }
-}
-
-@Composable
-private fun HeroMetric(label: String, value: String, unit: String, modifier: Modifier, color: Color = Color.White) {
-    Column(modifier) {
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(value, color = color, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-            Text(unit, color = CookX.OnDarkMuted, fontSize = 10.sp, modifier = Modifier.padding(start = 2.dp, bottom = 4.dp))
-        }
-        Text(label, color = CookX.OnDarkMuted, fontSize = 11.sp)
-    }
-}
-
-@Composable
-private fun AttentionCard(state: FridgeState, onEdit: (InventoryItem) -> Unit) {
-    val items = state.attention.take(3)
-    if (items.isEmpty()) return
-    CookXCard(Modifier.padding(horizontal = 16.dp).padding(top = 16.dp)) {
-        SectionHeader("临期食材提醒", icon = Icons.Outlined.AccessAlarm) { Text("最近 ${items.size} 项", fontSize = 12.sp, color = CookX.TextSecondary) }
-        Spacer(Modifier.height(8.dp))
-        items.forEach { item ->
-            val status = com.smartcooking.app.data.FreshnessStatus.of(state.freshness.detail(item.id))
-            Row(Modifier.fillMaxWidth().clip(CookXShapes.Small).pressable({ onEdit(item) }).padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-                IngredientImage(item.name, item.imageUrl, Modifier.size(40.dp).clip(CookXShapes.Small), iconSize = 18.dp)
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(item.info.cn, style = MaterialTheme.typography.titleSmall)
-                    Text(status.description, style = MaterialTheme.typography.bodySmall, color = CookX.TextSecondary)
-                }
-                FreshnessBadge(state.freshness.detail(item.id), state.freshness)
-            }
-        }
-    }
-}
 
 @Composable
 private fun FoodCard(item: InventoryItem, freshness: FreshnessState, onEdit: () -> Unit, onDelete: () -> Unit, modifier: Modifier) {

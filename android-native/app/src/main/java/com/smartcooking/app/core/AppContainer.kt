@@ -15,6 +15,7 @@ import com.smartcooking.app.feature.cooking.CookingEngine
 import com.smartcooking.app.feature.cooking.CookingNotifications
 import com.smartcooking.app.feature.cooking.PersonalConsumption
 import com.smartcooking.app.feature.cooking.VoiceService
+import com.smartcooking.app.feature.live.LiveKitchen
 import com.smartcooking.app.temperature.TemperatureIntelligence
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -44,6 +45,8 @@ class AppContainer(val context: Context) {
     val notifications = CookingNotifications(context, store)
     val voice by lazy { VoiceService(context) }
     val temperature = TemperatureIntelligence(context, store, appScope)
+    /** One live kitchen state for the home card, kitchen, floating card and notification. */
+    val live = LiveKitchen(this)
 
     private val engines = mutableMapOf<String, CookingEngine>()
 
@@ -58,6 +61,7 @@ class AppContainer(val context: Context) {
     init {
         // Restoration after restart requires confirmation, so no stale alarm may fire.
         notifications.cancelAll()
+        live.start(appScope)
         appScope.launch {
             sessions.session.map { it?.userId }.distinctUntilChanged().collect { user ->
                 engines.values.forEach { it.ready = false }
@@ -102,6 +106,16 @@ class AppEvents {
     val editProfile = MutableStateFlow(false)
     /** A verified recipe copy queued for the kitchen; cooking starts only when the user taps start. */
     val recipeDraft = MutableStateFlow<Recipe?>(null)
+    /** True while the step-by-step cooking view is full screen (the tab bar and floating card hide). */
+    val immersive = MutableStateFlow(false)
+    /** Set by the floating card or notification: open the cooking view of the active session. */
+    val openCooking = MutableStateFlow(false)
+    /** A tab to open once the UI is ready (from the live notification). */
+    val launchRoute = MutableStateFlow<String?>(null)
+    /** Opens the message centre when "我的" appears (bell buttons on other tabs). */
+    val openNotices = MutableStateFlow(false)
+    /** A prompt for the AI recipe tab (e.g. from the fridge "用这些食材能做什么"). */
+    val chefPrompt = MutableStateFlow<String?>(null)
 }
 
 val LocalAppContainer = staticCompositionLocalOf<AppContainer> { error("AppContainer not provided") }

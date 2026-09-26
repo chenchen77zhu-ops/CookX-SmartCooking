@@ -113,7 +113,7 @@ fun CaptureConfirmScreen(navigator: Navigator) {
         subtitle = "请确认识别出的食材及数量，必要时修改后再加入冰箱",
         heroExtra = {
             Spacer(Modifier.height(12.dp))
-            StatusChip("AI 识别完成", Tone.OnDark, icon = Icons.Outlined.CheckCircle)
+            StatusChip("AI 识别完成", Tone.Fresh, icon = Icons.Outlined.CheckCircle)
         },
         bottomBar = if (items.isEmpty()) null else { {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {

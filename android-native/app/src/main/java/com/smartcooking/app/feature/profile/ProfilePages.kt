@@ -1,5 +1,8 @@
 package com.smartcooking.app.feature.profile
 
+import com.smartcooking.app.core.obj
+import com.smartcooking.app.core.Time
+import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -187,6 +190,7 @@ fun AccountSecurityScreen(navigator: Navigator) {
     val session by container.sessions.session.collectAsStateWithLifecycle()
     var confirmDelete by remember { mutableStateOf(false) }
     var server by remember { mutableStateOf(false) }
+    val verifyScope = androidx.compose.runtime.rememberCoroutineScope()
     val phone = session?.user?.str("phone").orEmpty()
     val masked = if (Regex("^\\d{11}$").matches(phone)) "${phone.take(3)}****${phone.takeLast(4)}" else phone.ifBlank { "未设置手机号" }
 
@@ -204,6 +208,16 @@ fun AccountSecurityScreen(navigator: Navigator) {
                 Spacer(Modifier.height(10.dp))
                 ListRow("编辑个人资料", subtitle = "修改昵称、手机号和头像", icon = Icons.Outlined.Edit, onClick = { container.events.editProfile.value = true; navigator.tab(Routes.PROFILE) })
                 ListRow("局域网后端地址", subtitle = container.sessions.backendOrigin, icon = Icons.Outlined.Dns, onClick = { server = true })
+                ListRow(
+                    "登录状态", subtitle = session?.expiresAtMillis?.let { "本机登录有效至 ${Time.display(it)} · 点按向服务器核对" } ?: "点按向服务器核对当前登录",
+                    icon = Icons.Outlined.VerifiedUser, tone = Tone.Fresh,
+                    onClick = {
+                        verifyScope.launch {
+                            val result = runCatching { container.api.get("/auth/session").asObject()?.obj("user") }
+                            messenger.show(result.getOrNull()?.let { "服务器已确认登录：${it.str("nickname") ?: it.str("username") ?: "当前账号"}" } ?: "未能确认登录状态，请检查后端连接")
+                        }
+                    },
+                )
                 Row(Modifier.padding(vertical = 10.dp, horizontal = 4.dp), verticalAlignment = Alignment.Top) {
                     IconBadge(Icons.Outlined.Lock, Tone.Neutral, size = 40.dp)
                     Spacer(Modifier.width(13.dp))
@@ -265,7 +279,7 @@ fun CookingHistoryScreen(navigator: Navigator) {
             list.isEmpty() -> item {
                 CookXCard(Modifier.padding(horizontal = 16.dp).overlapHero()) {
                     EmptyState(Icons.Outlined.History, "还没有菜谱记录", "在 AI 厨房生成菜谱后，真实记录会出现在这里。") {
-                        PrimaryButton("去 AI 厨房", { navigator.tab(Routes.KITCHEN) })
+                        PrimaryButton("去 AI 菜谱", { navigator.tab(Routes.CHEF) })
                     }
                 }
             }
@@ -294,7 +308,7 @@ fun CookingHistoryScreen(navigator: Navigator) {
                                     Text(step.text, style = MaterialTheme.typography.bodyMedium, color = CookX.TextBody, modifier = Modifier.weight(1f))
                                 }
                             }
-                            LinkButton("在 AI 厨房继续咨询 →", { container.events.pendingDish.value = record.recipe.dishName; navigator.tab(Routes.KITCHEN) }, color = CookX.Accent)
+                            LinkButton("在 AI 菜谱继续咨询 →", { container.events.pendingDish.value = record.recipe.dishName; navigator.tab(Routes.CHEF) }, color = CookX.Accent)
                         }
                     }
                 }

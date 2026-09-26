@@ -13,3 +13,15 @@ inline fun <reified VM : ViewModel> cookxViewModel(key: String? = null, crossinl
     val user = container.sessions.currentUserId.orEmpty()
     return viewModel(key = "${VM::class.java.name}:$user:${key.orEmpty()}") { create(container) }
 }
+
+/**
+ * Creates a ViewModel shared by every screen of the activity (keyed by user), e.g. the kitchen and
+ * the AI recipe tab, which drive the same cooking session.
+ */
+@Composable
+inline fun <reified VM : ViewModel> cookxSharedViewModel(crossinline create: (AppContainer) -> VM): VM {
+    val container = LocalAppContainer.current
+    val user = container.sessions.currentUserId.orEmpty()
+    val owner = androidx.compose.ui.platform.LocalContext.current as androidx.activity.ComponentActivity
+    return viewModel(viewModelStoreOwner = owner, key = "${VM::class.java.name}:shared:$user") { create(container) }
+}

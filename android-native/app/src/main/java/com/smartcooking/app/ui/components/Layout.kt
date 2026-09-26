@@ -50,8 +50,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.smartcooking.app.ui.theme.CookX
 import com.smartcooking.app.ui.theme.CookXShapes
+import com.smartcooking.app.ui.theme.NumericFont
 
-/** Dark hero background with the soft green glow from the web header. */
+/** Deep forest background kept for the sign-in page. */
 fun Modifier.heroBackground(): Modifier = this
     .background(CookX.heroBrush)
     .drawBehind {
@@ -62,36 +63,44 @@ fun Modifier.heroBackground(): Modifier = this
     }
 
 /**
- * Hero header shared by tab roots: wordmark row, title block and an optional slot.
- * [bottomOverlap] leaves room for content cards that overlap the hero edge.
+ * Apple Home–style tab header: the CookX wordmark with trailing actions, then a large title and a
+ * quiet subtitle. [bottomOverlap] is kept for source compatibility and only adds spacing.
  */
 @Composable
 fun HeroHeader(
     modifier: Modifier = Modifier,
     section: String? = null,
+    subtitle: String? = null,
     actions: @Composable RowScope.() -> Unit = {},
-    bottomOverlap: Int = 28,
+    bottomOverlap: Int = 12,
     content: @Composable ColumnScope.() -> Unit = {},
 ) {
-    Column(
-        modifier.fillMaxWidth().heroBackground().statusBarsPadding().padding(start = 18.dp, end = 18.dp, top = 12.dp, bottom = bottomOverlap.dp),
-    ) {
+    Column(modifier.fillMaxWidth().statusBarsPadding().padding(start = 20.dp, end = 20.dp, top = 6.dp, bottom = bottomOverlap.coerceAtMost(16).dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().height(48.dp)) {
-            Wordmark(26.sp)
-            if (section != null) {
-                Box(Modifier.padding(horizontal = 10.dp).size(width = 1.dp, height = 16.dp).background(CookX.OnDarkBorder))
-                Text(section, color = CookX.OnDarkMuted, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-            }
+            Wordmark(26.sp, color = CookX.Text)
             Spacer(Modifier.weight(1f))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically, content = actions)
+        }
+        if (section != null) {
+            Spacer(Modifier.height(6.dp))
+            LargeTitle(section, subtitle)
         }
         content()
     }
 }
 
+/** 34sp page title with an optional one-line subtitle, as on iOS large-title screens. */
+@Composable
+fun LargeTitle(title: String, subtitle: String? = null, modifier: Modifier = Modifier) {
+    Column(modifier) {
+        Text(title, style = MaterialTheme.typography.displayLarge, color = CookX.Text)
+        if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = CookX.TextSecondary, modifier = Modifier.padding(top = 2.dp))
+    }
+}
+
 /**
- * Scaffold for secondary pages (profile sub pages and the collaborative modules):
- * hero with back button, title and description, then cards that overlap the hero.
+ * Scaffold for secondary pages (profile sub pages and the collaborative modules): a round back
+ * button, a large title and subtitle on the page background, then the content cards.
  */
 @Composable
 fun SubpageScaffold(
@@ -112,19 +121,17 @@ fun SubpageScaffold(
             contentPadding = PaddingValues(bottom = 28.dp),
         ) {
             item(key = "__hero") {
-                Column(Modifier.fillMaxWidth().heroBackground().statusBarsPadding().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 40.dp)) {
+                Column(Modifier.fillMaxWidth().statusBarsPadding().padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.height(52.dp)) {
                         HeroIconButton(Icons.AutoMirrored.Outlined.ArrowBack, "返回", onBack)
-                        Spacer(Modifier.width(12.dp))
-                        Wordmark(22.sp)
                         Spacer(Modifier.weight(1f))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), content = actions)
                     }
-                    Spacer(Modifier.height(18.dp))
-                    Text(title, color = Color.White, style = MaterialTheme.typography.headlineMedium)
+                    Spacer(Modifier.height(6.dp))
+                    Text(title, color = CookX.Text, style = MaterialTheme.typography.displaySmall, modifier = Modifier.padding(horizontal = 4.dp))
                     if (subtitle != null) {
-                        Spacer(Modifier.height(6.dp))
-                        Text(subtitle, color = CookX.OnDarkMuted, style = MaterialTheme.typography.bodySmall)
+                        Spacer(Modifier.height(4.dp))
+                        Text(subtitle, color = CookX.TextSecondary, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 4.dp))
                     }
                     heroExtra()
                 }
@@ -138,12 +145,9 @@ fun SubpageScaffold(
     }
 }
 
-/** Pulls content up over the hero's bottom edge; unlike offset, following items move up too. */
-fun Modifier.overlapHero(amount: androidx.compose.ui.unit.Dp = 24.dp): Modifier = this.layout { measurable, constraints ->
-    val placeable = measurable.measure(constraints)
-    val shift = amount.roundToPx()
-    layout(placeable.width, (placeable.height - shift).coerceAtLeast(0)) { placeable.place(0, -shift) }
-}
+/** Former hero overlap; headers no longer overlap content, so this only keeps call sites valid. */
+@Suppress("UNUSED_PARAMETER")
+fun Modifier.overlapHero(amount: androidx.compose.ui.unit.Dp = 24.dp): Modifier = this
 
 /** Standard horizontal page padding for list items inside scaffolds. */
 fun Modifier.page(): Modifier = this.padding(horizontal = 16.dp)
@@ -193,7 +197,7 @@ fun MetricTile(icon: ImageVector, value: String, unit: String?, label: String, t
         Spacer(Modifier.width(11.dp))
         Column {
             Row(verticalAlignment = Alignment.Bottom) {
-                Text(value, fontSize = 25.sp, fontWeight = FontWeight.Bold, color = CookX.Text, lineHeight = 26.sp)
+                Text(value, fontSize = 25.sp, fontWeight = FontWeight.SemiBold, fontFamily = NumericFont, color = CookX.Text, lineHeight = 26.sp)
                 if (unit != null) Text(unit, fontSize = 11.sp, color = CookX.TextSecondary, modifier = Modifier.padding(start = 3.dp, bottom = 3.dp))
             }
             Text(label, style = MaterialTheme.typography.bodySmall, color = CookX.TextSecondary)

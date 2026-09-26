@@ -233,8 +233,8 @@ fun GrowthScreen(navigator: Navigator) {
 
 @Composable
 private fun HeroStat(value: String, label: String) = Column {
-    Text(value, color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-    Text(label, color = CookX.OnDarkMuted, fontSize = 11.sp)
+    Text(value, color = CookX.Primary, fontSize = 26.sp, fontWeight = FontWeight.SemiBold, fontFamily = com.smartcooking.app.ui.theme.NumericFont)
+    Text(label, color = CookX.TextSecondary, fontSize = 11.sp)
 }
 
 @Composable

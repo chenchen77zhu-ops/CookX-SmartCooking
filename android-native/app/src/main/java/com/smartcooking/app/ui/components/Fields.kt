@@ -268,7 +268,7 @@ fun SwitchRow(title: String, checked: Boolean, onChange: (Boolean) -> Unit, modi
         Spacer(Modifier.width(12.dp))
         Switch(
             checked = checked, onCheckedChange = onChange, enabled = enabled,
-            colors = SwitchDefaults.colors(checkedTrackColor = CookX.Primary, checkedThumbColor = Color.White, uncheckedTrackColor = Color(0xFFE4E7E3), uncheckedBorderColor = Color.Transparent, uncheckedThumbColor = Color.White),
+            colors = SwitchDefaults.colors(checkedTrackColor = CookX.Primary, checkedThumbColor = Color.White, uncheckedTrackColor = CookX.NeutralBg, uncheckedBorderColor = Color.Transparent, uncheckedThumbColor = Color.White),
         )
     }
 }
@@ -291,7 +291,7 @@ fun CheckRow(title: String, checked: Boolean, onChange: (Boolean) -> Unit, modif
 @Composable
 fun <T> SegmentedTabs(options: List<Choice<T>>, selected: T, onSelect: (T) -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
     Row(
-        modifier.fillMaxWidth().clip(CookXShapes.Button).background(Color(0xFFEDEBE4)).padding(4.dp),
+        modifier.fillMaxWidth().clip(CookXShapes.Button).background(CookX.SurfaceSunken).padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         options.forEach { option ->
