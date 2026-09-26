@@ -434,7 +434,7 @@ const handleLogout = () => {
 </script>
 
 <style scoped>
-.profile-container { position: relative; z-index: 1; width: min(100%, var(--ck-page-max)); min-height: 100vh; margin: 0 auto; padding: var(--sat) calc(var(--ck-gutter) + var(--sar)) 24px calc(var(--ck-gutter) + var(--sal)); color: var(--ck-text); }
+.profile-container { position: relative; z-index: 1; width: min(100%, var(--ck-page-max)); min-height: calc(100dvh - var(--ck-bottom-inset, 0px)); margin: 0 auto; padding: var(--sat) calc(var(--ck-gutter) + var(--sar)) 24px calc(var(--ck-gutter) + var(--sal)); color: var(--ck-text); }
 button { font: inherit; }
 .profile-topbar { display: flex; align-items: center; justify-content: space-between; min-height: 64px; }
 .profile-wordmark span, .profile-wordmark i { display: none; }

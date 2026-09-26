@@ -15,6 +15,7 @@
     <main v-else class="ck-page home">
       <header class="ck-head">
         <div class="ck-wordmark" aria-label="CookX">Cook<b>X</b></div>
+        <button type="button" class="ck-link home-services" @click="servicesOpen = true">常用服务 <CkIcon name="more" :size="20" /></button>
         <button class="ck-icon-btn" type="button" aria-label="查看个人消息" @click="router.push('/profile')"><CkIcon name="bell" :size="24" /><span class="dot"></span></button>
       </header>
       <div class="ck-title">
@@ -30,7 +31,7 @@
           <img :src="heroDishImage" alt="彩椒西兰花炒鸡胸肉示意图" />
           <span class="today__copy">
             <b>用冰箱食材做一道菜</b>
-            <span class="today__meta"><span><CkIcon name="clock" :size="15" />约 15 分钟</span><span><CkIcon name="sparkle" :size="15" />AI 智能推荐</span></span>
+            <span class="today__meta"><span><CkIcon name="sparkle" :size="15" />AI 智能推荐</span></span>
           </span>
           <CkIcon name="chevron-right" :size="18" class="today__chev" />
         </button>
@@ -49,16 +50,19 @@
         <CkIcon name="chevron-right" :size="18" class="expiry__chev" />
       </button>
 
+
+    </main>
+    <el-drawer v-model="servicesOpen" title="常用服务" direction="btt" size="auto" append-to-body>
       <section class="services" aria-label="常用服务">
         <div class="ck-section-title"><span>常用服务</span></div>
         <div class="services__row">
-          <button v-for="item in features" :key="item.path" type="button" class="service" @click="router.push(item.path)">
+          <button v-for="item in features" :key="item.path" type="button" class="service" @click="servicesOpen = false; router.push(item.path)">
             <span class="service__icon" :style="{ color: item.color, background: item.bg }"><CkIcon :name="item.icon" :size="22" /></span>
             <span class="service__label">{{ item.label }}</span>
           </button>
         </div>
       </section>
-    </main>
+    </el-drawer>
   </div>
 </template>
 
@@ -77,6 +81,7 @@ import ManageFridge from './ManageFridge.vue'
 import AiChef from './AiChef.vue'
 import CookingMode from './CookingMode.vue'
 
+const servicesOpen = ref(false)
 const route = useRoute()
 const router = useRouter()
 const componentMap = { Manage: ManageFridge, AiChef, Recipes: AiChef }
@@ -172,14 +177,14 @@ const handleBack = () => {
 const openRecipes = () => router.push({ path: '/home', query: { tab: 'Recipes' } })
 
 const features = [
-  { label: '家庭冰箱', path: '/household', icon: 'users', color: '#2E9A5C', bg: 'rgba(46,154,92,.13)' },
-  { label: '共同采购', path: '/shopping', icon: 'cart', color: '#EE7A2B', bg: 'rgba(238,122,43,.13)' },
-  { label: '菜谱复刻', path: '/recipes', icon: 'book', color: '#3F7BE0', bg: 'rgba(63,123,224,.12)' },
-  { label: '一起晒菜', path: '/community', icon: 'image', color: '#D9467A', bg: 'rgba(217,70,122,.12)' },
-  { label: '剩菜改造', path: '/leftovers', icon: 'recycle', color: '#2E9A5C', bg: 'rgba(46,154,92,.13)' },
-  { label: '厨艺成长', path: '/growth', icon: 'chart', color: '#7A5CD6', bg: 'rgba(122,92,214,.12)' },
-  { label: '七日菜单', path: '/menus', icon: 'calendar', color: '#D08A00', bg: 'rgba(208,138,0,.13)' },
-  { label: '偏好学习', path: '/learning', icon: 'sparkle', color: '#3F7BE0', bg: 'rgba(63,123,224,.12)' }
+  { label: '家庭冰箱', path: '/household', icon: 'users', color: 'var(--ck-fresh-text)', bg: 'var(--ck-fresh-soft)' },
+  { label: '共同采购', path: '/shopping', icon: 'cart', color: 'var(--ck-heat-text)', bg: 'var(--ck-heat-soft)' },
+  { label: '菜谱复刻', path: '/recipes', icon: 'book', color: 'var(--ck-info-text)', bg: 'var(--ck-info-soft)' },
+  { label: '一起晒菜', path: '/community', icon: 'image', color: 'var(--ck-danger-text)', bg: 'var(--ck-danger-soft)' },
+  { label: '剩菜改造', path: '/leftovers', icon: 'recycle', color: 'var(--ck-warn-text)', bg: 'var(--ck-warn-soft)' },
+  { label: '厨艺成长', path: '/growth', icon: 'chart', color: 'var(--ck-heat-text)', bg: 'var(--ck-heat-soft)' },
+  { label: '七日菜单', path: '/menus', icon: 'calendar', color: 'var(--ck-info-text)', bg: 'var(--ck-info-soft)' },
+  { label: '偏好学习', path: '/learning', icon: 'sparkle', color: 'var(--ck-fresh-text)', bg: 'var(--ck-fresh-soft)' }
 ]
 const consumptionChanged=event=>{if(event.detail?.user===readUserId())fetchInventory()}
 onMounted(()=>window.addEventListener('cookx:inventory-changed',consumptionChanged))
@@ -187,37 +192,42 @@ onBeforeUnmount(()=>window.removeEventListener('cookx:inventory-changed',consump
 </script>
 
 <style scoped>
-.home-layout { position: relative; z-index: 1; min-height: 100vh; }
-.home { display: flex; flex-direction: column; gap: 14px; padding-bottom: 20px; }
+.home-layout { position: relative; z-index: 1; min-height: calc(100dvh - var(--ck-bottom-inset, 0px)); }
+.home { display: flex; flex-direction: column; gap: 12px; min-height: calc(100dvh - var(--ck-bottom-inset)); padding-bottom: 12px; }
+.home > * { flex-shrink: 0; }
+.home .ck-head { height: 50px; }
+.home-services { margin-left: auto; margin-right: 8px; }
+.home .ck-title h1 { font-size: clamp(26px, 7.5vw, 34px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ck-title { margin: 2px 0 4px; }
-.home-sense { display: block; width: 100%; padding: 0; border: 0; background: none; text-align: left; border-radius: 26px; box-shadow: 0 18px 40px rgba(30, 20, 10, 0.18); }
+.home-sense { display: block; width: 100%; padding: 0; border: 0; background: none; text-align: left; border-radius: 26px; box-shadow: 0 18px 40px var(--ck-photo-tone-83); }
 .home-sense:active { transform: scale(0.99); }
 
-.today { padding: 16px; }
-.today .ck-section-title { margin-bottom: 12px; }
+.today { padding: 12px 14px; }
+.today .ck-section-title { margin-bottom: 6px; }
 .today__row { display: flex; align-items: center; gap: 14px; width: 100%; padding: 0; border: 0; background: none; color: var(--ck-text); text-align: left; }
-.today__row img { width: 108px; height: 76px; flex: 0 0 108px; border-radius: 14px; object-fit: cover; object-position: 70% 50%; }
+.today__row img { width: 84px; height: 68px; flex: 0 0 84px; border-radius: 14px; object-fit: cover; object-position: 70% 50%; }
 .today__copy { display: flex; flex-direction: column; gap: 8px; min-width: 0; flex: 1 1 auto; }
 .today__copy b { font-size: 16px; font-weight: 700; }
 .today__meta { display: flex; flex-wrap: wrap; gap: 14px; color: var(--ck-text-2); font-size: 13px; }
 .today__meta span { display: inline-flex; align-items: center; gap: 4px; }
 .today__chev { color: var(--ck-text-3); }
 
-.expiry { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 76px; padding: 14px 16px; border: 1px solid rgba(46, 139, 87, 0.12); border-radius: var(--ck-radius-lg); background: color-mix(in srgb, var(--ck-fresh) 9%, var(--ck-surface)); color: var(--ck-text); text-align: left; }
+.expiry { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 76px; padding: 14px 16px; border: 1px solid var(--ck-photo-tone-84); border-radius: var(--ck-radius-lg); background: color-mix(in srgb, var(--ck-fresh) 9%, var(--ck-surface)); color: var(--ck-text); text-align: left; }
 .expiry__icon { display: grid; place-items: center; width: 46px; height: 46px; flex: 0 0 46px; border-radius: 14px; background: var(--ck-fresh-soft); color: var(--ck-fresh); }
 .expiry__copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
 .expiry__copy b { font-size: 16px; font-weight: 700; }
-.expiry__copy small { overflow: hidden; color: var(--ck-text-2); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.expiry__copy small { overflow: hidden; color: var(--ck-text-2); font-size: 13px; text-overflow: ellipsis; white-space: normal; }
 .expiry__copy em { color: var(--ck-text); font-style: normal; font-weight: 600; }
 .expiry__chev { color: var(--ck-fresh); }
 .expiry.is-error { border-color: var(--ck-danger-soft); background: color-mix(in srgb, var(--ck-danger) 7%, var(--ck-surface)); }
 .expiry.is-error .expiry__icon { background: var(--ck-danger-soft); color: var(--ck-danger); }
 
 .services .ck-section-title { margin-bottom: 10px; }
-.services__row { display: flex; gap: 6px; margin: 0 calc(-1 * var(--ck-gutter)); padding: 0 var(--ck-gutter) 4px; overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity; }
+.services__row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px 6px; padding: 8px 0 20px; }
 .services__row::-webkit-scrollbar { display: none; }
 .service { display: flex; flex: 0 0 74px; flex-direction: column; align-items: center; gap: 7px; padding: 4px 0; border: 0; background: none; color: var(--ck-text); scroll-snap-align: start; }
 .service__icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 17px; }
 .service__label { font-size: 12.5px; white-space: nowrap; }
 .service:active .service__icon { transform: scale(0.94); }
+@media (max-height: 800px) { .home { gap: 10px; } .home .ck-head { height: 46px; } .today__row img { height: 60px; } }
 </style>

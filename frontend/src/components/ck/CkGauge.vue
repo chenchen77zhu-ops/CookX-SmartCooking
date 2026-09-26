@@ -3,14 +3,14 @@
     <svg :viewBox="`0 0 ${size} ${size}`" class="ck-gauge__svg" aria-hidden="true">
       <defs>
         <linearGradient :id="gid" x1="0" y1="1" x2="1" y2="0">
-          <stop offset="0" :stop-color="alert ? '#FF7A5C' : '#FFB25C'" />
-          <stop offset="0.55" :stop-color="alert ? '#FF3B30' : '#FF8A2E'" />
-          <stop offset="1" :stop-color="alert ? '#D1170C' : '#F06418'" />
+          <stop offset="0" :stop-color="alert ? 'var(--ck-photo-tone-140)' : 'var(--ck-photo-tone-141)'" />
+          <stop offset="0.55" :stop-color="alert ? 'var(--ck-photo-tone-118)' : 'var(--ck-photo-tone-142)'" />
+          <stop offset="1" :stop-color="alert ? 'var(--ck-photo-tone-143)' : 'var(--ck-photo-tone-144)'" />
         </linearGradient>
       </defs>
-      <circle :cx="c" :cy="c" :r="r" fill="none" stroke="rgba(255,255,255,0.16)" :stroke-width="stroke" stroke-linecap="round" :stroke-dasharray="`${arc} ${circ}`" :transform="`rotate(135 ${c} ${c})`" />
+      <circle :cx="c" :cy="c" :r="r" fill="none" stroke="var(--ck-photo-tone-117)" :stroke-width="stroke" stroke-linecap="round" :stroke-dasharray="`${arc} ${circ}`" :transform="`rotate(135 ${c} ${c})`" />
       <circle v-if="progress > 0" :cx="c" :cy="c" :r="r" fill="none" :stroke="`url(#${gid})`" :stroke-width="stroke" stroke-linecap="round" :stroke-dasharray="`${arc * progress} ${circ}`" :transform="`rotate(135 ${c} ${c})`" class="ck-gauge__value-arc" />
-      <circle v-if="progress > 0" :cx="startKnob.x" :cy="startKnob.y" :r="stroke * 0.42" :fill="alert ? '#FF7A5C' : '#FFB25C'" />
+      <circle v-if="progress > 0" :cx="startKnob.x" :cy="startKnob.y" :r="stroke * 0.42" :fill="alert ? 'var(--ck-photo-tone-140)' : 'var(--ck-photo-tone-141)'" />
     </svg>
     <div class="ck-gauge__center">
       <span class="ck-gauge__label">{{ label }}</span>
@@ -49,15 +49,15 @@ const display = computed(() => props.value === null ? '--' : Math.round(props.va
 </script>
 
 <style scoped>
-.ck-gauge { position: relative; margin: 0 auto; color: #fff; }
+.ck-gauge { position: relative; margin: 0 auto; color: var(--ck-on-accent); }
 .ck-gauge__svg { position: absolute; inset: 0 0 auto; width: 100%; height: auto; overflow: visible; }
-.ck-gauge__value-arc { filter: drop-shadow(0 0 12px rgba(255, 138, 46, 0.55)); transition: stroke-dasharray 0.8s ease; }
-.is-alert .ck-gauge__value-arc { filter: drop-shadow(0 0 16px rgba(255, 50, 30, 0.75)); }
+.ck-gauge__value-arc { filter: drop-shadow(0 0 12px var(--ck-photo-tone-136)); transition: stroke-dasharray 0.8s ease; }
+.is-alert .ck-gauge__value-arc { filter: drop-shadow(0 0 16px var(--ck-photo-tone-137)); }
 .ck-gauge__center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding-top: 4%; text-align: center; }
-.ck-gauge__label { color: rgba(255, 255, 255, 0.86); font-size: 16px; }
-.ck-gauge__num { display: flex; align-items: flex-start; font-size: 72px; font-weight: 600; line-height: 1.05; letter-spacing: -2px; text-shadow: 0 4px 24px rgba(0, 0, 0, 0.4); }
+.ck-gauge__label { color: var(--ck-photo-tone-25); font-size: 16px; }
+.ck-gauge__num { display: flex; align-items: flex-start; font-size: 72px; font-weight: 600; line-height: 1.05; letter-spacing: -2px; text-shadow: 0 4px 24px var(--ck-photo-tone-138); }
 .ck-gauge__num sup { margin: 0.14em 0 0 4px; font-size: 0.42em; font-weight: 500; letter-spacing: 0; }
-.ck-gauge__num .is-empty { color: rgba(255, 255, 255, 0.6); font-family: var(--ck-font); font-size: 0.7em; font-weight: 200; letter-spacing: 0.12em; }
-.is-alert .ck-gauge__num { color: #FF5446; }
-.ck-gauge__sub { margin-top: 2px; color: rgba(255, 255, 255, 0.86); font-size: 15px; }
+.ck-gauge__num .is-empty { color: var(--ck-photo-tone-16); font-family: var(--ck-font); font-size: 0.7em; font-weight: 200; letter-spacing: 0.12em; }
+.is-alert .ck-gauge__num { color: var(--ck-photo-tone-139); }
+.ck-gauge__sub { margin-top: 2px; color: var(--ck-photo-tone-25); font-size: 15px; }
 </style>

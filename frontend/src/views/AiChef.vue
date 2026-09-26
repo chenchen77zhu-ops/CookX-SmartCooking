@@ -3,11 +3,15 @@
     <CkStageBackdrop v-if="darkPage" :state="stageState" :cooking="cookingView" />
 
     <!-- 完成核对与状态（三种模式共用） -->
-    <div v-if="(completionVisible && session) || (session?.status === 'completed' && !completionVisible) || sessionMessage" class="chef-shared">
-      <CookingCompletion v-if="completionVisible && session" :key="session.id" :session="session" :engine="cookingStore.engine" @changed="completionChanged" @close="completionVisible=false" />
+    <div v-if="(session?.status === 'completed' && !completionVisible) || sessionMessage" class="chef-shared">
+
       <button v-if="session?.status === 'completed' && !completionVisible" type="button" class="ck-btn ck-btn--ghost ck-btn--block" @click="completionVisible=true">查看完成与库存核对</button>
       <p v-if="sessionMessage" role="status" class="inline-status">{{ sessionMessage }}</p>
     </div>
+
+    <el-drawer v-model="completionVisible" title="完成与库存核对" direction="btt" size="86%" append-to-body>
+      <CookingCompletion v-if="completionVisible && session" :key="session.id" :session="session" :engine="cookingStore.engine" @changed="completionChanged" @close="completionVisible=false" />
+    </el-drawer>
 
     <!-- ================= 烹饪中 ================= -->
     <template v-if="cookingView">
@@ -38,10 +42,10 @@
         </div>
       </section>
 
-      <section class="k-glass k-card">
+      <section class="k-glass k-card c-chart">
         <div class="k-card__title"><span>实时温度曲线</span><small v-if="thermalReplaying">仿真回放</small></div>
-        <CkTempChart :points="chartPoints" :prediction="chartPrediction" :band="chartBand" :height="132" empty-text="连接 CookX Sense 后显示实时曲线" />
-        <div class="chart-legend"><span><i class="solid"></i>当前温度</span><span><i class="dash"></i>预测曲线</span></div>
+        <CkTempChart :points="chartPoints.length ? chartPoints : trendPoints" :prediction="chartPrediction" :band="chartBand" :height="80" empty-text="连接 CookX Sense 后显示实时曲线" />
+        <div class="chart-legend"><span><i class="solid"></i>当前温度</span><span><i class="dash"></i>{{ chartPrediction.length ? '预测曲线' : '预测待有效数据' }}</span></div>
       </section>
 
       <div class="c-duo">
@@ -55,27 +59,28 @@
         </section>
       </div>
 
-      <article :class="['current-step-card', 'k-advice', { 'is-voice-active': isVoicePlaying }]">
+      <article :class="['current-step-card', 'k-advice', { 'is-voice-active': isVoicePlaying }]" role="button" tabindex="0" aria-label="查看完整步骤与烹饪工具" @click="toggleTools" @keydown.enter="toggleTools" @keydown.space.prevent="toggleTools">
         <span class="k-advice__icon"><CkIcon name="chef" :size="24" /></span>
         <div class="k-advice__body">
           <div class="panel-heading">
-            <span>CookX 建议 · 第 {{ currentStepIdx + 1 }} 步 {{ currentStepTitle }}</span>
-            <span v-if="hasStepTimer" class="step-remaining">剩余 {{ formatTime(timeLeft) }}</span><span v-else class="step-remaining is-muted">时长未提供</span>
+            <span>CookX 建议 · 第 {{ currentStepIdx + 1 }} 步 <b>{{ currentStepTitle }}</b></span>
+
           </div>
           <p class="step-description">{{ currentStepText }}</p>
-          <p v-if="currentStepTip" class="k-advice__tip">{{ currentStepTip }}</p>
-          <div :class="['inline-voice', voicePlaybackState]">
+
+
+        </div>
+      </article>
+
+      <el-drawer v-model="toolsOpen" title="烹饪工具" direction="btt" size="86%" append-to-body class="ck-dark cooking-tools-drawer">
+      <section ref="toolsPanel" class="c-tools">
+        <p v-if="hasStepTimer" class="tool-timer">本步剩余 {{ formatTime(timeLeft) }}</p><p v-else class="tool-timer">时长未提供</p>
+        <article class="k-advice"><div class="k-advice__body"><b>第 {{ currentStepIdx + 1 }} 步 · {{ currentStepTitle }}</b><p>{{ currentStepText }}</p><p v-if="currentStepTip">{{ currentStepTip }}</p>          <div :class="['inline-voice', voicePlaybackState]">
             <button type="button" class="voice-toggle" @click="toggleVoicePlayback"><span class="voice-wave" aria-hidden="true"><i></i><i></i><i></i></span>{{ voiceControlText }}</button>
             <button type="button" @click="replayCurrentStep"><CkIcon name="refresh" :size="15" />重新播报</button>
             <span class="voice-status">{{ inlineVoiceStatusText }}<template v-if="voiceProgressVisible"> · {{ voiceRemainingTime }}</template></span>
           </div>
-          <p v-if="voiceMessage" role="status" class="k-advice__tip">{{ voiceMessage }}</p>
-        </div>
-      </article>
-
-      <button type="button" class="c-more" :aria-expanded="toolsOpen" @click="toggleTools">{{ toolsOpen ? '收起步骤、计时与设备' : '展开步骤、计时与设备' }}</button>
-
-      <section v-show="toolsOpen" ref="toolsPanel" class="c-tools">
+          <p v-if="voiceMessage" role="status" class="k-advice__tip">{{ voiceMessage }}</p></div></article>
         <div class="k-glass k-card">
           <div class="k-card__title"><span>烹饪步骤</span><small>{{ overallProgress }}%</small></div>
           <ol class="step-track">
@@ -125,6 +130,7 @@
         <button type="button" :disabled="currentStepIdx === 0" @click="prevStep"><CkIcon name="chevron-left" :size="18" />上一步</button>
         <button type="button" class="next" @click="nextStep">{{ isLastStep ? '完成烹饪' : '下一步' }}<CkIcon name="chevron-right" :size="18" /></button>
       </div>
+      </el-drawer>
     </template>
 
     <!-- ================= AI 菜谱 ================= -->
@@ -185,8 +191,8 @@
       <div class="k-title">
         <div><h1>实时厨房</h1><p>好食材 · 更好味</p></div>
         <button type="button" class="k-sense" @click="openTemperatureDialog">
-          <span :class="['ck-dot', { 'is-on': temperatureConnected || thermalReplaying }]"></span>
-          <span><b>CookX Sense</b><small>{{ thermalReplaying && !temperatureConnected ? '仿真回放' : temperatureConnectionText }}</small></span>
+          <span :class="['ck-dot', { 'is-on': temperatureConnected || thermalReplaying || liveState.simulated }]"></span>
+          <span><b>CookX Sense</b><small>{{ (thermalReplaying || liveState.simulated) && !temperatureConnected ? '仿真回放' : temperatureConnectionText }}</small></span>
         </button>
       </div>
 
@@ -199,7 +205,8 @@
         </button>
       </section>
 
-      <section class="k-glass k-card" aria-label="烹饪阶段">
+      <div class="k-pan-space" aria-hidden="true"></div>
+      <section class="k-glass k-card k-stages" aria-label="烹饪阶段">
         <div class="k-card__title"><span>烹饪阶段</span></div>
         <ol class="stepper">
           <li v-for="(item, index) in stageLabels" :key="item" :class="{ done: index < stageIndex, current: index === stageIndex }"><i></i><span>{{ item }}</span></li>
@@ -208,19 +215,17 @@
 
       <button type="button" class="k-glass k-card k-trend" @click="trendOpen = true">
         <div class="k-card__title"><span>温度趋势</span><CkIcon name="chevron-right" :size="18" /></div>
-        <CkTempChart :points="trendPoints" :height="92" empty-text="连接 CookX Sense 后显示实时曲线" />
+        <CkTempChart :points="trendPoints" :height="62" empty-text="连接 CookX Sense 后显示实时曲线" />
       </button>
 
-      <div class="k-advice" :class="{ 'is-alert': liveState.alert?.level === 'danger' }">
+      <button type="button" :aria-label="session?.status === 'active' ? '恢复烹饪' : '查看 CookX 建议与菜谱'" class="k-advice k-live-advice" :class="{ 'is-alert': liveState.alert?.level === 'danger' }" @click="session?.status === 'active' ? restoreCooking() : router.push({ path: '/home', query: { tab: 'Recipes' } })">
         <span class="k-advice__icon"><CkIcon :name="liveState.alert ? 'info' : 'chef'" :size="24" /></span>
         <div class="k-advice__body">
           <small>CookX 建议</small>
           <b>{{ kitchenAdvice.text }}</b>
-          <button v-if="session?.status === 'active'" type="button" class="ck-btn ck-btn--heat k-advice__action" @click="restoreCooking">恢复烹饪</button>
-          <button v-else-if="!displayTemperature && displayTemperature !== 0" type="button" class="ck-btn ck-btn--heat k-advice__action" @click="router.push({ path: '/home', query: { tab: 'Recipes' } })">去选一道菜</button>
         </div>
         <CkIcon name="chevron-right" :size="20" class="k-advice__chev" />
-      </div>
+      </button>
       <p v-if="recipeError" class="inline-status" role="alert">{{ recipeError }}</p>
     </template>
 
@@ -947,14 +952,14 @@ const runCloudStep = async () => {
     audio.onended = () => {
       if (currentAudio === audio) {
         stopCurrentAudio();
-        
+
       }
     };
 
     audio.onerror = () => {
       if (currentAudio === audio) {
         stopCurrentAudio();
-        
+
       }
     };
 
@@ -1096,9 +1101,9 @@ const hasStepTimer = computed(() => Boolean(currentStepDuration.value || session
 watch(cookingView, value => { uiState.immersive = value; refreshLiveSession(); if (value) window.scrollTo({ top: 0 }) }, { immediate: true })
 watch(darkPage, value => setForcedDarkPage(value), { immediate: true })
 onUnmounted(() => { uiState.immersive = false; setForcedDarkPage(false); publishKitchen({ assessment: null }) })
-watch(completionVisible, visible => { if (visible) window.scrollTo({ top: 0, behavior: 'smooth' }) })
+watch(completionVisible, visible => { if (visible) { toolsOpen.value = false; window.scrollTo({ top: 0, behavior: 'smooth' }) } })
 const minimizeNavigation = () => { stopNavigation(); navigationVisible.value = false; toolsOpen.value = false }
-const gaugeSize = Math.min(300, Math.max(236, Math.round((window.innerWidth || 390) * 0.72)))
+const gaugeSize = 260
 
 // 显示温度：设备实测优先；仿真回放时使用回放读数（界面会标注「仿真回放」）
 const displayTemperature = computed(() => {
@@ -1161,7 +1166,7 @@ const toolsOpen = ref(false)
 const toolsPanel = ref(null)
 const toggleTools = async () => {
   toolsOpen.value = !toolsOpen.value
-  if (toolsOpen.value) { await nextTick(); toolsPanel.value?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }
+
 }
 const trendOpen = ref(false)
 const promptIdeas = ['用冰箱里的食材做晚餐', '15 分钟快手菜', '番茄炒蛋怎么做']
@@ -1185,7 +1190,7 @@ const chartBand = computed(() => {
 </script>
 
 <style scoped>
-.ai-chef-container { position: relative; z-index: 1; width: min(100%, var(--ck-page-max)); min-height: 100vh; margin: 0 auto; padding: var(--sat) calc(var(--ck-gutter) + 4px + var(--sar)) 20px calc(var(--ck-gutter) + 4px + var(--sal)); color: var(--ck-text); }
+.ai-chef-container { position: relative; z-index: 1; width: min(100%, var(--ck-page-max)); min-height: calc(100dvh - var(--ck-bottom-inset, 0px)); margin: 0 auto; padding: var(--sat) calc(var(--ck-gutter) + 4px + var(--sar)) 20px calc(var(--ck-gutter) + 4px + var(--sal)); color: var(--ck-text); }
 .ai-chef-container.is-cooking { padding-bottom: calc(100px + var(--sab)); }
 .ai-chef-container.is-recipes { padding-bottom: calc(96px + var(--sab)); }
 button { font: inherit; }
@@ -1194,130 +1199,130 @@ button { font: inherit; }
 
 /* ---------- 深色玻璃（图三） ---------- */
 .k-glass {
-  border: 1px solid rgba(255, 255, 255, 0.13);
+  border: 1px solid var(--ck-photo-tone-01);
   border-radius: 22px;
-  background: linear-gradient(160deg, rgba(40, 38, 35, 0.52), rgba(22, 21, 20, 0.46));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  background: linear-gradient(160deg, var(--ck-photo-tone-02), var(--ck-photo-tone-03));
+  box-shadow: inset 0 1px 0 var(--ck-photo-tone-04);
   -webkit-backdrop-filter: saturate(140%) blur(24px);
   backdrop-filter: saturate(140%) blur(24px);
 }
 .k-card { width: 100%; margin-bottom: 12px; padding: 16px 18px; color: var(--ck-text); text-align: left; }
 .k-card__title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; font-size: 17px; font-weight: 700; }
 .k-card__title small { color: var(--ck-text-3); font-size: 12px; font-weight: 400; }
-.k-card__title small.connected { color: #7EE6A4; }
+.k-card__title small.connected { color: var(--ck-photo-tone-05); }
 
 /* ---------- 实时厨房（图三左） ---------- */
 .k-head { display: flex; align-items: center; justify-content: space-between; height: 58px; }
-.k-head .ck-wordmark { color: #fff; font-size: 30px; }
-.k-head .ck-icon-btn { color: #fff; }
+.k-head .ck-wordmark { color: var(--ck-on-accent); font-size: 30px; }
+.k-head .ck-icon-btn { color: var(--ck-on-accent); }
 .k-head .ck-icon-btn .dot { border-color: transparent; }
 .k-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.k-title h1 { color: #fff; font-size: 31px; font-weight: 800; letter-spacing: 0.5px; line-height: 1.25; }
-.k-title p { margin-top: 2px; color: rgba(255, 255, 255, 0.82); font-size: 16px; letter-spacing: 1px; }
-.k-sense { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 8px 16px 8px 14px; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 16px; background: rgba(38, 38, 36, 0.4); color: #fff; text-align: left; -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+.k-title h1 { color: var(--ck-on-accent); font-size: 31px; font-weight: 800; letter-spacing: 0.5px; line-height: 1.25; }
+.k-title p { margin-top: 2px; color: var(--ck-photo-tone-06); font-size: 16px; letter-spacing: 1px; }
+.k-sense { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 8px 16px 8px 14px; border: 1px solid var(--ck-photo-tone-07); border-radius: 16px; background: var(--ck-photo-tone-08); color: var(--ck-on-accent); text-align: left; -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
 .k-sense .ck-dot { width: 11px; height: 11px; }
-.k-sense .ck-dot.is-on { background: #34D160; box-shadow: 0 0 0 4px rgba(52, 209, 96, 0.22), 0 0 12px rgba(52, 209, 96, 0.7); }
+.k-sense .ck-dot.is-on { background: var(--ck-photo-tone-09); box-shadow: 0 0 0 4px var(--ck-photo-tone-10), 0 0 12px var(--ck-photo-tone-11); }
 .k-sense span:last-child { display: flex; flex-direction: column; line-height: 1.3; }
 .k-sense b { font-size: 14px; font-weight: 500; }
-.k-sense small { color: rgba(255, 255, 255, 0.72); font-size: 12.5px; }
+.k-sense small { color: var(--ck-photo-tone-12); font-size: 12.5px; }
 
 .k-hero { display: flex; flex-direction: column; align-items: center; padding: clamp(6px, 2.4vh, 28px) 0 clamp(18px, 6.5vh, 72px); text-align: center; }
-.k-hero__label { color: rgba(255, 255, 255, 0.88); font-size: 17px; letter-spacing: 1px; text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5); }
-.k-hero__temp { display: flex; align-items: flex-start; margin-top: -4px; color: #fff; font-size: clamp(96px, 29vw, 128px); font-weight: 600; line-height: 1; letter-spacing: -3px; text-shadow: 0 6px 30px rgba(0, 0, 0, 0.45); transition: color 0.5s ease; }
+.k-hero__label { color: var(--ck-photo-tone-13); font-size: 17px; letter-spacing: 1px; text-shadow: 0 2px 12px var(--ck-photo-tone-14); }
+.k-hero__temp { display: flex; align-items: flex-start; margin-top: -4px; color: var(--ck-on-accent); font-size: clamp(96px, 29vw, 128px); font-weight: 600; line-height: 1; letter-spacing: -3px; text-shadow: 0 6px 30px var(--ck-photo-tone-15); transition: color 0.5s ease; }
 .k-hero__temp sup { margin: 0.16em 0 0 6px; font-size: 0.3em; font-weight: 500; letter-spacing: 0; }
-.k-hero__temp .is-empty { color: rgba(255, 255, 255, 0.6); font-family: var(--ck-font); font-size: 0.62em; font-weight: 200; letter-spacing: 0.12em; }
-.k-hero.is-warn .k-hero__temp { color: #FFC36B; }
-.k-hero.is-alert .k-hero__temp { color: #FF4B3E; text-shadow: 0 0 40px rgba(255, 50, 30, 0.55); animation: temp-alert 1.2s ease-in-out infinite; }
+.k-hero__temp .is-empty { color: var(--ck-photo-tone-16); font-family: var(--ck-font); font-size: 0.62em; font-weight: 200; letter-spacing: 0.12em; }
+.k-hero.is-warn .k-hero__temp { color: var(--ck-photo-tone-17); }
+.k-hero.is-alert .k-hero__temp { color: var(--ck-photo-tone-18); text-shadow: 0 0 40px var(--ck-photo-tone-19); animation: temp-alert 1.2s ease-in-out infinite; }
 @keyframes temp-alert { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
-.k-pill { display: flex; align-items: center; gap: 12px; margin-top: 8px; padding: 12px 30px 12px 24px; border: 1px solid rgba(255, 175, 115, 0.38); border-radius: 30px; background: linear-gradient(135deg, rgba(112, 58, 28, 0.62), rgba(70, 36, 18, 0.55)); color: #fff; text-align: left; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
-.k-pill > .ck-icon { color: #FF8F2E; }
+.k-pill { display: flex; align-items: center; gap: 12px; margin-top: 8px; padding: 12px 30px 12px 24px; border: 1px solid var(--ck-photo-tone-20); border-radius: 30px; background: linear-gradient(135deg, var(--ck-photo-tone-21), var(--ck-photo-tone-22)); color: var(--ck-on-accent); text-align: left; box-shadow: 0 10px 30px var(--ck-photo-tone-23); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
+.k-pill > .ck-icon { color: var(--ck-photo-tone-24); }
 .k-pill span { display: flex; flex-direction: column; align-items: center; line-height: 1.35; }
 .k-pill b { font-size: 19px; font-weight: 700; }
-.k-pill small { color: rgba(255, 255, 255, 0.86); font-size: 14px; }
-.k-hero.is-alert .k-pill { border-color: rgba(255, 120, 100, 0.6); background: linear-gradient(135deg, rgba(190, 30, 20, 0.72), rgba(120, 16, 10, 0.66)); }
-.k-hero.is-alert .k-pill > .ck-icon { color: #FFD4CC; }
+.k-pill small { color: var(--ck-photo-tone-25); font-size: 14px; }
+.k-hero.is-alert .k-pill { border-color: var(--ck-photo-tone-26); background: linear-gradient(135deg, var(--ck-photo-tone-27), var(--ck-photo-tone-28)); }
+.k-hero.is-alert .k-pill > .ck-icon { color: var(--ck-photo-tone-29); }
 
 .stepper { position: relative; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 2px 0 0; padding: 0; list-style: none; }
-.stepper li { position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; color: rgba(255, 255, 255, 0.72); font-size: 13.5px; text-align: center; }
-.stepper li::before { content: ''; position: absolute; top: 9px; right: 50%; left: -50%; height: 2px; background: rgba(255, 255, 255, 0.18); }
+.stepper li { position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--ck-photo-tone-12); font-size: 13.5px; text-align: center; }
+.stepper li::before { content: ''; position: absolute; top: 9px; right: 50%; left: -50%; height: 2px; background: var(--ck-photo-tone-07); }
 .stepper li:first-child::before { display: none; }
-.stepper li.done::before, .stepper li.current::before { background: #FF8A2A; }
-.stepper i { position: relative; z-index: 1; width: 20px; height: 20px; border: 2px solid rgba(255, 255, 255, 0.35); border-radius: 50%; background: rgba(40, 38, 36, 0.9); }
-.stepper li.done i { border-color: #FF8A2A; background: #FF8A2A; }
-.stepper li.current i { border: 3px solid #FF9A3C; background: #FFF4E8; box-shadow: 0 0 0 4px rgba(255, 138, 42, 0.28), 0 0 14px rgba(255, 138, 42, 0.8); }
-.stepper li.current { color: #fff; font-weight: 700; }
-.k-trend { display: block; border: 1px solid rgba(255, 255, 255, 0.13); }
-.k-trend:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.45); outline-offset: -3px; }
-.k-trend .k-card__title .ck-icon { color: rgba(255, 255, 255, 0.8); }
+.stepper li.done::before, .stepper li.current::before { background: var(--ck-photo-tone-30); }
+.stepper i { position: relative; z-index: 1; width: 20px; height: 20px; border: 2px solid var(--ck-photo-tone-31); border-radius: 50%; background: var(--ck-photo-tone-32); }
+.stepper li.done i { border-color: var(--ck-photo-tone-30); background: var(--ck-photo-tone-30); }
+.stepper li.current i { border: 3px solid var(--ck-photo-tone-33); background: var(--ck-photo-tone-34); box-shadow: 0 0 0 4px var(--ck-photo-tone-35), 0 0 14px var(--ck-photo-tone-36); }
+.stepper li.current { color: var(--ck-on-accent); font-weight: 700; }
+.k-trend { display: block; border: 1px solid var(--ck-photo-tone-01); }
+.k-trend:focus-visible { outline: 2px solid var(--ck-photo-tone-37); outline-offset: -3px; }
+.k-trend .k-card__title .ck-icon { color: var(--ck-photo-tone-38); }
 
-.k-advice { display: flex; align-items: center; gap: 14px; width: 100%; margin-bottom: 12px; padding: 18px 16px 18px 18px; border-radius: 22px; background: #F4EEE6; color: #1F1B16; text-align: left; box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35); }
-.k-advice__icon { display: grid; place-items: center; width: 50px; height: 50px; flex: 0 0 50px; border-radius: 50%; background: #FDE2C4; color: #E8781E; }
+.k-advice { display: flex; align-items: center; gap: 14px; width: 100%; margin-bottom: 12px; padding: 18px 16px 18px 18px; border-radius: 22px; background: var(--ck-cream); color: var(--ck-cream-text); text-align: left; box-shadow: 0 18px 40px var(--ck-photo-tone-39); }
+.k-advice__icon { display: grid; place-items: center; width: 50px; height: 50px; flex: 0 0 50px; border-radius: 50%; background: var(--ck-photo-tone-40); color: var(--ck-photo-tone-41); }
 .k-advice__body { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1 1 auto; }
-.k-advice__body > small { color: #6E655B; font-size: 14px; }
+.k-advice__body > small { color: var(--ck-cream-text-2); font-size: 14px; }
 .k-advice__body > b { font-size: 18px; font-weight: 700; line-height: 1.45; }
 .k-advice__action { align-self: flex-start; min-height: 38px !important; margin-top: 6px; padding: 0 16px !important; font-size: 14px !important; }
-.k-advice__chev { color: #8E8479; flex: 0 0 auto; }
-.k-advice.is-alert { background: #FFE9E6; }
-.k-advice.is-alert .k-advice__icon { background: #FFC9C2; color: #D6281C; }
-.k-advice__tip { color: #6E655B; font-size: 13px; line-height: 1.55; }
+.k-advice__chev { color: var(--ck-cream-text-2); flex: 0 0 auto; }
+.k-advice.is-alert { background: var(--ck-photo-tone-42); }
+.k-advice.is-alert .k-advice__icon { background: var(--ck-photo-tone-43); color: var(--ck-photo-tone-44); }
+.k-advice__tip { color: var(--ck-cream-text-2); font-size: 13px; line-height: 1.55; }
 
 /* ---------- 烹饪中（图三右） ---------- */
-.c-top { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; height: 56px; color: #fff; }
+.c-top { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; height: 56px; color: var(--ck-on-accent); }
 .c-top b { font-size: 19px; font-weight: 700; text-align: center; }
-.c-top__btn { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; background: none; color: #fff; }
+.c-top__btn { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; background: none; color: var(--ck-on-accent); }
 .c-recipe { position: relative; display: flex; align-items: flex-start; min-height: 120px; margin-top: 6px; overflow: hidden; padding: 18px 18px 16px; cursor: pointer; }
 .c-recipe__copy { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; max-width: 64%; }
-.c-recipe h2 { color: #fff; font-size: 25px; font-weight: 800; line-height: 1.25; }
-.c-chip { padding: 4px 13px; border: 1px solid rgba(255, 196, 150, 0.45); border-radius: 999px; background: rgba(120, 66, 30, 0.38); color: #F6D5B8; font-size: 13px; }
-.c-recipe__progress { color: rgba(255, 255, 255, 0.65); font-size: 12.5px; }
-.c-recipe__plate { position: absolute; top: -18px; right: -22px; width: 150px; height: 150px; border-radius: 50%; object-fit: cover; box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45); }
-.c-recipe__plate.is-empty { display: grid; place-items: center; background: radial-gradient(circle at 40% 35%, #FFFFFF, #E7E1D8); color: #D07A33; }
+.c-recipe h2 { color: var(--ck-on-accent); font-size: 25px; font-weight: 800; line-height: 1.25; }
+.c-chip { padding: 4px 13px; border: 1px solid var(--ck-photo-tone-45); border-radius: 999px; background: var(--ck-photo-tone-46); color: var(--ck-photo-tone-47); font-size: 13px; }
+.c-recipe__progress { color: var(--ck-photo-tone-48); font-size: 12.5px; }
+.c-recipe__plate { position: absolute; top: -18px; right: -22px; width: 150px; height: 150px; border-radius: 50%; object-fit: cover; box-shadow: 0 16px 36px var(--ck-photo-tone-15); }
+.c-recipe__plate.is-empty { display: grid; place-items: center; background: radial-gradient(circle at 40% 35%, var(--ck-on-accent), var(--ck-photo-tone-49)); color: var(--ck-photo-tone-50); }
 .c-gauge { display: flex; flex-direction: column; align-items: center; margin: -6px 0 14px; }
-.c-phase { margin-top: 12px; padding: 8px 26px; border: 1px solid rgba(255, 170, 100, 0.55); border-radius: 999px; background: linear-gradient(135deg, #C8561B, #9E3E12); color: #fff; font-size: 17px; font-weight: 700; box-shadow: 0 8px 22px rgba(200, 86, 27, 0.4); }
-.c-gauge.is-alert .c-phase { border-color: rgba(255, 140, 120, 0.6); background: linear-gradient(135deg, #E0281B, #A5160D); }
-.c-eta { display: flex; flex-direction: column; align-items: center; margin-top: 4px; color: #fff; text-align: center; }
-.c-eta span { color: rgba(255, 255, 255, 0.82); font-size: 16px; }
+.c-phase { margin-top: 12px; padding: 8px 26px; border: 1px solid var(--ck-photo-tone-51); border-radius: 999px; background: linear-gradient(135deg, var(--ck-photo-tone-52), var(--ck-photo-tone-53)); color: var(--ck-on-accent); font-size: 17px; font-weight: 700; box-shadow: 0 8px 22px var(--ck-photo-tone-54); }
+.c-gauge.is-alert .c-phase { border-color: var(--ck-photo-tone-55); background: linear-gradient(135deg, var(--ck-photo-tone-56), var(--ck-photo-tone-57)); }
+.c-eta { display: flex; flex-direction: column; align-items: center; margin-top: 4px; color: var(--ck-on-accent); text-align: center; }
+.c-eta span { color: var(--ck-photo-tone-06); font-size: 16px; }
 .c-eta b { font-size: 50px; font-weight: 600; line-height: 1.1; letter-spacing: -1px; }
-.c-eta small { color: rgba(255, 255, 255, 0.85); font-size: 15px; }
-.chart-legend { display: flex; justify-content: center; gap: 22px; margin-top: 8px; color: rgba(255, 255, 255, 0.72); font-size: 12.5px; }
+.c-eta small { color: var(--ck-photo-tone-58); font-size: 15px; }
+.chart-legend { display: flex; justify-content: center; gap: 22px; margin-top: 8px; color: var(--ck-photo-tone-12); font-size: 12.5px; }
 .chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
-.chart-legend i.solid { width: 9px; height: 9px; border-radius: 50%; background: #FF8A3D; }
-.chart-legend i.dash { width: 18px; border-top: 2px dashed rgba(255, 255, 255, 0.7); }
+.chart-legend i.solid { width: 9px; height: 9px; border-radius: 50%; background: var(--ck-chart-end); }
+.chart-legend i.dash { width: 18px; border-top: 2px dashed var(--ck-photo-tone-59); }
 .c-duo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
 .c-mini { display: flex; align-items: flex-start; gap: 10px; padding: 14px; }
-.c-mini__icon { display: grid; place-items: center; width: 40px; height: 40px; flex: 0 0 40px; border-radius: 50%; background: rgba(255, 255, 255, 0.08); color: #fff; }
-.c-mini__icon.is-flame { background: rgba(255, 120, 40, 0.18); color: #FF7A1F; }
+.c-mini__icon { display: grid; place-items: center; width: 40px; height: 40px; flex: 0 0 40px; border-radius: 50%; background: var(--ck-photo-tone-60); color: var(--ck-on-accent); }
+.c-mini__icon.is-flame { background: var(--ck-photo-tone-61); color: var(--ck-photo-tone-62); }
 .c-mini div { display: flex; flex-direction: column; min-width: 0; }
-.c-mini small { color: rgba(255, 255, 255, 0.72); font-size: 12.5px; }
-.c-mini b { overflow: hidden; color: #fff; font-size: 17px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-.c-mini em { overflow: hidden; color: rgba(255, 255, 255, 0.7); font-size: 12px; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
-.current-step-card.is-voice-active { box-shadow: 0 0 0 2px rgba(232, 120, 30, 0.6), 0 18px 40px rgba(0, 0, 0, 0.35); }
-.panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #6E655B; font-size: 13.5px; }
+.c-mini small { color: var(--ck-photo-tone-12); font-size: 12.5px; }
+.c-mini b { overflow: hidden; color: var(--ck-on-accent); font-size: 17px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.c-mini em { overflow: hidden; color: var(--ck-photo-tone-59); font-size: 12px; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
+.current-step-card.is-voice-active { box-shadow: 0 0 0 2px var(--ck-photo-tone-63), 0 18px 40px var(--ck-photo-tone-39); }
+.panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--ck-cream-text-2); font-size: 13.5px; }
 .panel-heading > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.step-remaining { flex: 0 0 auto; padding: 2px 10px; border-radius: 999px; background: #FDE2C4; color: #B8520F; font-size: 12.5px; font-variant-numeric: tabular-nums; }
-.step-remaining.is-muted { background: #ECE5DC; color: #8E8479; }
-.step-description { margin: 4px 0 2px; color: #1F1B16; font-size: 17.5px; font-weight: 700; line-height: 1.5; }
+.step-remaining { flex: 0 0 auto; padding: 2px 10px; border-radius: 999px; background: var(--ck-photo-tone-40); color: var(--ck-photo-tone-64); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.step-remaining.is-muted { background: var(--ck-photo-tone-65); color: var(--ck-cream-text-2); }
+.step-description { margin: 4px 0 2px; color: var(--ck-cream-text); font-size: 17.5px; font-weight: 700; line-height: 1.5; }
 .inline-voice { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
-.inline-voice button { display: inline-flex; align-items: center; gap: 5px; min-height: 34px; padding: 0 12px; border: 1px solid #E4DACD; border-radius: 999px; background: #FFFFFF; color: #4A3F35; font-size: 13px; font-weight: 600; }
-.inline-voice .voice-toggle { border-color: #F6C9A3; background: #FFF0E2; color: #B8520F; }
-.voice-status { color: #8E8479; font-size: 12px; }
+.inline-voice button { display: inline-flex; align-items: center; gap: 5px; min-height: 34px; padding: 0 12px; border: 1px solid var(--ck-photo-tone-66); border-radius: 999px; background: var(--ck-on-accent); color: var(--ck-photo-tone-67); font-size: 13px; font-weight: 600; }
+.inline-voice .voice-toggle { border-color: var(--ck-photo-tone-68); background: var(--ck-photo-tone-69); color: var(--ck-photo-tone-64); }
+.voice-status { color: var(--ck-cream-text-2); font-size: 12px; }
 .voice-wave { display: inline-flex; align-items: flex-end; gap: 2px; height: 12px; }
 .voice-wave i { width: 2.5px; height: 4px; border-radius: 2px; background: currentColor; }
 .inline-voice.playing .voice-wave i { animation: wave 0.9s ease-in-out infinite; }
 .inline-voice.playing .voice-wave i:nth-child(2) { animation-delay: 0.15s; }
 .inline-voice.playing .voice-wave i:nth-child(3) { animation-delay: 0.3s; }
 @keyframes wave { 0%, 100% { height: 4px; } 50% { height: 12px; } }
-.c-more { display: block; width: 100%; min-height: 44px; margin-bottom: 12px; border: 1px dashed rgba(255, 255, 255, 0.25); border-radius: 16px; background: rgba(20, 20, 18, 0.35); color: rgba(255, 255, 255, 0.82); font-size: 14px; }
+.c-more { display: block; width: 100%; min-height: 44px; margin-bottom: 12px; border: 1px dashed var(--ck-photo-tone-70); border-radius: 16px; background: var(--ck-photo-tone-71); color: var(--ck-photo-tone-06); font-size: 14px; }
 .c-tools { scroll-margin-top: calc(var(--sat) + 12px); }
 
 .step-track { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
-.track-step { position: relative; display: flex; align-items: center; gap: 12px; min-height: 42px; color: rgba(255, 255, 255, 0.55); font-size: 14px; }
-.track-step:not(:last-child)::after { content: ''; position: absolute; top: 32px; bottom: -10px; left: 12px; width: 2px; background: rgba(255, 255, 255, 0.12); }
-.track-step span { position: relative; z-index: 1; display: grid; place-items: center; width: 26px; height: 26px; flex: 0 0 26px; border: 1.5px solid rgba(255, 255, 255, 0.25); border-radius: 50%; background: #242220; font-size: 12px; }
-.track-step.done span { border-color: #FF8A3D; background: #FF8A3D; color: #fff; }
-.track-step.done::after { background: #FF8A3D; }
-.track-step.active { color: #fff; }
-.track-step.active span { border-color: #FF8A3D; color: #FF8A3D; box-shadow: 0 0 0 4px rgba(255, 138, 61, 0.2); }
+.track-step { position: relative; display: flex; align-items: center; gap: 12px; min-height: 42px; color: var(--ck-photo-tone-72); font-size: 14px; }
+.track-step:not(:last-child)::after { content: ''; position: absolute; top: 32px; bottom: -10px; left: 12px; width: 2px; background: var(--ck-photo-tone-73); }
+.track-step span { position: relative; z-index: 1; display: grid; place-items: center; width: 26px; height: 26px; flex: 0 0 26px; border: 1.5px solid var(--ck-photo-tone-70); border-radius: 50%; background: var(--ck-photo-tone-74); font-size: 12px; }
+.track-step.done span { border-color: var(--ck-chart-end); background: var(--ck-chart-end); color: var(--ck-on-accent); }
+.track-step.done::after { background: var(--ck-chart-end); }
+.track-step.active { color: var(--ck-on-accent); }
+.track-step.active span { border-color: var(--ck-chart-end); color: var(--ck-chart-end); box-shadow: 0 0 0 4px var(--ck-photo-tone-75); }
 .track-step.active b { font-weight: 700; }
 .timer-controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; margin: 12px 0; }
 .timer-controls button, .text-btn, .diag-actions button { min-height: 40px; padding: 0 14px; border: 1px solid var(--ck-glass-border); border-radius: 999px; background: var(--ck-fill-strong); color: var(--ck-text); font-size: 13px; font-weight: 600; }
@@ -1330,7 +1335,7 @@ button { font: inherit; }
 .temperature-grid strong small { font-size: 13px; }
 .temperature-grid p { color: var(--ck-text-3); font-size: 11.5px; line-height: 1.5; }
 .sense-note { margin: 10px 0 0; color: var(--ck-text-3); font-size: 12px; }
-.sense-action { width: 100%; min-height: 46px; margin-top: 14px; border: 0; border-radius: 999px; background: var(--ck-heat-deep); color: #fff; font-weight: 600; }
+.sense-action { width: 100%; min-height: 46px; margin-top: 14px; border: 0; border-radius: 999px; background: var(--ck-heat-deep); color: var(--ck-on-accent); font-weight: 600; }
 .sense-action.secondary { border: 1px solid var(--ck-glass-border); background: var(--ck-fill); color: var(--ck-text); }
 .support { display: flex; flex-direction: column; gap: 14px; }
 .support-row { display: flex; gap: 12px; }
@@ -1343,9 +1348,9 @@ button { font: inherit; }
 .device-diagnostics[open] summary::after { transform: rotate(90deg); }
 .device-diagnostics p { margin-bottom: 10px; line-height: 1.6; }
 .diag-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
-.step-switcher { position: fixed; right: 0; bottom: 0; left: 0; z-index: 30; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); gap: 10px; padding: 14px calc(var(--ck-gutter) + var(--sar)) calc(12px + var(--sab)) calc(var(--ck-gutter) + var(--sal)); background: linear-gradient(180deg, rgba(10, 10, 9, 0), rgba(10, 10, 9, 0.9) 35%); }
-.step-switcher button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 54px; border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 999px; background: rgba(40, 38, 36, 0.82); color: #fff; font-size: 16px; font-weight: 600; -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
-.step-switcher button.next { border: 0; background: linear-gradient(135deg, #F07A2A, #E0561A); box-shadow: 0 10px 24px rgba(232, 100, 31, 0.4); }
+.step-switcher { position: fixed; right: 0; bottom: 0; left: 0; z-index: 30; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); gap: 10px; padding: 14px calc(var(--ck-gutter) + var(--sar)) calc(12px + var(--sab)) calc(var(--ck-gutter) + var(--sal)); background: linear-gradient(180deg, var(--ck-photo-tone-76), var(--ck-photo-tone-77) 35%); }
+.step-switcher button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 54px; border: 1px solid var(--ck-photo-tone-78); border-radius: 999px; background: var(--ck-photo-tone-79); color: var(--ck-on-accent); font-size: 16px; font-weight: 600; -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
+.step-switcher button.next { border: 0; background: linear-gradient(135deg, var(--ck-photo-tone-80), var(--ck-photo-tone-81)); box-shadow: 0 10px 24px var(--ck-photo-tone-82); }
 .step-switcher button:disabled { opacity: 0.4; }
 
 /* ---------- AI 菜谱（随主题） ---------- */
@@ -1373,7 +1378,7 @@ button { font: inherit; }
 .message-wrapper.user .avatar { background: var(--ck-fill-strong); color: var(--ck-text-2); }
 .message-bubble { max-width: calc(100% - 44px); min-width: 0; }
 .text-content { padding: 11px 14px; border: 1px solid var(--ck-glass-border); border-radius: 18px 18px 18px 6px; background: var(--ck-surface); color: var(--ck-text); font-size: 15px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; box-shadow: var(--ck-shadow); }
-.message-wrapper.user .text-content { border-color: transparent; border-radius: 18px 18px 6px 18px; background: var(--ck-heat-deep); color: #fff; }
+.message-wrapper.user .text-content { border-color: transparent; border-radius: 18px 18px 6px 18px; background: var(--ck-heat-deep); color: var(--ck-on-accent); }
 .recipe-card { margin-top: 10px; padding: 16px; border: 1px solid var(--ck-glass-border); border-radius: 20px; background: var(--ck-surface); box-shadow: var(--ck-shadow); }
 .recipe-header span { color: var(--ck-heat-text); font-size: 11px; font-weight: 700; letter-spacing: 1px; }
 .recipe-header h3 { margin: 2px 0 10px; font-size: 18px; font-weight: 700; }
@@ -1383,13 +1388,13 @@ button { font: inherit; }
 .steps-preview { display: flex; flex-direction: column; gap: 8px; }
 .steps-preview p { display: flex; gap: 10px; color: var(--ck-text-2); font-size: 13.5px; line-height: 1.55; }
 .steps-preview i { display: grid; place-items: center; width: 22px; height: 22px; flex: 0 0 22px; border-radius: 50%; background: var(--ck-fill-strong); color: var(--ck-text); font-size: 12px; font-style: normal; }
-.start-guide { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 46px; margin-top: 14px; border: 0; border-radius: 999px; background: var(--ck-heat-deep); color: #fff; font-size: 15px; font-weight: 600; }
+.start-guide { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 46px; margin-top: 14px; border: 0; border-radius: 999px; background: var(--ck-heat-deep); color: var(--ck-on-accent); font-size: 15px; font-weight: 600; }
 .card-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
 .card-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 42px; border: 1px solid var(--ck-glass-border); border-radius: 999px; background: var(--ck-fill); color: var(--ck-text); font-size: 13.5px; font-weight: 600; }
 .chat-input-bar-fixed { position: fixed; right: 0; bottom: calc(var(--ck-tabbar-height) + var(--sab)); left: 0; z-index: 40; padding: 10px calc(var(--ck-gutter) + var(--sar)) 10px calc(var(--ck-gutter) + var(--sal)); background: linear-gradient(180deg, transparent, var(--ck-bg) 45%); }
 .input-content { display: flex; align-items: center; gap: 8px; width: min(100%, calc(var(--ck-page-max) - 32px)); margin: 0 auto; padding: 5px 5px 5px 6px; border: 1px solid var(--ck-glass-border); border-radius: 999px; background: var(--ck-surface); box-shadow: var(--ck-shadow-strong); }
 .input-content :deep(.el-input__wrapper) { min-height: 42px; background: transparent !important; box-shadow: none !important; }
-.send-btn { display: grid; place-items: center; width: 42px; height: 42px; flex: 0 0 42px; padding: 0; border: 0; border-radius: 50%; background: var(--ck-heat-deep); color: #fff; }
+.send-btn { display: grid; place-items: center; width: 42px; height: 42px; flex: 0 0 42px; padding: 0; border: 0; border-radius: 50%; background: var(--ck-heat-deep); color: var(--ck-on-accent); }
 .send-btn:disabled { opacity: 0.5; }
 
 /* ---------- 抽屉与对话框 ---------- */
@@ -1412,5 +1417,85 @@ button { font: inherit; }
   .k-sense { padding: 6px 12px; }
   .c-duo { grid-template-columns: minmax(0, 1fr); }
   .c-recipe__plate { width: 120px; height: 120px; }
+}
+
+/* Viewport composition: the middle row is reserved exclusively for the pan. */
+.ai-chef-container.is-live { height: calc(100dvh - var(--ck-bottom-inset)); min-height: 0; display: grid; grid-template-rows: 52px 80px 190px minmax(16px, 1fr) 84px 110px 92px; row-gap: 0; padding-top: calc(var(--sat) + 10px); padding-bottom: 12px; }
+.is-live .k-head { height: auto; }
+.is-live .k-title { align-items: center; }
+.is-live .k-title h1 { font-size: 28px; }
+.is-live .k-title p { font-size: 14px; }
+.is-live .k-sense { padding: 8px 12px; gap: 8px; }
+.is-live .k-hero { padding: 10px 0 0; }
+.is-live .k-hero__temp { font-size: clamp(96px, 26vw, 110px); min-height: 105px; }
+.is-live .k-pill { padding: 9px 18px; margin-top: 4px; max-width: 100%; }
+.is-live .k-pill b { font-size: 17px; }
+.is-live .k-pill small { font-size: 12px; }
+.is-live .k-stages, .is-live .k-trend { padding: 10px 14px; margin: 0 0 12px; }
+.is-live .k-card__title { font-size: 13px; line-height: 18px; margin-bottom: 4px; }
+.is-live .k-trend { padding-block: 7px; }
+.is-live .stepper li { font-size: 11px; line-height: 14px; gap: 3px; }
+.is-live .stepper i { width: 14px; height: 14px; }
+.is-live .stepper li::before { top: 7px; }
+.stepper li.current i { border: 2px solid var(--ck-on-accent); background: var(--ck-heat); }
+.k-live-advice { margin: 0; border: 0; padding: 12px 14px; gap: 10px; }
+.k-live-advice .k-advice__body > b { font-size: 15px; line-height: 1.4; }
+.k-live-advice .k-advice__body > small { font-size: 12px; }
+.k-live-advice .k-advice__icon { width: 42px; height: 42px; flex-basis: 42px; }
+.is-live .chef-shared, .is-live > .inline-status { position: fixed; z-index: 5; top: calc(var(--sat) + 8px); left: 20px; right: 20px; background: var(--ck-surface); border-radius: var(--ck-radius-md); padding: 12px; }
+.ai-chef-container.is-cooking { height: 100dvh; min-height: 0; padding-top: calc(var(--sat) + 8px); padding-bottom: calc(var(--sab) + 12px); display: flex; flex-direction: column; gap: 10px; }
+.is-cooking > * { flex-shrink: 0; }
+.is-cooking .c-top { height: 38px; }
+.is-cooking .c-recipe { min-height: 92px; padding: 12px 16px; margin: 0; }
+.is-cooking .c-recipe__copy { gap: 4px; }
+.is-cooking .c-recipe h2 { font-size: 23px; }
+.is-cooking .c-recipe__plate { top: 4px; right: 8px; width: 88px; height: 88px; }
+.is-cooking .c-chip { font-size: 11px; padding: 2px 10px; }
+.is-cooking .c-recipe__progress { font-size: 11px; }
+.is-cooking .c-gauge { flex: 1 1 auto; min-height: 278px; justify-content: center; margin: 0; }
+.is-cooking .c-phase { margin-top: 6px; padding: 5px 22px; font-size: 14px; }
+.is-cooking .c-eta { margin-top: -4px; }
+.is-cooking .c-eta span, .is-cooking .c-eta small { font-size: 12px; }
+.is-cooking .c-eta b { font-size: 40px; }
+.is-cooking .c-chart { padding: 12px 14px; margin: 0; }
+.is-cooking .k-card__title { margin-bottom: 10px; font-size: 14px; }
+.is-cooking .chart-legend { margin-top: 6px; font-size: 10px; }
+.is-cooking .c-duo { grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; gap: 10px; }
+.is-cooking .c-mini { padding: 10px; gap: 8px; }
+.is-cooking .c-mini__icon { width: 30px; height: 30px; flex-basis: 30px; }
+.is-cooking .c-mini b { font-size: 15px; }
+.is-cooking .c-mini em, .is-cooking .c-mini small { font-size: 10px; }
+.is-cooking .current-step-card { min-height: 88px; max-height: 106px; margin: 0; padding: 12px 14px; gap: 10px; cursor: pointer; }
+.is-cooking .current-step-card .k-advice__icon { width: 40px; height: 40px; flex-basis: 40px; }
+.is-cooking .step-description { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 15px; }
+.is-cooking .panel-heading { font-size: 11px; }
+.is-cooking .panel-heading .step-remaining { display: none; }
+.c-tools .step-description { font-size: 15px; }
+.step-switcher { position: sticky; padding: 12px 0 calc(12px + var(--sab)); }
+.r-links { flex-wrap: wrap; overflow: visible; margin-inline: 0; padding-inline: 0; }
+.r-link { padding-inline: 12px; }
+@media (max-height: 800px) {
+ .ai-chef-container.is-live { grid-template-rows: 46px 68px 182px minmax(14px, 1fr) 84px 110px 92px; }
+ .is-live .k-hero { padding-top: 6px; }
+ .is-cooking .c-gauge { min-height: 260px; }
+ .is-cooking .c-chart :deep(.ck-chart) { height: 70px !important; }
+ .is-cooking .c-recipe { padding-block: 9px; }
+ .is-cooking .c-eta b { font-size: 34px; }
+ .is-cooking .c-gauge :deep(.ck-gauge) { width: 230px !important; height: 207px !important; }
+ .is-cooking .c-gauge :deep(.ck-gauge__num) { font-size: 62px; }
+}
+
+@media (max-height: 850px) {
+ .is-cooking .c-recipe { min-height: 80px; padding-block: 8px; }
+ .is-cooking .c-recipe__copy { gap: 2px; }
+ .is-cooking .c-recipe h2 { font-size: 21px; }
+ .is-cooking .c-recipe__plate { width: 76px; height: 76px; }
+ .is-cooking .c-chart { padding-block: 10px; }
+ .is-cooking .c-chart :deep(.ck-chart) { height: 60px !important; }
+ .is-cooking .c-chart .k-card__title { margin-bottom: 6px; }
+ .is-cooking .chart-legend { margin-top: 4px; }
+ .is-cooking .c-mini { padding: 8px; }
+ .is-cooking .current-step-card { padding-block: 10px; }
+ .is-cooking .step-description { font-size: 14px; }
 }
 </style>

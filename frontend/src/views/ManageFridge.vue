@@ -30,7 +30,7 @@
             <div><CkIcon name="clock" :size="22" class="is-warn" /><strong class="ck-num">{{ expiringCount }}<small>件</small></strong><span>即将过期</span></div>
           </div>
         </div>
-        <div class="fridge-art" aria-hidden="true"><i class="door top"></i><i class="door bottom"></i><b class="handle one"></b><b class="handle two"></b></div>
+        <img class="fridge-art" :src="fridgeIllustration" alt="" />
         <button class="add-food-button" type="button" @click="showAddDialog = true"><CkIcon name="plus" :size="18" :stroke="2.2" /><span>添加食材</span></button>
       </section>
 
@@ -177,6 +177,7 @@
 </template>
 
 <script setup>
+import fridgeIllustration from '@/assets/illustrations/fridge.webp'
 import { saveDraft, recognitionItem } from '../services/recognitionDraft.js'
 import InventoryFields from '../components/InventoryFields.vue'
 import InventoryWriteStatus from '../components/InventoryWriteStatus.vue'
@@ -954,7 +955,7 @@ onBeforeUnmount(()=>window.removeEventListener('cookx:inventory-changed',consump
 </script>
 
 <style scoped>
-.manage-container { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 14px; width: min(100%, var(--ck-page-max)); min-height: 100vh; margin: 0 auto; padding: var(--sat) calc(var(--ck-gutter) + var(--sar)) 24px calc(var(--ck-gutter) + var(--sal)); color: var(--ck-text); }
+.manage-container { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 14px; width: min(100%, var(--ck-page-max)); min-height: calc(100dvh - var(--ck-bottom-inset, 0px)); margin: 0 auto; padding: var(--sat) calc(var(--ck-gutter) + var(--sar)) 24px calc(var(--ck-gutter) + var(--sal)); color: var(--ck-text); }
 .manage-container.is-items { gap: 12px; padding-top: 0; }
 button { font: inherit; }
 .ck-title { margin: 2px 0 2px; }
@@ -964,27 +965,20 @@ button { font: inherit; }
 .gap-alert { margin: 0; }
 
 /* 绿色冰箱卡 */
-.fridge-card { position: relative; display: flex; flex-direction: column; overflow: hidden; padding: 20px 18px 16px; border-radius: 26px; background: radial-gradient(120% 90% at 100% 0%, rgba(160, 220, 180, 0.35), transparent 55%), linear-gradient(150deg, #2D6848 0%, #3F7D5A 55%, #4F8F69 100%); color: #fff; box-shadow: 0 16px 34px rgba(34, 90, 60, 0.25); }
-.fridge-card__copy { position: relative; z-index: 1; max-width: 72%; }
+.fridge-card { position: relative; display: flex; flex-direction: column; overflow: hidden; padding: 20px 18px 16px; border-radius: 26px; background: radial-gradient(120% 90% at 100% 0%, var(--ck-photo-tone-85), transparent 55%), linear-gradient(150deg, var(--ck-photo-tone-86) 0%, var(--ck-photo-tone-87) 55%, var(--ck-photo-tone-88) 100%); color: var(--ck-on-accent); box-shadow: 0 16px 34px var(--ck-photo-tone-89); }
+.fridge-card__copy { position: relative; z-index: 1; width: 66%; min-width: 0; }
+.fridge-art { position: absolute; right: 10px; top: 12px; width: 30%; height: 184px; object-fit: contain; }
 .fridge-card h2 { font-size: 22px; font-weight: 800; }
-.fridge-card__more { display: inline-flex; align-items: center; gap: 2px; min-height: 30px; padding: 0; border: 0; background: none; color: rgba(255, 255, 255, 0.85); font-size: 14px; }
+.fridge-card__more { display: inline-flex; align-items: center; gap: 2px; min-height: 30px; padding: 0; border: 0; background: none; color: var(--ck-photo-tone-58); font-size: 14px; }
 .fridge-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 14px 0 16px; }
 .fridge-stats div { display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
-.fridge-stats div + div { border-left: 1px solid rgba(255, 255, 255, 0.18); }
-.fridge-stats .ck-icon { color: #9BE3B4; }
-.fridge-stats .ck-icon.is-warn { color: #FFD36B; }
+.fridge-stats div + div { border-left: 1px solid var(--ck-photo-tone-07); }
+.fridge-stats .ck-icon { color: var(--ck-photo-tone-90); }
+.fridge-stats .ck-icon.is-warn { color: var(--ck-photo-tone-91); }
 .fridge-stats strong { margin-top: 4px; font-size: 24px; font-weight: 600; line-height: 1.1; }
 .fridge-stats strong small { margin-left: 2px; font-family: var(--ck-font); font-size: 12px; font-weight: 500; }
-.fridge-stats span { color: rgba(255, 255, 255, 0.78); font-size: 12px; }
-.fridge-art { position: absolute; top: 14px; right: -18px; width: 118px; height: 176px; border-radius: 22px 12px 12px 22px; background: linear-gradient(110deg, #E4F3E9 0%, #B9DEC7 45%, #8FC3A4 100%); box-shadow: inset -10px 0 18px rgba(40, 90, 60, 0.25), 0 18px 30px rgba(10, 40, 25, 0.35); }
-.fridge-art::before { content: ''; position: absolute; inset: 0 auto 0 -10px; width: 14px; border-radius: 12px 0 0 12px; background: linear-gradient(90deg, #7FB293, #A9D3BA); }
-.fridge-art .door { position: absolute; left: 0; right: 0; height: 2px; background: rgba(40, 90, 60, 0.35); }
-.fridge-art .door.top { top: 38%; }
-.fridge-art .door.bottom { top: calc(38% + 3px); background: rgba(255, 255, 255, 0.5); }
-.fridge-art .handle { position: absolute; left: 12px; width: 6px; border-radius: 3px; background: linear-gradient(180deg, #F4FBF6, #9CCBB0); box-shadow: 0 2px 4px rgba(20, 60, 40, 0.3); }
-.fridge-art .handle.one { top: 16%; height: 30px; }
-.fridge-art .handle.two { top: 48%; height: 44px; }
-.add-food-button { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 50px; border: 1px solid rgba(255, 255, 255, 0.22); border-radius: 16px; background: linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.14)); color: #fff; font-size: 16px; font-weight: 700; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.fridge-stats span { color: var(--ck-photo-tone-92); font-size: 12px; }
+.add-food-button { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 50px; border: 1px solid var(--ck-photo-tone-93); border-radius: 16px; background: linear-gradient(180deg, var(--ck-photo-tone-94), var(--ck-photo-tone-78)); color: var(--ck-on-accent); font-size: 16px; font-weight: 700; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
 
 .empty-card { display: flex; flex-direction: column; align-items: center; padding: 26px 20px; text-align: center; }
 .empty-card__icon { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 18px; background: var(--ck-fresh-soft); color: var(--ck-fresh); }
@@ -995,7 +989,7 @@ button { font: inherit; }
 .expiry-list { display: flex; flex-direction: column; }
 .expiry-list button { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 70px; padding: 8px 0; border: 0; background: none; color: var(--ck-text); text-align: left; }
 .expiry-list button + button { border-top: 1px solid var(--ck-hairline); }
-.mini-food-visual, .food-visual { position: relative; display: grid; place-items: center; overflow: hidden; background: #F4F2EE; color: #4D8B69; }
+.mini-food-visual, .food-visual { position: relative; display: grid; place-items: center; overflow: hidden; background: var(--ck-photo-tone-95); color: var(--ck-photo-tone-96); }
 .mini-food-visual { width: 54px; height: 54px; flex: 0 0 54px; border-radius: 14px; }
 .mini-food-visual img, .food-visual img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .expiry-copy { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
@@ -1012,12 +1006,12 @@ button { font: inherit; }
 .category-tile img { width: 46px; height: 46px; margin-bottom: 4px; border-radius: 12px; object-fit: cover; mix-blend-mode: multiply; }
 .category-tile b { font-size: 14px; font-weight: 700; }
 .category-tile small { color: var(--ck-text-3); font-size: 12px; }
-.tone-vegetable { background: #EEF5EE; } .tone-meat { background: #FBEDEC; } .tone-dairy { background: #FCF3E6; } .tone-staple { background: #F6F1E6; } .tone-fruit { background: #FDEEE8; } .tone-condiment { background: #F3F1EA; } .tone-other { background: #F1F3F5; }
+.tone-vegetable { background: var(--ck-photo-tone-97); } .tone-meat { background: var(--ck-photo-tone-98); } .tone-dairy { background: var(--ck-photo-tone-99); } .tone-staple { background: var(--ck-photo-tone-100); } .tone-fruit { background: var(--ck-photo-tone-101); } .tone-condiment { background: var(--ck-photo-tone-102); } .tone-other { background: var(--ck-photo-tone-103); }
 :root[data-theme='dark'] .category-tile { background: var(--ck-fill); }
 :root[data-theme='dark'] .category-tile img { mix-blend-mode: normal; }
 
 /* 全部食材 */
-.nav-add { display: grid; place-items: center; width: 38px; height: 38px; padding: 0; border: 0; border-radius: 50%; background: var(--ck-heat-deep); color: #fff; }
+.nav-add { display: grid; place-items: center; width: 38px; height: 38px; padding: 0; border: 0; border-radius: 50%; background: var(--ck-heat-deep); color: var(--ck-on-accent); }
 .inventory-toolbar { display: flex; gap: 8px; margin-top: 4px; }
 .search-input { flex: 1 1 auto; }
 .search-input :deep(.el-input__wrapper) { min-height: 44px; border-radius: 999px !important; }
@@ -1048,7 +1042,7 @@ button { font: inherit; }
 .inventory-empty h2 { margin: 14px 0 6px; font-size: 18px; font-weight: 700; }
 .inventory-empty p { max-width: 300px; color: var(--ck-text-3); font-size: 13px; line-height: 1.6; }
 .empty-actions { margin-top: 16px; }
-.empty-actions button { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 20px; border: 0; border-radius: 999px; background: var(--ck-heat-deep); color: #fff; font-weight: 600; }
+.empty-actions button { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 20px; border: 0; border-radius: 999px; background: var(--ck-heat-deep); color: var(--ck-on-accent); font-weight: 600; }
 .recommend-section { padding: 16px; }
 .recipe-container { display: flex; flex-direction: column; }
 .recipe-row-card { display: flex; align-items: center; gap: 12px; min-height: 56px; }
@@ -1062,7 +1056,7 @@ button { font: inherit; }
 .recognition-visual { position: relative; display: grid; place-items: center; width: 76px; height: 76px; border-radius: 24px; background: var(--ck-heat-soft); color: var(--ck-heat); }
 .recognition-visual.success { background: var(--ck-fresh-soft); color: var(--ck-fresh); }
 .recognition-visual.error { background: var(--ck-danger-soft); color: var(--ck-danger); }
-.scan-ring { position: absolute; inset: -6px; border: 2px solid rgba(255, 138, 61, 0.5); border-radius: 28px; animation: scan 1.4s ease-in-out infinite; }
+.scan-ring { position: absolute; inset: -6px; border: 2px solid var(--ck-photo-tone-104); border-radius: 28px; animation: scan 1.4s ease-in-out infinite; }
 @keyframes scan { 0%, 100% { opacity: 0.2; transform: scale(0.96); } 50% { opacity: 1; transform: scale(1.04); } }
 .recognition-card h2 { margin-top: 8px; font-size: 19px; font-weight: 700; }
 .recognition-card p { color: var(--ck-text-2); font-size: 13px; line-height: 1.6; }
@@ -1074,7 +1068,7 @@ button { font: inherit; }
 @keyframes indeterminate { 0% { left: -40%; } 100% { left: 100%; } }
 .elapsed-time { margin-top: 6px; font-size: 14px; font-variant-numeric: tabular-nums; }
 .recognition-card small { color: var(--ck-text-3); font-size: 12px; }
-.recognition-card button { min-height: 44px; margin-top: 10px; padding: 0 22px; border: 0; border-radius: 999px; background: var(--ck-heat-deep); color: #fff; font-weight: 600; }
+.recognition-card button { min-height: 44px; margin-top: 10px; padding: 0 22px; border: 0; border-radius: 999px; background: var(--ck-heat-deep); color: var(--ck-on-accent); font-weight: 600; }
 @media (max-width: 360px) {
   .fridge-card__copy { max-width: 78%; }
   .fridge-stats strong { font-size: 21px; }

@@ -28,24 +28,24 @@ const layers = [
   { id: 'sear', src: sear },
   { id: 'overheat', src: overheat }
 ]
-const steam = computed(() => ({ idle: 0.05, preheat: 0.2, heating: 0.45, sear: 0.8, overheat: 1 }[props.state] ?? 0.2))
+const steam = computed(() => ({ idle: 0, preheat: 0.04, heating: 0.18, sear: 0.3, overheat: 1 }[props.state] ?? 0.2))
 </script>
 
 <style scoped>
-.stage-backdrop { position: fixed; inset: 0; z-index: -1; overflow: hidden; background: #0B0C0B; pointer-events: none; }
+.stage-backdrop { position: fixed; inset: 0; z-index: -1; overflow: hidden; background: var(--ck-photo-tone-145); pointer-events: none; }
 .stage-backdrop__photo {
-  position: absolute; left: 50%; top: 0; width: max(100%, 470px); height: 100%;
-  object-fit: cover; object-position: 50% 30%; transform: translateX(-50%) scale(1.02);
-  opacity: 0; transition: opacity 1.6s ease, transform 8s ease;
+  position: absolute; left: 50%; top: 0; width: 100%; height: 100%;
+  object-fit: cover; object-position: 50% 50%; transform: translateX(-50%);
+  opacity: 0; transition: opacity 1.6s ease;
 }
 .stage-backdrop__photo.active { opacity: 1; transform: translateX(-50%) scale(1); }
 .is-cooking .stage-backdrop__photo { filter: blur(18px) brightness(0.7); transform: translateX(-50%) scale(1.12); }
 .stage-backdrop__shade {
   position: absolute; inset: 0;
-  background: linear-gradient(180deg, rgba(8, 9, 8, 0.72) 0%, rgba(8, 9, 8, 0.18) 20%, rgba(8, 9, 8, 0) 34%, rgba(8, 9, 8, 0.2) 56%, rgba(8, 9, 8, 0.78) 80%, #0B0C0B 100%);
+  background: linear-gradient(180deg, var(--ck-photo-tone-146) 0%, var(--ck-photo-tone-147) 30%, transparent 42%, transparent 58%, var(--ck-photo-tone-146) 80%, var(--ck-photo-tone-145) 100%);
 }
-.is-cooking .stage-backdrop__shade { background: linear-gradient(180deg, rgba(8, 9, 8, 0.55) 0%, rgba(8, 9, 8, 0.35) 50%, rgba(8, 9, 8, 0.85) 100%); }
-.stage-backdrop__alert { position: absolute; inset: 0; opacity: 0; transition: opacity 0.6s ease; box-shadow: inset 0 0 120px 30px rgba(255, 40, 30, 0.55); }
+.is-cooking .stage-backdrop__shade { background: linear-gradient(180deg, var(--ck-photo-tone-148) 0%, var(--ck-photo-tone-146) 50%, var(--ck-photo-tone-149) 100%); }
+.stage-backdrop__alert { position: absolute; inset: 0; opacity: 0; transition: opacity 0.6s ease; box-shadow: inset 0 0 120px 30px var(--ck-photo-tone-150); }
 .is-overheat .stage-backdrop__alert { opacity: 1; animation: alert-pulse 1.6s ease-in-out infinite; }
 @keyframes alert-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .is-overheat .stage-backdrop__alert { animation: none; } }

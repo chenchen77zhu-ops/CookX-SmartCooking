@@ -1,5 +1,5 @@
 <template>
-  <article :class="['sense', `is-${variant}`, { 'is-alert': alert?.level === 'danger', 'is-warn': alert?.level === 'warn' }]">
+  <article :class="['sense', 'ck-dark', `is-${variant}`, { 'is-alert': alert?.level === 'danger', 'is-warn': alert?.level === 'warn' }]">
     <img :src="panImage" alt="" class="sense__photo" />
     <div class="sense__shade"></div>
 
@@ -66,48 +66,49 @@ const adviceText = computed(() => {
 </script>
 
 <style scoped>
-.sense { position: relative; overflow: hidden; border-radius: 26px; background: #0E0F0E; color: #F6F3EE; isolation: isolate; }
-.sense__photo { position: absolute; top: 0; right: -18%; width: 88%; height: 76%; object-fit: cover; object-position: 30% 50%; z-index: -2; }
-.sense__shade { position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, #0E0F0E 30%, rgba(14, 15, 14, 0.2) 70%, rgba(14, 15, 14, 0) 100%), linear-gradient(180deg, rgba(14, 15, 14, 0) 45%, rgba(40, 22, 10, 0.92) 100%); }
-.is-alert .sense__shade { background: linear-gradient(90deg, #1A0B09 30%, rgba(26, 11, 9, 0.2) 70%, rgba(26, 11, 9, 0) 100%), linear-gradient(180deg, rgba(26, 11, 9, 0) 40%, rgba(120, 18, 12, 0.92) 100%); }
-.sense__body { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 20px 20px 0; }
+.sense { position: relative; overflow: hidden; border-radius: 26px; background: var(--ck-photo-tone-105); color: var(--ck-photo-tone-106); isolation: isolate; }
+.sense__photo { position: absolute; top: 0; right: 0; width: 100%; height: 100%; object-fit: cover; object-position: 65% 50%; z-index: -2; }
+.sense__shade { position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, var(--ck-photo-tone-105) 30%, var(--ck-photo-tone-107) 70%, var(--ck-photo-tone-108) 100%), linear-gradient(180deg, var(--ck-photo-tone-108) 45%, var(--ck-photo-tone-109) 100%); }
+.is-alert .sense__shade { background: linear-gradient(90deg, var(--ck-photo-tone-110) 30%, var(--ck-photo-tone-111) 70%, var(--ck-photo-tone-112) 100%), linear-gradient(180deg, var(--ck-photo-tone-112) 40%, var(--ck-photo-tone-113) 100%); }
+.sense__body { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 16px 18px 0; }
 .sense__brand { font-family: var(--ck-font-display); font-size: 20px; font-weight: 600; letter-spacing: -0.2px; }
-.sense__brand b { color: #FF8A3D; font-weight: inherit; }
-.sense__status { display: flex; align-items: center; gap: 7px; color: #7EE6A4; font-size: 13px; }
-.sense__status.is-off { color: rgba(246, 243, 238, 0.6); }
-.sense__label { margin-top: 18px; color: rgba(246, 243, 238, 0.72); font-size: 13px; }
+.sense__brand b { color: var(--ck-chart-end); font-weight: inherit; }
+.sense__status { display: flex; align-items: center; gap: 7px; color: var(--ck-photo-tone-05); font-size: 13px; }
+.sense__status.is-off { color: var(--ck-photo-tone-114); }
+.sense__label { margin-top: 12px; color: var(--ck-photo-tone-115); font-size: 13px; }
 .sense__temp { display: flex; align-items: flex-start; font-size: 46px; font-weight: 600; line-height: 1.05; }
-.sense__temp .is-empty, .mini__temp .is-empty { color: rgba(246, 243, 238, 0.6); font-family: var(--ck-font); font-weight: 200; letter-spacing: 0.12em; }
+.sense__temp .is-empty, .mini__temp .is-empty { color: var(--ck-photo-tone-114); font-family: var(--ck-font); font-weight: 200; letter-spacing: 0.12em; }
 .sense__temp sup { margin: 4px 0 0 3px; font-size: 20px; font-weight: 500; }
-.is-alert .sense__temp { color: #FF6152; }
-.sense__bar { position: relative; display: block; width: 136px; height: 6px; margin: 10px 0 16px; border-radius: 3px; background: rgba(255, 255, 255, 0.16); overflow: hidden; }
+.is-alert .sense__temp { color: var(--ck-photo-tone-116); }
+.sense__bar { position: relative; display: block; width: 136px; height: 6px; margin: 8px 0 10px; border-radius: 3px; background: var(--ck-photo-tone-117); overflow: hidden; }
 .sense__bar b { position: absolute; inset: 0 auto 0 0; border-radius: 3px; background: var(--ck-heat-gradient); transition: width 0.6s ease; }
-.is-alert .sense__bar b { background: linear-gradient(90deg, #FF8A3D, #FF3B30); }
-.sense__cooking { display: flex; align-items: center; gap: 10px; padding: 10px 16px 10px 12px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; background: rgba(255, 255, 255, 0.08); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
-.sense__cooking .ck-icon { color: #FF8A3D; }
+.is-alert .sense__bar b { background: linear-gradient(90deg, var(--ck-chart-end), var(--ck-photo-tone-118)); }
+.sense__cooking { display: flex; align-items: center; gap: 10px; padding: 10px 16px 10px 12px; border: 1px solid var(--ck-photo-tone-119); border-radius: 16px; background: var(--ck-photo-tone-60); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
+.sense__cooking .ck-icon { color: var(--ck-chart-end); }
 .sense__cooking span { display: flex; flex-direction: column; line-height: 1.35; }
-.sense__cooking small { color: rgba(246, 243, 238, 0.7); font-size: 12px; }
+.sense__cooking small { color: var(--ck-photo-tone-120); font-size: 12px; }
 .sense__cooking b { max-width: 150px; overflow: hidden; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
-.sense__advice { display: flex; align-items: center; gap: 12px; margin: 16px 12px 12px; padding: 14px 14px 14px 18px; border: 1px solid rgba(255, 170, 110, 0.28); border-radius: 18px; background: linear-gradient(120deg, rgba(150, 72, 24, 0.62), rgba(110, 52, 20, 0.5)); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
-.is-alert .sense__advice { border-color: rgba(255, 110, 90, 0.4); background: linear-gradient(120deg, rgba(170, 30, 20, 0.7), rgba(120, 20, 14, 0.6)); }
+.sense__advice { display: flex; align-items: center; gap: 12px; margin: 12px; padding: 10px 12px 10px 14px; border: 1px solid var(--ck-photo-tone-121); border-radius: 18px; background: linear-gradient(120deg, var(--ck-photo-tone-122), var(--ck-photo-tone-123)); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
+.is-alert .sense__advice { border-color: var(--ck-photo-tone-124); background: linear-gradient(120deg, var(--ck-photo-tone-125), var(--ck-photo-tone-126)); }
 .sense__advice > span:first-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
-.sense__advice small { color: rgba(255, 230, 210, 0.75); font-size: 12px; }
-.sense__advice b { font-size: 18px; font-weight: 700; line-height: 1.35; }
-.sense__advice em { color: rgba(255, 230, 210, 0.72); font-size: 12.5px; font-style: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sense__go { display: grid; place-items: center; width: 44px; height: 44px; flex: 0 0 44px; border-radius: 50%; background: #FF8A1F; color: #fff; box-shadow: 0 8px 20px rgba(255, 120, 30, 0.4); }
-.is-alert .sense__go { background: #FF3B30; }
+.sense__advice small { color: var(--ck-photo-tone-127); font-size: 12px; }
+.sense__advice b { font-size: 16px; font-weight: 700; line-height: 1.35; }
+.sense__advice em { color: var(--ck-photo-tone-128); font-size: 12.5px; font-style: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sense__go { display: grid; place-items: center; width: 44px; height: 44px; flex: 0 0 44px; border-radius: 50%; background: var(--ck-photo-tone-129); color: var(--ck-on-accent); box-shadow: 0 8px 20px var(--ck-photo-tone-130); }
+.is-alert .sense__go { background: var(--ck-photo-tone-118); }
 
 /* 悬浮小窗 */
-.is-mini { width: 148px; border-radius: 20px; box-shadow: 0 16px 36px rgba(0, 0, 0, 0.35); }
+.is-mini { width: 148px; border-radius: 20px; box-shadow: 0 16px 36px var(--ck-photo-tone-39); }
 .is-mini .sense__photo { right: -30%; width: 110%; height: 100%; opacity: 0.55; }
-.is-mini .sense__shade { background: linear-gradient(90deg, rgba(14, 15, 14, 0.92) 30%, rgba(14, 15, 14, 0.45) 100%); }
-.is-mini.is-alert .sense__shade { background: linear-gradient(90deg, rgba(90, 14, 10, 0.94) 30%, rgba(90, 14, 10, 0.6) 100%); }
+.is-mini .sense__shade { background: linear-gradient(90deg, var(--ck-photo-tone-131) 30%, var(--ck-photo-tone-132) 100%); }
+.is-mini.is-alert .sense__shade { background: linear-gradient(90deg, var(--ck-photo-tone-133) 30%, var(--ck-photo-tone-134) 100%); }
 .mini { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px 12px; }
 .mini__top { display: flex; align-items: center; justify-content: space-between; }
 .mini .sense__brand { font-size: 14px; }
 .mini__temp { display: flex; align-items: flex-start; font-size: 30px; font-weight: 600; line-height: 1.1; }
 .mini__temp sup { margin: 3px 0 0 2px; font-size: 13px; }
-.is-alert .mini__temp { color: #FF6152; }
+.is-alert .mini__temp { color: var(--ck-photo-tone-116); }
 .mini .sense__bar { width: 100%; height: 4px; margin: 6px 0 6px; }
-.mini__line { overflow: hidden; color: rgba(246, 243, 238, 0.78); font-size: 11.5px; text-overflow: ellipsis; white-space: nowrap; }
+.mini__line { overflow: hidden; color: var(--ck-photo-tone-135); font-size: 11.5px; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-height: 800px) { .is-full .sense__body { padding-top: 12px; gap: 0; } .is-full .sense__temp { font-size: 40px; } .is-full .sense__bar { margin-block: 6px; } .is-full .sense__advice { padding-block: 8px; } .is-full .sense__cooking { padding-block: 6px; } .is-full .sense__label { margin-top: 8px; } .is-full .sense__advice { margin-top: 8px; } }
 </style>

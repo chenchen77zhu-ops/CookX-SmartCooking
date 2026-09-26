@@ -8,7 +8,7 @@ const {chromium}=require(process.env.COOKX_PLAYWRIGHT||'playwright'),assert=requ
  assert.equal(await page.evaluate(()=>localStorage.getItem('cookx:cooking:v1:'+JSON.parse(localStorage.getItem('user')).id)),before)
  await page.getByRole('button',{name:'已核对，送到烹饪页',exact:true}).click();await page.waitForURL('**/#/home?tab=Recipes');await page.getByRole('button',{name:'开始指导',exact:true}).last().waitFor()
  assert.equal(await page.evaluate(()=>localStorage.getItem('cookx:cooking:v1:'+JSON.parse(localStorage.getItem('user')).id)),before)
- await page.getByRole('button',{name:'开始指导',exact:true}).last().click();await page.getByText('时长未提供',{exact:true}).first().waitFor()
+ await page.getByRole('button',{name:'开始指导',exact:true}).last().click();await page.getByRole('button',{name:'烹饪工具',exact:true}).click();await page.getByText('时长未提供',{exact:true}).first().waitFor()
  const active=await page.evaluate(()=>JSON.parse(localStorage.getItem('cookx:cooking:v1:'+JSON.parse(localStorage.getItem('user')).id)));assert.equal(active.recipe.dish_name,'番茄炒鸡蛋');assert.equal(active.timers[0].deadline,null);assert.ok(active.recipe.cookx_copy_id)
  await page.goto(base+'/#/favorites');await page.getByRole('heading',{name:'番茄炒鸡蛋',exact:true}).first().waitFor();fs.mkdirSync('tmp/recipes',{recursive:true});await page.screenshot({path:'tmp/recipes/favorites.png',fullPage:true,animations:'disabled'})
  console.log(JSON.stringify({suite:'recipe-reuse-mobile-real-api',checks:['standard-catalog','favorite','independent-copy','ingredient-review','no-auto-session','no-auto-timer','missing-duration','source-provenance','favorite-roundtrip']}))

@@ -1,5 +1,5 @@
 <template>
-  <div :class="['app-container', { 'has-tabbar': showBottomNav }]">
+  <div :class="['app-container', { 'has-tabbar': showBottomNav, 'has-live-nav': activeTab === 'AiChef' }]">
     <CookXSplash :visible="showNativeSplash" />
     <CkBackdrop v-if="backdrop !== 'none'" :variant="backdrop" />
     <router-view v-slot="{ Component }">
@@ -111,7 +111,9 @@ onMounted(() => { startLiveKitchen() })
   min-height: 100vh;
   min-height: 100dvh;
 }
-.app-container.has-tabbar { padding-bottom: calc(var(--ck-tabbar-height) + var(--sab) + 8px); }
+.app-container { --ck-bottom-inset: 0px; }
+.app-container.has-tabbar { --ck-bottom-inset: calc(var(--ck-tabbar-height) + var(--sab)); padding-bottom: var(--ck-bottom-inset); }
+.has-live-nav .tabbar { --ck-tabbar-bg: var(--ck-live-nav-bg); --ck-tabbar-text: var(--ck-live-nav-text); --ck-tabbar-active: var(--ck-live-nav-active); --ck-heat-soft: var(--ck-live-nav-fill); }
 
 .tabbar {
   position: fixed;
@@ -129,7 +131,7 @@ onMounted(() => { startLiveKitchen() })
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   width: min(100%, var(--ck-page-max));
-  height: var(--ck-tabbar-height);
+  height: calc(var(--ck-tabbar-height) - 1px);
   margin: 0 auto;
   padding: 0 6px;
 }
