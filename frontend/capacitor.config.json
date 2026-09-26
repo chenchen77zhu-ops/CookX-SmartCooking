@@ -14,5 +14,12 @@
       "*.ngrok-free.dev",
       "*.ngrok-free.app"
     ]
+  },
+  "backgroundColor": "#0D100F",
+  "plugins": {
+    "SystemBars": {
+      "style": "DARK",
+      "insetsHandling": "css"
+    }
   }
 }

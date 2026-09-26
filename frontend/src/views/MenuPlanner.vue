@@ -30,4 +30,14 @@ function edit(menu){const c=menu.config;form.value={start_date:c.start_date,fami
 const clone=(menu,m,d)=>send('/recipes/copies','post',{source_type:'menu',source_id:`${menu.id}|${m.day}|${m.meal}|${d.role}`,expected_source_version:String(menu.version)})
 onMounted(async()=>{try{await loadCatalog();families.value=(await businessApi('/households')).items;await loadMenus()}catch(e){error.value=apiError(e)}})
 </script>
-<style scoped>.week{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.week>div{border:1px solid #dce5dd;border-radius:12px;padding:10px}.week label{display:flex;gap:8px;align-items:center}.week input{width:auto}.planner details{margin:12px 0}.planner article button{margin:5px}.planner a{overflow-wrap:anywhere}</style>
+<style scoped>
+.week { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin: 12px 0; }
+.week > div { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 10px; border-radius: 14px; background: var(--ck-fill); }
+.week > div > b { width: 52px; flex: 0 0 52px; color: var(--ck-text-2); font-size: 13px; font-weight: 600; }
+.business-page .week label { display: inline-flex; flex: 1 1 0; align-items: center; justify-content: center; gap: 6px; min-height: 38px; margin: 0; padding: 0 8px; border: 1px solid var(--ck-glass-border); border-radius: 999px; background: rgba(255, 255, 255, 0.04); color: var(--ck-text-2); font-size: 13px; }
+.business-page .week label:has(input:checked) { border-color: rgba(255, 138, 61, 0.5); background: var(--ck-heat-soft); color: #FFB27F; }
+.business-page .week input { width: 16px; height: 16px; }
+.planner details { margin: 12px 0; }
+.planner article button { margin: 5px 6px 5px 0; }
+.planner a { overflow-wrap: anywhere; }
+</style>

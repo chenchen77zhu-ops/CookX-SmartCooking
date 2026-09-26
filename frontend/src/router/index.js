@@ -1,14 +1,14 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 
 const routes = [
-  {path:'/learning',component:()=>import('../views/Learning.vue'),meta:{requiresAuth:true}},
-  {path:'/menus',component:()=>import('../views/MenuPlanner.vue'),meta:{requiresAuth:true}},
-  {path:'/growth',component:()=>import('../views/Growth.vue'),meta:{requiresAuth:true}},
-  {path:'/leftovers',component:()=>import('../views/Leftovers.vue'),meta:{requiresAuth:true}},
-  {path:'/community',component:()=>import('../views/Community.vue'),meta:{requiresAuth:true}},
-  {path:'/recipes',component:()=>import('../views/RecipeLibrary.vue'),meta:{requiresAuth:true}},
-  {path:'/shopping',component:()=>import('../views/Shopping.vue'),meta:{requiresAuth:true}},
-  {path:'/household',component:()=>import('../views/Household.vue'),meta:{requiresAuth:true}},
+  {path:'/learning',name:'Learning',component:()=>import('../views/Learning.vue'),meta:{requiresAuth:true}},
+  {path:'/menus',name:'MenuPlanner',component:()=>import('../views/MenuPlanner.vue'),meta:{requiresAuth:true}},
+  {path:'/growth',name:'Growth',component:()=>import('../views/Growth.vue'),meta:{requiresAuth:true}},
+  {path:'/leftovers',name:'Leftovers',component:()=>import('../views/Leftovers.vue'),meta:{requiresAuth:true}},
+  {path:'/community',name:'Community',component:()=>import('../views/Community.vue'),meta:{requiresAuth:true}},
+  {path:'/recipes',name:'Recipes',component:()=>import('../views/RecipeLibrary.vue'),meta:{requiresAuth:true}},
+  {path:'/shopping',name:'Shopping',component:()=>import('../views/Shopping.vue'),meta:{requiresAuth:true}},
+  {path:'/household',name:'Household',component:()=>import('../views/Household.vue'),meta:{requiresAuth:true}},
   {
     path: '/login',
     name: 'Login',
@@ -82,7 +82,8 @@ const routes = [
 
 const router = createRouter({
   history: createWebHashHistory(),
-  routes
+  routes,
+  scrollBehavior: (to, from, saved) => saved || { top: 0 }
 })
 
 // 路由守卫保持不变...

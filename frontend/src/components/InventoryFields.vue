@@ -21,8 +21,12 @@ const model = defineModel({ required: true })
 defineProps({ editing: Boolean, disabled: Boolean, original: { type: Object, default: () => ({}) } })
 </script>
 <style scoped>
-.inventory-fields { border: 0; padding: 0; margin: 0; min-width: 0; text-align: left; }
-label { display: grid; gap: 6px; margin: 12px 0; color: #315340; font-size: 14px; }
-input,select { box-sizing: border-box; width: 100%; min-width: 0; padding: 11px; border: 1px solid #c9d8cf; border-radius: 8px; background: white; color: #243f31; font: inherit; }
-p { font-size: 12px; color: #66746b; overflow-wrap: anywhere; line-height: 1.6; }
+.inventory-fields { min-width: 0; margin: 0; padding: 0; border: 0; text-align: left; }
+label { display: grid; gap: 6px; margin: 12px 0; color: var(--ck-text-2); font-size: 13px; }
+input, select { box-sizing:border-box;min-height:42px;padding:0 12px;border:1px solid rgba(255,255,255,.1);border-radius:12px;background:rgba(255,255,255,.07);color:var(--ck-text);font:inherit; width: 100%; min-width: 0; min-height: 46px; font-size: 15px; }
+input:focus, select:focus { outline: none; border-color: var(--ck-heat); }
+select { -webkit-appearance: none; appearance: none; }
+select option { background: #1E2220; }
+input[type=datetime-local] { color-scheme: dark; }
+p { color: var(--ck-text-3); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 </style>

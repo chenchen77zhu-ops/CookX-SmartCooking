@@ -1,66 +1,25 @@
 <template>
-  <div class="app-container">
+  <div :class="['app-container', { 'has-tabbar': showBottomNav }]">
     <CookXSplash :visible="showNativeSplash" />
-    <!-- 1. 路由展示区域 -->
+    <CkBackdrop :variant="backdrop" />
     <router-view v-slot="{ Component }">
-      <transition name="fade" mode="out-in">
-        <component :is="Component" :key="$route.fullPath + authRevision" />
+      <transition name="page" mode="out-in">
+        <component :is="Component" :key="routeKey" />
       </transition>
     </router-view>
 
-    <!-- 2. 底部导航栏 -->
-    <nav v-if="showBottomNav" class="bottom-nav" aria-label="主导航">
-      <div class="bottom-nav__inner">
-        <!-- 首页 Dashboard -->
+    <nav v-if="showBottomNav" class="tabbar" aria-label="主导航">
+      <div class="tabbar__inner">
         <button
+          v-for="tab in tabs"
+          :key="tab.id"
           type="button"
-          class="nav-item"
-          :class="{ active: activeTab === 'Home' }"
-          @click="switchTab('Home')"
+          :class="['tabbar__item', { active: activeTab === tab.id }]"
+          :aria-current="activeTab === tab.id ? 'page' : undefined"
+          @click="switchTab(tab.id)"
         >
-          <div class="nav-icon-wrapper">
-            <el-icon class="nav-icon"><House /></el-icon>
-          </div>
-          <span class="nav-text">首页</span>
-        </button>
-
-        <!-- 冰箱管理 -->
-        <button
-          type="button"
-          class="nav-item"
-          :class="{ active: activeTab === 'Manage' }"
-          @click="switchTab('Manage')"
-        >
-          <div class="nav-icon-wrapper">
-            <el-icon class="nav-icon"><Box /></el-icon>
-          </div>
-          <span class="nav-text">冰箱</span>
-        </button>
-
-        <!-- AI 厨房 -->
-        <button
-          type="button"
-          class="nav-item"
-          :class="{ active: activeTab === 'AiChef' }"
-          @click="switchTab('AiChef')"
-        >
-          <div class="nav-icon-wrapper">
-            <el-icon class="nav-icon"><Bowl /></el-icon>
-          </div>
-          <span class="nav-text">AI 厨房</span>
-        </button>
-
-        <!-- 我的 -->
-        <button
-          type="button"
-          class="nav-item"
-          :class="{ active: activeTab === 'Profile' }"
-          @click="switchTab('Profile')"
-        >
-          <div class="nav-icon-wrapper">
-            <el-icon class="nav-icon"><User /></el-icon>
-          </div>
-          <span class="nav-text">我的</span>
+          <span class="tabbar__icon"><CkIcon :name="tab.icon" :size="23" :stroke="activeTab === tab.id ? 2.1 : 1.7" /></span>
+          <span class="tabbar__label">{{ tab.label }}</span>
         </button>
       </div>
     </nav>
@@ -77,7 +36,9 @@ import { readUserId } from './services/recognitionDraft.js'
 import { watch, computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { Capacitor } from '@capacitor/core'
-import { House, Box, Bowl, User } from '@element-plus/icons-vue'
+import CkIcon from '@/components/ck/CkIcon.vue'
+import CkBackdrop from '@/components/ck/CkBackdrop.vue'
+import { uiState } from './services/uiState.js'
 import CookXSplash from '@/components/CookXSplash.vue'
 
 const router = useRouter()
@@ -99,171 +60,99 @@ onBeforeUnmount(() => {
   if (splashTimer) window.clearTimeout(splashTimer)
 })
 
-// 2. 控制导航栏显示
-const showBottomNav = computed(() => {
-  const hideNavRoutes = ['Login', 'Register']
-  return !hideNavRoutes.includes(route.name)
-})
+// 首页的冰箱 / 厨房标签共用一个 HomeView 实例，切换时保留待咨询菜名等状态
+const routeKey = computed(() => (route.name === 'Home' ? 'home:' : route.fullPath) + authRevision.value)
 
-// 3. ✅ 核心修改：统一通过路由状态决定 activeTab
+const tabs = [
+  { id: 'Home', label: '首页', icon: 'home' },
+  { id: 'Manage', label: '冰箱', icon: 'fridge' },
+  { id: 'AiChef', label: '厨房', icon: 'pot' },
+  { id: 'Recipes', label: '菜谱', icon: 'book' },
+  { id: 'Profile', label: '我的', icon: 'user' }
+]
+
+// 只有一级页面显示底栏；二级页面和沉浸式烹饪隐藏底栏
+const TAB_ROUTES = ['Home', 'Profile', 'Recipes']
+const showBottomNav = computed(() => TAB_ROUTES.includes(route.name) && !uiState.immersive)
+
 const activeTab = computed(() => {
-  if (route.path === '/profile' || route.meta.navTab === 'Profile') return 'Profile'
-  if (route.path.includes('/home')) {
-    if (route.query.tab === 'Manage') return 'Manage'
-    if (route.query.tab === 'AiChef') return 'AiChef'
-    return 'Home'
-  }
+  if (route.name === 'Profile') return 'Profile'
+  if (route.name === 'Recipes') return 'Recipes'
+  if (route.query.tab === 'Manage') return 'Manage'
+  if (route.query.tab === 'AiChef') return 'AiChef'
   return 'Home'
 })
 
-// 4. ✅ 核心修改：切换逻辑
+const backdrop = computed(() => {
+  if (route.name === 'Login' || route.name === 'Register') return 'kitchen'
+  if (route.name === 'Home') return route.query.tab === 'Manage' ? 'fresh' : 'kitchen'
+  if (route.name === 'CaptureConfirm') return 'fresh'
+  return 'warm'
+})
+
 const switchTab = (tab) => {
-  if (tab === 'Profile') {
-    router.push('/profile');
-  } else if (tab === 'Home') {
-    router.push('/home');
-  } else {
-    // ✅ 关键点：统一跳转到 /home，并带上 tab 参数
-    // 这样 URL 会变成 /home?tab=Manage 或 /home?tab=AiChef
-    router.push({ path: '/home', query: { tab: tab } });
-  }
-};
+  if (tab === activeTab.value) { window.scrollTo({ top: 0, behavior: 'smooth' }); return }
+  if (tab === 'Profile') router.push('/profile')
+  else if (tab === 'Recipes') router.push('/recipes')
+  else if (tab === 'Home') router.push('/home')
+  else router.push({ path: '/home', query: { tab } })
+}
 </script>
 
 <style>
-:root {
-  --cookx-bottom-nav-height: 72px;
-}
-
-body {
-  margin: 0;
-  background-color: var(--cookx-bg);
-  font-family: 'PingFang SC', 'Noto Sans SC', 'Roboto', 'Inter', sans-serif;
-}
-
 .app-container {
+  position: relative;
   min-height: 100vh;
-  box-sizing: border-box;
-  background: var(--cookx-bg);
-  padding-bottom: calc(var(--cookx-bottom-nav-height) + env(safe-area-inset-bottom));
+  min-height: 100dvh;
 }
+.app-container.has-tabbar { padding-bottom: calc(var(--ck-tabbar-height) + var(--sab) + 8px); }
 
-.bottom-nav {
+.tabbar {
   position: fixed;
   right: 0;
   bottom: 0;
   left: 0;
-  min-height: var(--cookx-bottom-nav-height);
-  padding-bottom: env(safe-area-inset-bottom);
-  border-top: var(--cookx-border, 1px solid rgba(23, 63, 53, 0.08));
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 -6px 24px rgba(28, 48, 40, 0.07);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
   z-index: 1000;
+  padding: 0 var(--sar) var(--sab) var(--sal);
+  background: var(--ck-tabbar-bg);
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
+  backdrop-filter: saturate(180%) blur(24px);
 }
-
-.bottom-nav__inner {
+.tabbar__inner {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  width: min(100%, 760px);
-  min-height: var(--cookx-bottom-nav-height);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  width: min(100%, var(--ck-page-max));
+  height: var(--ck-tabbar-height);
   margin: 0 auto;
+  padding: 0 6px;
 }
-
-.nav-item {
-  min-width: 0;
-  min-height: 44px;
-  padding: 7px 4px 6px;
-  border: 0;
-  background: transparent;
+.tabbar__item {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  position: relative;
-  cursor: pointer;
-  font: inherit;
-  transition: color 0.2s ease, background-color 0.2s ease;
-  -webkit-tap-highlight-color: transparent;
+  gap: 3px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ck-tabbar-text);
 }
-
-.nav-icon-wrapper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  height: 32px;
-  margin-bottom: 3px;
-  border-radius: 12px;
+.tabbar__icon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 30px;
+  border-radius: 999px;
   transition: background-color 0.2s ease, transform 0.2s ease;
 }
+.tabbar__label { font-size: 11px; font-weight: 500; line-height: 1.1; white-space: nowrap; }
+.tabbar__item.active { color: #E8641F; }
+.tabbar__item.active .tabbar__icon { background: rgba(232, 100, 31, 0.13); }
+.tabbar__item.active .tabbar__label { font-weight: 700; }
+.tabbar__item:active .tabbar__icon { transform: scale(0.92); }
 
-.nav-icon {
-  font-size: 23px;
-  color: var(--cookx-text-secondary, #737a75);
-  transition: color 0.2s ease, transform 0.2s ease;
-}
-
-.nav-text {
-  color: var(--cookx-text-secondary, #737a75);
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1.2;
-  white-space: nowrap;
-  transition: color 0.2s ease;
-}
-
-.nav-item.active .nav-icon-wrapper {
-  background: rgba(23, 63, 53, 0.1);
-}
-
-.nav-item.active .nav-icon {
-  color: var(--cookx-primary, #173f35);
-  transform: translateY(-1px);
-}
-
-.nav-item.active .nav-text {
-  color: var(--cookx-primary, #173f35);
-  font-weight: 600;
-}
-
-.nav-item:active .nav-icon-wrapper {
-  transform: scale(0.95);
-}
-
-@media (hover: hover) {
-  .nav-item:hover .nav-icon-wrapper {
-    background: rgba(23, 63, 53, 0.06);
-  }
-
-  .nav-item:hover .nav-icon,
-  .nav-item:hover .nav-text {
-    color: var(--cookx-primary, #173f35);
-  }
-}
-
-@media (max-width: 430px) {
-  :root {
-    --cookx-bottom-nav-height: 68px;
-  }
-
-  .nav-item {
-    padding-inline: 2px;
-  }
-
-  .nav-text {
-    font-size: 11px;
-  }
-}
-
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
+.page-enter-active, .page-leave-active { transition: opacity 0.16s ease; }
+.page-enter-from, .page-leave-to { opacity: 0; }
 </style>

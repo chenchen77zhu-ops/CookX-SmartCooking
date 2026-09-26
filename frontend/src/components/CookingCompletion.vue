@@ -36,5 +36,12 @@ async function reconcile(){if(!valid()||busy.value)return;busy.value=true;try{aw
 onMounted(()=>{if(!props.session.recipe?.inventory_scope?.family_id)load()});onBeforeUnmount(()=>{active=false;version++})
 </script>
 <style scoped>
-.completion{padding:18px;margin:12px 0;background:white;border:1px solid #b8cbbf;border-radius:16px;line-height:1.7}.completion label{display:block;margin:8px 0}.completion button{padding:8px;margin:5px;border:1px solid #b8cbbf;border-radius:8px;background:#edf5ef;color:#244c36}.completion span{color:#97543a}.completion input[type=number]{display:block;width:85px;padding:8px;margin:5px 0;border:1px solid #b8cbbf;border-radius:7px}
+.completion{margin:0;padding:16px;border:1px solid var(--ck-glass-border);border-radius:var(--ck-radius-lg);background:var(--ck-glass);color:var(--ck-text-2);font-size:13.5px;line-height:1.7;-webkit-backdrop-filter:var(--ck-blur);backdrop-filter:var(--ck-blur)}
+.completion h3{margin-bottom:6px;color:var(--ck-text);font-size:17px}
+.completion label{display:block;margin:10px 0;padding:12px;border-radius:14px;background:var(--ck-fill);color:var(--ck-text)}
+.completion input[type=checkbox]{width:20px;height:20px;margin-right:8px;vertical-align:-4px;accent-color:var(--ck-heat-deep)}
+.completion button{border:1px solid var(--ck-glass-border);border-radius:999px;background:var(--ck-fill-strong);color:var(--ck-text);font:inherit;font-size:13px;font-weight:600;min-height:38px;padding:0 14px;margin:4px 6px 4px 0}
+.completion button:disabled{opacity:.45}
+.completion span{color:#FFB27F}
+.completion input[type=number]{box-sizing:border-box;min-height:42px;padding:0 12px;border:1px solid rgba(255,255,255,.1);border-radius:12px;background:rgba(255,255,255,.07);color:var(--ck-text);font:inherit;display:block;width:110px;margin:8px 0 0}
 </style>

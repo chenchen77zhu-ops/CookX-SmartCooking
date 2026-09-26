@@ -24,5 +24,10 @@ function canUndo(record){return !record.undone && record.patches.every(p=>!props
 function undo(id){try{props.engine.undo(id);emit('changed')}catch(e){error.value=e.message}}
 </script>
 <style scoped>
-.adjustments{padding:14px;margin-top:16px;background:#faf5ec;border-radius:14px;font-size:13px;line-height:1.7;overflow-wrap:anywhere}.preview{border-top:1px solid #d6c7ad;margin-top:8px}button{padding:8px;margin:4px;border:1px solid #d6c7ad;border-radius:8px;background:white;color:#65482a}p{white-space:pre-line}
+.adjustments{padding:14px;margin-top:12px;border-radius:16px;background:var(--ck-fill);color:var(--ck-text-2);font-size:13px;line-height:1.7;overflow-wrap:anywhere}
+.adjustments>b{display:block;margin-bottom:6px;color:var(--ck-text);font-size:14px}
+.preview{margin-top:10px;padding:12px;border:1px solid rgba(255,138,61,.3);border-radius:14px;background:rgba(255,138,61,.08)}
+.preview strong{color:var(--ck-text)}
+button{border:1px solid var(--ck-glass-border);border-radius:999px;background:var(--ck-fill-strong);color:var(--ck-text);font:inherit;font-size:13px;font-weight:600;min-height:38px;padding:0 14px;margin:4px 6px 4px 0}
+p{white-space:pre-line;margin:6px 0}
 </style>

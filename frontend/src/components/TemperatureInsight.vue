@@ -4,9 +4,9 @@
     <p v-if="assessment.temperature !== null" class="current-reading">{{ assessment.temperature.toFixed(1) }} <small>℃</small></p>
     <p class="source">{{ replaying ? '物理仿真回放 · 非设备实测' : '设备测温 · 移动识别研究版' }}</p>
     <svg viewBox="0 0 320 100" role="img" aria-label="最近一分钟温度曲线">
-      <path d="M0 85 H320 M0 45 H320 M0 5 H320" stroke="#e7e1d6" fill="none"/>
-      <polyline v-for="(line,i) in paths" :key="i" :points="line" fill="none" stroke="#bc643b" stroke-width="2"/>
-      <text x="4" y="98" font-size="9" fill="#746e64">{{ extent[0].toFixed(0) }}–{{ extent[1].toFixed(0) }} ℃ · 60 秒</text>
+      <path d="M0 85 H320 M0 45 H320 M0 5 H320" stroke="rgba(255,255,255,0.08)" fill="none"/>
+      <polyline v-for="(line,i) in paths" :key="i" :points="line" fill="none" stroke="#FF8A3D" stroke-width="2"/>
+      <text x="4" y="98" font-size="9" fill="rgba(246,243,238,0.45)">{{ extent[0].toFixed(0) }}–{{ extent[1].toFixed(0) }} ℃ · 60 秒</text>
     </svg>
     <p v-for="reason in assessment.reasons" :key="reason">{{ reason }}</p>
     <p v-if="assessment.suggestion" class="suggestion" :class="assessment.risk" role="status">{{ assessment.suggestion }}</p>
@@ -58,13 +58,14 @@ const paths=computed(()=>{
 })
 </script>
 <style scoped>
-.insight{margin-top:16px;border-top:1px solid #e5ded2;padding-top:16px;color:#51493e}
+.insight{margin-top:14px;border-top:1px solid var(--ck-hairline);padding-top:14px;color:var(--ck-text-2)}
 .insight-head{display:flex;justify-content:space-between;gap:8px;align-items:center}
-.insight-head strong{font-size:21px}.insight-head span{font-size:12px;padding:5px 8px;border-radius:12px;background:#f5eddf}
-.insight-head .invalid{background:#eee}.insight-head .suspect{color:#86570b}.source{font-size:11px!important;color:#80776a}
-.current-reading{font-size:28px!important;color:#1a4437;font-weight:600}.current-reading small{font-size:14px}.insight p{font-size:12px;line-height:1.6;margin:8px 0}.insight svg{width:100%;height:112px}
+.insight-head strong{color:var(--ck-text);font-size:19px}.insight-head span{padding:4px 10px;border-radius:999px;background:var(--ck-fill-strong);font-size:12px}
+.insight-head .invalid{opacity:.7}.insight-head .suspect{color:var(--ck-warn)}.source{font-size:11px!important;color:var(--ck-text-3)}
+.current-reading{font-size:28px!important;color:var(--ck-text);font-weight:300}.current-reading small{font-size:14px}.insight p{font-size:12.5px;line-height:1.6;margin:8px 0}.insight svg{width:100%;height:112px}
 .event-actions{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
-button{border:1px solid #d9cdbc;background:#fffaf2;color:#6e4b32;padding:7px 9px;border-radius:8px;cursor:pointer;font:inherit;font-size:12px}
-button:disabled{opacity:.5;cursor:default}.suggestion{padding:10px;border-radius:8px;background:#f7eddc}.danger{background:#ffe1db;color:#9c2e20}
-details{font-size:12px;margin-top:12px}summary{cursor:pointer;padding:6px 0}label{display:flex;align-items:center;gap:6px}
+button{border:1px solid var(--ck-glass-border);border-radius:999px;background:var(--ck-fill-strong);color:var(--ck-text);font:inherit;font-size:13px;font-weight:600;min-height:38px;padding:0 14px;margin:4px 6px 4px 0;margin:0}
+button:disabled{opacity:.45;cursor:default}.suggestion{padding:10px 12px;border-radius:12px;background:var(--ck-heat-soft);color:#FFD2B0}.danger{background:var(--ck-danger-soft);color:#FFB5AB}
+details{font-size:12.5px;margin-top:10px}summary{cursor:pointer;padding:8px 0;color:var(--ck-text-2)}label{display:flex;align-items:center;gap:8px}
+input[type=checkbox]{width:18px;height:18px;accent-color:var(--ck-heat-deep)}
 </style>

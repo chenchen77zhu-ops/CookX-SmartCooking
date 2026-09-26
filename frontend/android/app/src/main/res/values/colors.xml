@@ -2,5 +2,6 @@
 <resources>
     <color name="cookx_primary">#173F35</color>
     <color name="cookx_primary_dark">#102E27</color>
-    <color name="cookx_splash_background">#F7F5EF</color>
+    <color name="cookx_splash_background">#0D100F</color>
+    <color name="cookx_window_background">#0D100F</color>
 </resources>

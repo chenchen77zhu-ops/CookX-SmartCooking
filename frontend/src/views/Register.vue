@@ -3,8 +3,8 @@
     <div class="register-card">
       <!-- LOGO 区域 -->
       <div class="logo-section">
-        <div class="logo-icon">🍳</div>
-        <h1 class="register-title">CookX</h1>
+        <img class="logo-icon" :src="cookxMark" alt="" />
+        <h1 class="register-title">Cook<strong>X</strong></h1>
         <p class="register-subtitle">感知每一度 · 智烹每一步</p>
       </div>
 
@@ -64,6 +64,7 @@
 </template>
 
 <script setup>
+import cookxMark from '@/assets/brand/cookx-mark.svg'
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -142,89 +143,18 @@ const handleRegister = async () => {
 </script>
 
 <style scoped>
-.register-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  background: var(--cookx-bg);
-  position: relative;
-}
-
-.register-card {
-  background: var(--cookx-surface);
-  /* ✅ 压缩内边距，使卡片更紧凑 */
-  padding: 30px 24px;
-  border: var(--cookx-border);
-  border-radius: var(--cookx-radius-large);
-  box-shadow: var(--cookx-shadow);
-  /* ✅ 设置宽度百分比及最大宽度，不撑满全屏 */
-  width: 88%;
-  max-width: 350px;
-  z-index: 1;
-  animation: slideUp 0.5s ease;
-}
-
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.logo-section {
-  text-align: center;
-  margin-bottom: 24px;
-}
-
-.logo-icon {
-  font-size: 48px;
-  margin-bottom: 10px;
-}
-
-.register-title {
-  color: var(--cookx-primary);
-  margin-bottom: 4px;
-  font-size: 24px;
-  font-weight: 600;
-  text-align: center;
-}
-
-.register-subtitle {
-  color: var(--cookx-text-secondary);
-  font-size: 13px;
-  text-align: center;
-}
-
-:deep(.el-form-item) {
-  margin-bottom: 18px;
-}
-
-:deep(.el-input__wrapper) {
-  border-radius: var(--cookx-radius-input) !important;
-  background-color: var(--cookx-surface);
-  padding: 8px 12px;
-}
-
-.register-button {
-  width: 100%;
-  height: 44px;
-  font-size: 15px;
-  font-weight: 600;
-  border-radius: var(--cookx-radius-button) !important;
-  background: var(--cookx-primary);
-  border: none;
-  margin-top: 10px;
-}
-
-.login-link {
-  text-align: center;
-  margin-top: 20px;
-  color: #666;
-  font-size: 13px;
-}
-
-.link {
-  color: var(--cookx-primary);
-  text-decoration: none;
-  font-weight: 600;
-}
+.register-container { position: relative; z-index: 1; display: flex; flex-direction: column; justify-content: flex-end; min-height: 100vh; min-height: 100dvh; padding: calc(var(--sat) + 24px) calc(var(--ck-gutter) + var(--sar)) calc(24px + var(--sab)) calc(var(--ck-gutter) + var(--sal)); }
+.register-card { width: min(100%, 440px); margin: 0 auto; }
+.logo-section { margin-bottom: 28px; color: var(--ck-text); text-shadow: 0 2px 20px rgba(0, 0, 0, 0.4); }
+.logo-icon { display: block; width: 64px; height: 64px; margin-bottom: 18px; padding: 10px; border: 1px solid var(--ck-glass-border); border-radius: 20px; background: rgba(20, 22, 21, 0.55); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+.register-title { font-family: var(--ck-font-display); font-size: 44px; font-weight: 700; letter-spacing: -1.4px; line-height: 1; }
+.register-title strong { color: var(--ck-heat); font-weight: inherit; }
+.register-subtitle { margin-top: 10px; color: var(--ck-text-2); font-size: 15px; letter-spacing: 2px; }
+.register-card :deep(.el-form) { padding: 20px 16px 8px; border: 1px solid var(--ck-glass-border); border-radius: var(--ck-radius-xl); background: rgba(24, 27, 26, 0.72); -webkit-backdrop-filter: var(--ck-blur); backdrop-filter: var(--ck-blur); }
+.register-card :deep(.el-form-item) { margin-bottom: 16px; }
+.register-card :deep(.el-input__wrapper) { min-height: 50px; padding: 0 14px; border-radius: 16px !important; }
+.register-card :deep(.el-input__inner) { font-size: 16px; }
+.register-button { width: 100%; min-height: 52px !important; font-size: 16px !important; }
+.register-link, .login-link { padding: 4px 0 12px; color: var(--ck-text-2); font-size: 14px; text-align: center; }
+.link { color: var(--ck-heat); font-weight: 600; text-decoration: none; }
 </style>

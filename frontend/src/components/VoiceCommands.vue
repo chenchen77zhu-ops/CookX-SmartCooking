@@ -24,6 +24,11 @@ onMounted(()=>document.addEventListener('visibilitychange',visibility))
 onBeforeUnmount(()=>{cancel();document.removeEventListener('visibilitychange',visibility)})
 </script>
 <style scoped>
-.voice-commands{margin:12px 0;padding:12px;border-radius:12px;background:#edf5ef;color:#315340;font-size:13px;line-height:1.6}
-button,input{margin:4px;padding:8px;max-width:100%;border:1px solid #c8d9ce;border-radius:8px;background:white;color:#234c3b}label{display:block}p{overflow-wrap:anywhere}
+.voice-commands{margin:4px 0 12px;padding:14px;border-radius:16px;background:var(--ck-fill);color:var(--ck-text-2);font-size:13px;line-height:1.6}
+button{border:1px solid var(--ck-glass-border);border-radius:999px;background:var(--ck-fill-strong);color:var(--ck-text);font:inherit;font-size:13px;font-weight:600;min-height:38px;padding:0 14px;margin:4px 6px 4px 0}
+button:first-of-type{background:var(--ck-heat-soft);border-color:rgba(255,138,61,.35);color:#FFB27F}
+button:disabled{opacity:.5}
+label{display:grid;gap:4px;margin:8px 0 4px;color:var(--ck-text-3);font-size:12px}
+input{box-sizing:border-box;min-height:42px;padding:0 12px;border:1px solid rgba(255,255,255,.1);border-radius:12px;background:rgba(255,255,255,.07);color:var(--ck-text);font:inherit;width:100%}
+p{overflow-wrap:anywhere;margin:6px 0 0}
 </style>

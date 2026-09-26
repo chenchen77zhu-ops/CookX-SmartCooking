@@ -1,136 +1,120 @@
 <template>
   <div v-loading="inventoryLoading" class="manage-container">
-    <section class="fridge-hero">
-      <div class="hero-inner">
-        <header class="fridge-topbar">
-          <div class="fridge-wordmark"><span>Cook</span><strong>X</strong></div>
-          <h1>我的冰箱</h1>
-          <button class="add-food-button" type="button" @click="showAddDialog = true">
-            <el-icon><Plus /></el-icon><span>添加食材</span>
-          </button>
-        </header>
+    <header class="fridge-top">
+      <div>
+        <h1>冰箱</h1>
+        <p>食材新鲜，生活更健康</p>
+      </div>
+      <button class="add-food-button" type="button" @click="showAddDialog = true"><CkIcon name="plus" :size="18" :stroke="2.2" /><span>添加食材</span></button>
+    </header>
 
-        <div class="hero-grid">
-          <article class="overview-card dark-card">
-            <div class="overview-title">
-              <span class="overview-icon"><el-icon><Box /></el-icon></span>
-              <div><h2>库存概览</h2><p>数据实时更新</p></div>
-            </div>
-            <div class="overview-metrics">
-              <div><el-icon><KnifeFork /></el-icon><span>食材种类</span><strong>{{ inventoryKindCount }}<small>种</small></strong></div>
-              <div><el-icon><Box /></el-icon><span>库存总量</span><strong>{{ totalQuantity }}<small>库存计数</small></strong></div>
-              <div><el-icon><AlarmClock /></el-icon><span>即将过期</span><strong>{{ expiringCount }}<small>种</small></strong></div>
-              <div><el-icon><WarningFilled /></el-icon><span>已过期</span><strong>{{ expiredCount }}<small>种</small></strong></div>
-            </div>
-            <p class="last-updated">最后更新：{{ lastUpdatedText }}</p>
-          </article>
+    <section class="overview-card">
+      <div class="overview-head">
+        <div><h2>我的冰箱</h2><p class="last-updated">最后更新：{{ lastUpdatedText }}</p></div>
+        <el-button class="refresh-btn" :loading="inventoryLoading" @click="fetchInventory()">刷新库存与鲜度</el-button>
+      </div>
+      <div class="overview-metrics">
+        <div><strong class="ck-num">{{ inventoryKindCount }}</strong><span>食材种类</span></div>
+        <div><strong class="ck-num">{{ totalQuantity }}</strong><span>库存计数</span></div>
+        <div><strong class="ck-num is-warn">{{ expiringCount }}</strong><span>即将过期</span></div>
+        <div><strong class="ck-num is-danger">{{ expiredCount }}</strong><span>已过期</span></div>
+      </div>
+      <el-upload
+        :action="`${API_BASE_URL}/analyze-fridge`"
+        :before-upload="beforeRecognitionUpload"
+        :on-progress="handleRecognitionProgress"
+        :on-success="handleUploadSuccess"
+        :on-error="handleRecognitionError"
+        :disabled="isRecognizing"
+        :show-file-list="false"
+        accept="image/*"
+        class="recognize-fab"
+      >
+        <div class="recognize-button"><CkIcon name="camera" :size="20" /><span>识别食材</span><small>拍一张冰箱照片，AI 帮你入库</small></div>
+      </el-upload>
+    </section>
 
-          <article class="expiry-card">
-            <div class="summary-card-heading"><h2>临期食材提醒</h2><span>最近 {{ expiringPreview.length }} 项</span></div>
-            <div v-if="expiringPreview.length" class="expiry-list">
-              <button v-for="item in expiringPreview" :key="item.id" type="button" @click="editItem(item)">
-                <span class="mini-food-visual">
-                  <el-icon><KnifeFork /></el-icon>
-                  <img v-if="getItemImage(item)" :src="getItemImage(item)" :alt="getFoodInfo(item.name).cn" @error="hideBrokenImage" />
-                </span>
-                <span class="expiry-copy"><strong>{{ getFoodInfo(item.name).cn }}</strong><small>{{ expiryStatus(item).description }}</small></span>
-                <span :class="['expiry-days', expiryStatus(item).className]">{{ expiryStatus(item).label }}</span>
-              </button>
-            </div>
-            <div v-else class="expiry-empty"><el-icon><KnifeFork /></el-icon><span>{{ freshness.status === 'success' ? '未发现已评估的临期项，未知项请补充信息' : '等待鲜度评估' }}</span></div>
-          </article>
+    <el-alert v-if="inventoryError" title="库存加载失败，当前显示上次库存；鲜度需重新评估" type="error" :closable="false" class="gap-alert" />
+    <el-alert v-if="freshness.status === 'error'" :title="freshness.error" type="warning" :closable="false" class="gap-alert" />
 
-          <article class="health-card">
-            <div class="health-copy"><span>COOKX FRESH</span><h2>食材新鲜，<br />生活更健康</h2><p>合理管理冰箱食材<br />让每一餐都安心美味</p></div>
-            <div class="fridge-art" aria-hidden="true"><span class="door-line"></span><i class="leaf-one"></i><i class="leaf-two"></i></div>
-          </article>
+    <section class="expiry-card ck-glass">
+      <div class="ck-section-title"><span>临期食材提醒</span><small>最近 {{ expiringPreview.length }} 项</small></div>
+      <div v-if="expiringPreview.length" class="expiry-list">
+        <button v-for="item in expiringPreview" :key="item.id" type="button" @click="editItem(item)">
+          <span class="mini-food-visual">
+            <CkIcon name="leaf" :size="18" />
+            <img v-if="getItemImage(item)" :src="getItemImage(item)" :alt="getFoodInfo(item.name).cn" @error="hideBrokenImage" />
+          </span>
+          <span class="expiry-copy"><strong>{{ getFoodInfo(item.name).cn }}</strong><small>{{ expiryStatus(item).description }}</small></span>
+          <span :class="['expiry-days', expiryStatus(item).className]">{{ expiryStatus(item).label }}</span>
+        </button>
+      </div>
+      <div v-else class="expiry-empty"><CkIcon name="shield" :size="18" /><span>{{ freshness.status === 'success' ? '未发现已评估的临期项，未知项请补充信息' : '等待鲜度评估' }}</span></div>
+    </section>
+
+    <section class="inventory-toolbar">
+      <el-input v-model="searchKeyword" placeholder="搜索食材名称" :prefix-icon="Search" clearable class="search-input" />
+      <button class="compact-add" type="button" aria-label="添加" @click="showAddDialog = true"><CkIcon name="plus" :size="20" :stroke="2.2" /></button>
+    </section>
+
+    <nav class="category-tabs" aria-label="食材分类">
+      <button v-for="category in visibleCategories" :key="category.id" type="button" :class="{ active: activeCategory === category.id }" @click="activeCategory = category.id">
+        {{ category.name }} <span>{{ category.count }}</span>
+      </button>
+    </nav>
+
+    <div v-if="filteredInventory.length" class="food-grid">
+      <article v-for="item in filteredInventory" :key="item.id" class="food-card" @click="editItem(item)">
+        <div class="food-card-top">
+          <div class="food-visual">
+            <span class="food-image-placeholder"><CkIcon name="leaf" :size="22" /></span>
+            <img v-if="getItemImage(item)" :src="getItemImage(item)" :alt="getFoodInfo(item.name).cn" loading="lazy" @error="hideBrokenImage" />
+          </div>
+          <div class="food-card-body">
+            <div class="food-title-row"><h3>{{ getFoodInfo(item.name).cn }}</h3><span :class="['cat-tag', `category-${getItemCategory(item)}`]">{{ categoryName(getItemCategory(item)) }}</span></div>
+            <p class="food-meta">{{ getItemMeasureText(item) }}<span v-if="item.storage_type"> · {{ item.storage_type }}</span></p>
+            <p class="food-added">添加于 {{ formatDate(item.add_time) }}</p>
+          </div>
+          <span :class="['expiry-days', expiryStatus(item).className]">{{ expiryStatus(item).label }}</span>
+        </div>
+        <FreshnessCard :detail="freshness.items[item.id]" :status="freshness.status" :evaluated-at="freshness.evaluatedAt" />
+        <div class="food-footer"><div class="card-actions"><button type="button" aria-label="编辑食材" @click.stop="editItem(item)"><CkIcon name="edit" :size="16" />编辑</button><button type="button" aria-label="删除食材" class="danger" @click.stop="removeItem(item.id)"><CkIcon name="trash" :size="16" />删除</button></div></div>
+      </article>
+    </div>
+
+    <section v-else-if="inventoryError" class="inventory-empty inventory-error ck-glass">
+      <span><CkIcon name="info" :size="26" /></span><h2>库存加载失败</h2>
+      <p>请检查网络连接后重新加载，已有库存数据不会因此被清空。</p>
+      <div class="empty-actions"><button type="button" @click="fetchInventory()"><CkIcon name="refresh" :size="16" />重新加载</button></div>
+    </section>
+
+    <section v-else-if="!inventoryLoading" class="inventory-empty ck-glass">
+      <span><CkIcon name="fridge" :size="26" /></span><h2>{{ inventory.length ? '没有匹配的食材' : '冰箱还是空的' }}</h2>
+      <p>{{ inventory.length ? '换个关键词或分类看看吧' : '添加一些食材，CookX 就能开始为你规划下一餐' }}</p>
+      <div v-if="!inventory.length" class="empty-actions"><button type="button" @click="showAddDialog = true"><CkIcon name="plus" :size="16" />添加食材</button></div>
+    </section>
+
+    <MultiObjectiveRecommendations :inventory-revision="inventoryRevision" :inventory-ready="inventoryReady" :user-id="currentUserId" @manage-inventory="showAddDialog = true" />
+
+    <section v-if="inventory.length > 0" class="recommend-section ck-glass">
+      <div class="ck-section-title"><span>AI 生成灵感</span><small>由大模型生成新的菜谱方案</small></div>
+      <div class="recipe-container" v-loading="recLoading">
+        <div v-for="(rec, index) in quickRecipes" :key="index" class="recipe-row-card">
+          <span class="rec-icon"><CkIcon name="chef" :size="18" /></span>
+          <span class="rec-dish-name">{{ rec?.dish_name || '构思中...' }}</span>
+          <button type="button" class="rec-go-btn" @click="goToChef(rec.dish_name)">咨询教程<CkIcon name="chevron-right" :size="14" /></button>
         </div>
       </div>
     </section>
 
-    <main class="inventory-surface">
-      <el-alert v-if="inventoryError" title="库存加载失败，当前显示上次库存；鲜度需重新评估" type="error" :closable="false" />
-      <el-alert v-if="freshness.status === 'error'" :title="freshness.error" type="warning" :closable="false" />
-      <el-button @click="fetchInventory()" :loading="inventoryLoading">刷新库存与鲜度</el-button>
-      <section class="inventory-toolbar">
-        <el-input v-model="searchKeyword" placeholder="搜索食材名称" :prefix-icon="Search" clearable class="search-input" />
-        <button class="compact-add" type="button" @click="showAddDialog = true"><el-icon><Plus /></el-icon><span>添加</span></button>
-      </section>
-
-      <nav class="category-tabs" aria-label="食材分类">
-        <button
-          v-for="category in visibleCategories"
-          :key="category.id"
-          type="button"
-          :class="{ active: activeCategory === category.id }"
-          @click="activeCategory = category.id"
-        >
-          {{ category.name }} <span>{{ category.count }}</span>
-        </button>
-      </nav>
-
-      <div v-if="filteredInventory.length" class="food-grid">
-        <article v-for="item in filteredInventory" :key="item.id" class="food-card" @click="editItem(item)">
-          <div class="food-visual">
-            <span class="food-image-placeholder"><el-icon><KnifeFork /></el-icon></span>
-            <img v-if="getItemImage(item)" :src="getItemImage(item)" :alt="getFoodInfo(item.name).cn" loading="lazy" @error="hideBrokenImage" />
-          </div>
-          <div class="food-card-body">
-            <div class="food-title-row"><h3>{{ getFoodInfo(item.name).cn }}</h3><span :class="`category-${getItemCategory(item)}`">{{ categoryName(getItemCategory(item)) }}</span></div>
-            <p class="food-meta">{{ getItemMeasureText(item) }}<span v-if="item.storage_type"> · {{ item.storage_type }}</span></p>
-            <FreshnessCard :detail="freshness.items[item.id]" :status="freshness.status" :evaluated-at="freshness.evaluatedAt" />
-            <div class="food-footer"><span>添加于 {{ formatDate(item.add_time) }}</span><div class="card-actions"><button type="button" aria-label="编辑食材" @click.stop="editItem(item)"><el-icon><EditPen /></el-icon></button><button type="button" aria-label="删除食材" @click.stop="removeItem(item.id)"><el-icon><Delete /></el-icon></button></div></div>
-          </div>
-        </article>
-      </div>
-
-      <section v-else-if="inventoryError" class="inventory-empty inventory-error">
-        <span><el-icon><WarningFilled /></el-icon></span><h2>库存加载失败</h2>
-        <p>请检查网络连接后重新加载，已有库存数据不会因此被清空。</p>
-        <div class="empty-actions"><button type="button" @click="fetchInventory()"><el-icon><Refresh /></el-icon>重新加载</button></div>
-      </section>
-
-      <section v-else-if="!inventoryLoading" class="inventory-empty">
-        <span><el-icon><Box /></el-icon></span><h2>{{ inventory.length ? '没有匹配的食材' : '冰箱还是空的' }}</h2>
-        <p>{{ inventory.length ? '换个关键词或分类看看吧' : '添加一些食材，CookX 就能开始为你规划下一餐' }}</p>
-        <div v-if="!inventory.length" class="empty-actions"><button type="button" @click="showAddDialog = true"><el-icon><Plus /></el-icon>添加食材</button></div>
-      </section>
-
-      <MultiObjectiveRecommendations :inventory-revision="inventoryRevision" :inventory-ready="inventoryReady" :user-id="currentUserId" @manage-inventory="showAddDialog = true" />
-
-      <section v-if="inventory.length > 0" class="recommend-section">
-        <div class="main-title"><span><el-icon><KnifeFork /></el-icon>AI 生成灵感</span><small>由大模型生成新的菜谱方案</small></div>
-        <div class="recipe-container" v-loading="recLoading">
-          <div v-for="(rec, index) in quickRecipes" :key="index" class="recipe-row-card">
-            <div class="rec-info"><span class="rec-icon"><el-icon><KnifeFork /></el-icon></span><span class="rec-dish-name">{{ rec?.dish_name || '构思中...' }}</span></div>
-            <el-button type="success" size="small" round class="rec-go-btn" @click="goToChef(rec.dish_name)">咨询教程 <el-icon><ArrowRight /></el-icon></el-button>
-          </div>
-        </div>
-      </section>
-
-      <aside class="fridge-tip"><el-icon><KnifeFork /></el-icon><span><strong>CookX 小贴士：</strong>定期清理过期食材，保持冰箱整洁；合理搭配食材，吃得健康又美味。</span></aside>
-    </main>
-
-    <el-upload
-      :action="`${API_BASE_URL}/analyze-fridge`"
-      :before-upload="beforeRecognitionUpload"
-      :on-progress="handleRecognitionProgress"
-      :on-success="handleUploadSuccess"
-      :on-error="handleRecognitionError"
-      :disabled="isRecognizing"
-      :show-file-list="false"
-      accept="image/*"
-      class="recognize-fab"
-    >
-      <div class="recognize-button"><el-icon><CameraFilled /></el-icon><span>识别食材</span></div>
-    </el-upload>
+    <p class="fridge-tip">定期清理过期食材，合理搭配，吃得健康又美味。</p>
 
     <div v-if="recognitionStatus !== 'idle'" class="recognition-overlay" role="status" aria-live="polite">
       <section class="recognition-card">
         <div :class="['recognition-visual', recognitionStatus]">
-          <el-icon v-if="recognitionStatus === 'success'"><CircleCheckFilled /></el-icon>
-          <el-icon v-else-if="recognitionStatus === 'error'"><WarningFilled /></el-icon>
-          <el-icon v-else><CameraFilled /></el-icon>
+          <CkIcon v-if="recognitionStatus === 'success'" name="check" :size="30" :stroke="2.4" />
+          <CkIcon v-else-if="recognitionStatus === 'error'" name="info" :size="30" />
+          <CkIcon v-else name="camera" :size="30" />
           <span v-if="isRecognizing" class="scan-ring"></span>
         </div>
         <h2>{{ recognitionTitle }}</h2>
@@ -179,32 +163,33 @@ import { calculateDaysUntilExpiry } from '../services/inventoryExpiry.js'
 import { ref, computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
-import { AlarmClock, Box, CameraFilled, CircleCheckFilled, Delete, KnifeFork, ArrowRight, EditPen, WarningFilled, Search, Plus, Refresh } from '@element-plus/icons-vue'
+import { Search } from '@element-plus/icons-vue'
+import CkIcon from '@/components/ck/CkIcon.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { API_BASE_URL, resolveBackendUrl } from '@/config/backend'
 import MultiObjectiveRecommendations from '@/components/MultiObjectiveRecommendations.vue'
-import tomatoImage from '@/assets/images/ingredients/tomato.png'
-import potatoImage from '@/assets/images/ingredients/potato.png'
-import carrotImage from '@/assets/images/ingredients/carrot.png'
-import onionImage from '@/assets/images/ingredients/onion.png'
-import eggImage from '@/assets/images/ingredients/egg.png'
-import chickenImage from '@/assets/images/ingredients/chicken.png'
-import lettuceImage from '@/assets/images/ingredients/lettuce.png'
-import broccoliImage from '@/assets/images/ingredients/broccoli.png'
-import riceImage from '@/assets/images/ingredients/rice.png'
-import milkImage from '@/assets/images/ingredients/milk.png'
-import beefImage from '@/assets/images/ingredients/beef.png'
-import chiliImage from '@/assets/images/ingredients/chili.png'
-import garlicImage from '@/assets/images/ingredients/garlic.png'
-import kimchiImage from '@/assets/images/ingredients/kimchi.png'
-import leekImage from '@/assets/images/ingredients/leek.png'
-import cabbageImage from '@/assets/images/ingredients/cabbage.png'
-import spinachImage from '@/assets/images/ingredients/spinach.png'
-import tofuImage from '@/assets/images/ingredients/tofu.png'
-import cilantroImage from '@/assets/images/ingredients/cilantro.png'
-import greenChiliImage from '@/assets/images/ingredients/green-chili.png'
-import gingerImage from '@/assets/images/ingredients/ginger.png'
-import doubanjiangImage from '@/assets/images/ingredients/doubanjiang.png'
+import tomatoImage from '@/assets/images/ingredients/tomato.webp'
+import potatoImage from '@/assets/images/ingredients/potato.webp'
+import carrotImage from '@/assets/images/ingredients/carrot.webp'
+import onionImage from '@/assets/images/ingredients/onion.webp'
+import eggImage from '@/assets/images/ingredients/egg.webp'
+import chickenImage from '@/assets/images/ingredients/chicken.webp'
+import lettuceImage from '@/assets/images/ingredients/lettuce.webp'
+import broccoliImage from '@/assets/images/ingredients/broccoli.webp'
+import riceImage from '@/assets/images/ingredients/rice.webp'
+import milkImage from '@/assets/images/ingredients/milk.webp'
+import beefImage from '@/assets/images/ingredients/beef.webp'
+import chiliImage from '@/assets/images/ingredients/chili.webp'
+import garlicImage from '@/assets/images/ingredients/garlic.webp'
+import kimchiImage from '@/assets/images/ingredients/kimchi.webp'
+import leekImage from '@/assets/images/ingredients/leek.webp'
+import cabbageImage from '@/assets/images/ingredients/cabbage.webp'
+import spinachImage from '@/assets/images/ingredients/spinach.webp'
+import tofuImage from '@/assets/images/ingredients/tofu.webp'
+import cilantroImage from '@/assets/images/ingredients/cilantro.webp'
+import greenChiliImage from '@/assets/images/ingredients/green-chili.webp'
+import gingerImage from '@/assets/images/ingredients/ginger.webp'
+import doubanjiangImage from '@/assets/images/ingredients/doubanjiang.webp'
 
 const router = useRouter()
 const inventory = ref([])
@@ -924,556 +909,115 @@ onBeforeUnmount(()=>window.removeEventListener('cookx:inventory-changed',consump
 </script>
 
 <style scoped>
-/* CookX 冰箱高保真视觉层 */
-.manage-container {
-  position: relative;
-  min-height: calc(100vh - 126px);
-  padding: 0 0 calc(112px + env(safe-area-inset-bottom));
-  background: var(--cookx-bg);
-}
-
+.manage-container { position: relative; z-index: 1; width: min(100%, var(--ck-page-max)); min-height: 100vh; margin: 0 auto; padding: var(--sat) calc(var(--ck-gutter) + var(--sar)) 24px calc(var(--ck-gutter) + var(--sal)); color: var(--ck-text); }
 button { font: inherit; }
+.fridge-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 64px; padding: 8px 0; }
+.fridge-top h1 { font-size: 30px; font-weight: 700; letter-spacing: -0.4px; line-height: 1.2; }
+.fridge-top p { margin-top: 2px; color: var(--ck-text-2); font-size: 13px; }
+.add-food-button { display: inline-flex; align-items: center; gap: 6px; min-height: 42px; padding: 0 16px; border: 1px solid var(--ck-glass-border); border-radius: 999px; background: rgba(20, 22, 21, 0.5); color: var(--ck-text); font-size: 14px; font-weight: 600; -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
 
-.fridge-hero {
-  padding: calc(16px + env(safe-area-inset-top)) 16px 30px;
-  background:
-    radial-gradient(circle at 88% 8%, rgba(77, 139, 105, .20), transparent 28%),
-    linear-gradient(145deg, #082d24, var(--cookx-primary-dark));
-  color: #fff;
-}
+.overview-card { position: relative; margin-top: 6px; padding: 18px 16px 16px; overflow: hidden; border: 1px solid rgba(61, 214, 140, 0.22); border-radius: var(--ck-radius-xl); background: radial-gradient(120% 90% at 100% 0%, rgba(61, 214, 140, 0.28), transparent 60%), linear-gradient(160deg, rgba(34, 74, 58, 0.85), rgba(20, 38, 31, 0.9)); -webkit-backdrop-filter: var(--ck-blur); backdrop-filter: var(--ck-blur); }
+.overview-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.overview-head h2 { font-size: 20px; font-weight: 700; }
+.last-updated { margin-top: 2px; color: rgba(246, 243, 238, 0.6); font-size: 12px; }
+.refresh-btn.el-button { min-height: 34px !important; padding: 0 12px !important; font-size: 12px; }
+.overview-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; margin: 18px 0 16px; }
+.overview-metrics div { display: flex; flex-direction: column; align-items: center; text-align: center; }
+.overview-metrics div + div { border-left: 1px solid rgba(255, 255, 255, 0.1); }
+.overview-metrics strong { font-size: 30px; font-weight: 300; line-height: 1.1; }
+.overview-metrics strong.is-warn { color: var(--ck-warn); }
+.overview-metrics strong.is-danger { color: var(--ck-danger); }
+.overview-metrics span { color: rgba(246, 243, 238, 0.65); font-size: 12px; }
+.recognize-fab, .recognize-fab :deep(.el-upload) { display: block; width: 100%; }
+.recognize-button { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; align-items: center; column-gap: 12px; width: 100%; min-height: 56px; padding: 10px 16px; border-radius: 18px; background: rgba(255, 255, 255, 0.92); color: #173F35; text-align: left; cursor: pointer; }
+.recognize-button .ck-icon { grid-row: span 2; }
+.recognize-button span { font-size: 15px; font-weight: 700; }
+.recognize-button small { color: #4E6A5F; font-size: 12px; }
+.gap-alert { margin-top: 12px; }
 
-.hero-inner,
-.inventory-surface {
-  width: min(100%, var(--cookx-page-max));
-  margin: 0 auto;
-}
+.expiry-card { margin-top: 12px; padding: 16px; }
+.expiry-list { display: flex; flex-direction: column; }
+.expiry-list button { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 8px 0; border: 0; background: none; color: var(--ck-text); text-align: left; }
+.expiry-list button + button { border-top: 1px solid var(--ck-hairline); }
+.mini-food-visual, .food-visual { position: relative; display: grid; place-items: center; overflow: hidden; background: rgba(255, 255, 255, 0.92); color: #4D8B69; }
+.mini-food-visual { width: 48px; height: 48px; flex: 0 0 48px; border-radius: 14px; }
+.mini-food-visual img, .food-visual img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.expiry-copy { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+.expiry-copy strong { font-size: 15px; font-weight: 600; }
+.expiry-copy small { color: var(--ck-text-3); font-size: 12px; }
+.expiry-days { flex: 0 0 auto; padding: 4px 10px; border-radius: 999px; background: var(--ck-fill); color: var(--ck-text-2); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.expiry-days.expired, .expiry-days.urgent { background: var(--ck-danger-soft); color: #FF9A8E; }
+.expiry-days.soon { background: var(--ck-warn-soft); color: var(--ck-warn); }
+.expiry-days.fresh { background: var(--ck-fresh-soft); color: var(--ck-fresh); }
+.expiry-empty { display: flex; align-items: center; gap: 8px; min-height: 48px; color: var(--ck-text-3); font-size: 13px; }
 
-.fridge-topbar {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.fridge-wordmark {
-  font-size: 23px;
-  font-weight: 760;
-  letter-spacing: -.6px;
-}
-
-.fridge-wordmark strong { color: var(--cookx-accent); }
-
-.fridge-topbar h1 {
-  margin: 0;
-  font-size: 19px;
-  font-weight: 680;
-}
-
-.add-food-button,
-.compact-add {
-  display: inline-flex;
-  align-items: center;
-  justify-self: end;
-  gap: 5px;
-  min-height: 40px;
-  padding: 0 14px;
-  border: 1px solid rgba(255, 255, 255, .12);
-  border-radius: 14px;
-  background: rgba(23, 117, 88, .72);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 650;
-  cursor: pointer;
-}
-
-.hero-grid {
-  display: grid;
-  gap: 13px;
-}
-
-.overview-card,
-.expiry-card,
-.health-card {
-  min-width: 0;
-  border-radius: 20px;
-}
-
-.overview-card {
-  padding: 18px;
-  border: 1px solid rgba(255, 255, 255, .13);
-  background: rgba(255, 255, 255, .055);
-  box-shadow: inset 0 1px rgba(255, 255, 255, .04);
-}
-
-.overview-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.overview-icon {
-  display: grid;
-  width: 38px;
-  height: 38px;
-  border: 1px solid rgba(255, 255, 255, .16);
-  border-radius: 12px;
-  color: #d8ede2;
-  place-items: center;
-}
-
-.overview-title h2,
-.summary-card-heading h2,
-.health-copy h2 {
-  margin: 0;
-  font-size: 16px;
-}
-
-.overview-title p {
-  margin: 3px 0 0;
-  color: rgba(255, 255, 255, .50);
-  font-size: 10px;
-}
-
-.overview-metrics {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 17px 12px;
-  margin-top: 21px;
-}
-
-.overview-metrics > div {
-  display: grid;
-  grid-template-columns: 22px 1fr;
-  align-items: center;
-}
-
-.overview-metrics .el-icon {
-  grid-row: 1 / 3;
-  color: var(--cookx-gold);
-  font-size: 17px;
-}
-
-.overview-metrics span {
-  color: rgba(255, 255, 255, .58);
-  font-size: 9px;
-}
-
-.overview-metrics strong {
-  margin-top: 2px;
-  font-size: 23px;
-  line-height: 1;
-}
-
-.overview-metrics strong small {
-  margin-left: 3px;
-  font-size: 9px;
-  font-weight: 500;
-}
-
-.last-updated {
-  margin: 19px 0 0;
-  color: rgba(255, 255, 255, .46);
-  font-size: 9px;
-}
-
-.expiry-card {
-  padding: 18px;
-  background: var(--cookx-surface);
-  color: var(--cookx-text);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, .13);
-}
-
-.summary-card-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 7px;
-}
-
-.summary-card-heading span {
-  color: var(--cookx-text-secondary);
-  font-size: 9px;
-}
-
-.expiry-list button {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  min-height: 55px;
-  padding: 8px 0;
-  border: 0;
-  border-bottom: var(--cookx-border);
-  background: none;
-  text-align: left;
-  cursor: pointer;
-}
-
-.expiry-list button:last-child { border-bottom: 0; }
-
-.mini-food-visual {
-  position: relative;
-  display: grid;
-  flex: 0 0 39px;
-  width: 39px;
-  height: 39px;
-  border-radius: 11px;
-  background: #f1f3ed;
-  color: var(--cookx-success);
-  font-size: 18px;
-  place-items: center;
-  overflow: hidden;
-}
-
-.mini-food-visual img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-
-.expiry-copy {
-  display: flex;
-  min-width: 0;
-  margin-left: 10px;
-  flex-direction: column;
-}
-
-.expiry-copy strong { font-size: 12px; }
-.expiry-copy small { margin-top: 3px; color: var(--cookx-text-secondary); font-size: 9px; }
-.expiry-days { margin-left: auto; font-size: 11px; font-weight: 700; }
-.expiry-days.expired, .expiry-days.urgent { color: var(--cookx-danger); }
-.expiry-days.soon { color: var(--cookx-accent); }
-.expiry-days.fresh { color: var(--cookx-success); }
-
-.expiry-empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 140px;
-  color: var(--cookx-success);
-  font-size: 12px;
-}
-
-.health-card {
-  position: relative;
-  min-height: 205px;
-  padding: 20px;
-  overflow: hidden;
-  background: linear-gradient(145deg, #f4fbf2, #dff0de);
-  color: var(--cookx-text);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, .10);
-}
-
-.health-copy { position: relative; z-index: 2; width: 58%; }
-.health-copy > span { color: var(--cookx-success); font-size: 8px; font-weight: 750; letter-spacing: 1px; }
-.health-copy h2 { margin-top: 8px; font-size: 18px; line-height: 1.35; }
-.health-copy p { margin: 13px 0 0; color: var(--cookx-text-secondary); font-size: 10px; line-height: 1.65; }
-
-.fridge-art {
-  position: absolute;
-  right: 20px;
-  bottom: 18px;
-  width: 80px;
-  height: 134px;
-  border-radius: 18px;
-  background: linear-gradient(145deg, #d7f1d6, #8fcf8d);
-  box-shadow: 0 14px 28px rgba(77, 139, 105, .20);
-}
-
-.fridge-art::before {
-  content: '';
-  position: absolute;
-  top: 14px;
-  left: 10px;
-  width: 4px;
-  height: 24px;
-  border-radius: 3px;
-  background: rgba(23, 63, 53, .24);
-}
-
-.door-line { position: absolute; top: 50px; right: 0; left: 0; border-top: 1px solid rgba(23, 63, 53, .14); }
-.fridge-art i { position: absolute; width: 24px; height: 11px; border-radius: 100% 0 100% 0; background: #59af60; }
-.leaf-one { right: -16px; bottom: 12px; transform: rotate(-38deg); }
-.leaf-two { right: -7px; bottom: 32px; transform: rotate(-70deg) scale(.75); }
-
-.inventory-surface {
-  position: relative;
-  z-index: 3;
-  margin-top: -12px;
-  padding: 17px 14px calc(108px + env(safe-area-inset-bottom));
-  border: var(--cookx-border);
-  border-radius: 22px;
-  background: rgba(255, 255, 255, .82);
-  box-shadow: var(--cookx-shadow);
-}
-
-.inventory-toolbar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
-  align-items: center;
-}
-
-.search-input :deep(.el-input__wrapper) {
-  min-height: 46px;
-  border-radius: 14px !important;
-  background: #fff;
-}
-
-.compact-add {
-  min-height: 46px;
-  border-color: rgba(23, 63, 53, .08);
-  background: var(--cookx-primary);
-}
-
-.category-tabs {
-  display: flex;
-  gap: 8px;
-  margin: 15px -3px 17px;
-  padding: 0 3px 3px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
+.inventory-toolbar { display: flex; gap: 10px; margin-top: 16px; }
+.search-input { flex: 1 1 auto; }
+.search-input :deep(.el-input__wrapper) { min-height: 44px; border-radius: 999px !important; }
+.compact-add { display: grid; place-items: center; width: 44px; height: 44px; flex: 0 0 44px; padding: 0; border: 0; border-radius: 50%; background: var(--ck-heat-deep); color: #fff; }
+.category-tabs { display: flex; gap: 8px; margin: 12px calc(-1 * var(--ck-gutter)) 0; padding: 0 var(--ck-gutter) 4px; overflow-x: auto; scrollbar-width: none; }
 .category-tabs::-webkit-scrollbar { display: none; }
+.category-tabs button { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; height: 36px; padding: 0 14px; border: 1px solid var(--ck-glass-border); border-radius: 999px; background: var(--ck-fill); color: var(--ck-text-2); font-size: 13px; white-space: nowrap; }
+.category-tabs button span { color: var(--ck-text-3); font-size: 12px; }
+.category-tabs button.active { border-color: transparent; background: var(--ck-cream); color: var(--ck-cream-text); font-weight: 600; }
+.category-tabs button.active span { color: var(--ck-cream-text-2); }
 
-.category-tabs button {
-  flex: 0 0 auto;
-  min-height: 35px;
-  padding: 0 14px;
-  border: 1px solid rgba(23, 63, 53, .07);
-  border-radius: 999px;
-  background: #faf9f5;
-  color: var(--cookx-text-secondary);
-  font-size: 11px;
-  cursor: pointer;
-}
+.food-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin-top: 12px; }
+.food-card { padding: 14px; border: 1px solid var(--ck-glass-border); border-radius: var(--ck-radius-lg); background: var(--ck-glass); cursor: pointer; -webkit-backdrop-filter: var(--ck-blur); backdrop-filter: var(--ck-blur); }
+.food-card-top { display: flex; align-items: center; gap: 12px; }
+.food-visual { width: 60px; height: 60px; flex: 0 0 60px; border-radius: 16px; }
+.food-image-placeholder { display: grid; place-items: center; }
+.food-card-body { min-width: 0; flex: 1 1 auto; }
+.food-title-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.food-title-row h3 { overflow: hidden; font-size: 16px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.cat-tag { flex: 0 0 auto; padding: 1px 8px; border-radius: 6px; background: var(--ck-fill-strong); color: var(--ck-text-2); font-size: 11px; }
+.food-meta { margin-top: 2px; color: var(--ck-text-2); font-size: 13px; }
+.food-added { color: var(--ck-text-3); font-size: 12px; }
+.food-footer { display: flex; justify-content: flex-end; }
+.card-actions { display: flex; gap: 8px; }
+.card-actions button { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 12px; border: 1px solid var(--ck-glass-border); border-radius: 999px; background: var(--ck-fill); color: var(--ck-text-2); font-size: 13px; }
+.card-actions button.danger { color: #FF9A8E; }
 
-.category-tabs button span { margin-left: 4px; color: inherit; opacity: .65; }
-.category-tabs button.active { border-color: var(--cookx-primary); background: var(--cookx-primary); color: #fff; box-shadow: 0 7px 16px rgba(23, 63, 53, .15); }
+.inventory-empty { display: flex; flex-direction: column; align-items: center; margin-top: 12px; padding: 30px 20px; text-align: center; }
+.inventory-empty > span { display: grid; place-items: center; width: 60px; height: 60px; border-radius: 20px; background: var(--ck-fresh-soft); color: var(--ck-fresh); }
+.inventory-error > span { background: var(--ck-danger-soft); color: var(--ck-danger); }
+.inventory-empty h2 { margin: 14px 0 6px; font-size: 18px; font-weight: 600; }
+.inventory-empty p { max-width: 300px; color: var(--ck-text-3); font-size: 13px; line-height: 1.6; }
+.empty-actions { margin-top: 16px; }
+.empty-actions button { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 20px; border: 0; border-radius: 999px; background: var(--ck-heat-deep); color: #fff; font-weight: 600; }
 
-.food-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 0;
-}
+.recommend-section { margin-top: 12px; padding: 16px; }
+.recipe-container { display: flex; flex-direction: column; }
+.recipe-row-card { display: flex; align-items: center; gap: 12px; min-height: 56px; }
+.recipe-row-card + .recipe-row-card { border-top: 1px solid var(--ck-hairline); }
+.rec-icon { display: grid; place-items: center; width: 36px; height: 36px; flex: 0 0 36px; border-radius: 12px; background: var(--ck-heat-soft); color: var(--ck-heat); }
+.rec-dish-name { flex: 1 1 auto; min-width: 0; overflow: hidden; font-size: 15px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.rec-go-btn { display: inline-flex; align-items: center; gap: 2px; min-height: 34px; padding: 0 12px; border: 0; border-radius: 999px; background: var(--ck-fill-strong); color: var(--ck-text); font-size: 13px; font-weight: 600; }
+.fridge-tip { margin: 16px 0 0; color: var(--ck-text-3); font-size: 12px; text-align: center; }
 
-.food-card {
-  display: block;
-  position: relative;
-  min-width: 0;
-  padding: 8px;
-  overflow: hidden;
-  border: var(--cookx-border);
-  border-radius: 17px;
-  background: var(--cookx-surface);
-  box-shadow: 0 7px 22px rgba(28, 48, 40, .07);
-  cursor: pointer;
-  transition: transform .2s ease, box-shadow .2s ease;
-}
+.recognition-overlay { position: fixed; inset: 0; z-index: 3000; display: grid; place-items: center; padding: 24px; background: rgba(6, 8, 7, 0.72); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.recognition-card { display: flex; flex-direction: column; align-items: center; gap: 8px; width: min(100%, 360px); padding: 28px 22px; border: 1px solid var(--ck-glass-border); border-radius: 26px; background: #1E2220; text-align: center; }
+.recognition-visual { position: relative; display: grid; place-items: center; width: 76px; height: 76px; border-radius: 24px; background: var(--ck-heat-soft); color: var(--ck-heat); }
+.recognition-visual.success { background: var(--ck-fresh-soft); color: var(--ck-fresh); }
+.recognition-visual.error { background: var(--ck-danger-soft); color: var(--ck-danger); }
+.scan-ring { position: absolute; inset: -6px; border: 2px solid rgba(255, 138, 61, 0.5); border-radius: 28px; animation: scan 1.4s ease-in-out infinite; }
+@keyframes scan { 0%, 100% { opacity: 0.2; transform: scale(0.96); } 50% { opacity: 1; transform: scale(1.04); } }
+.recognition-card h2 { margin-top: 8px; font-size: 19px; font-weight: 600; }
+.recognition-card p { color: var(--ck-text-2); font-size: 13px; line-height: 1.6; }
+.upload-progress { width: 100%; margin-top: 6px; }
+.upload-progress > div:first-child { display: flex; justify-content: space-between; color: var(--ck-text-2); font-size: 12px; }
+.progress-track, .analysis-progress { position: relative; width: 100%; height: 6px; margin-top: 6px; overflow: hidden; border-radius: 3px; background: rgba(255, 255, 255, 0.1); }
+.progress-track i { display: block; height: 100%; border-radius: 3px; background: var(--ck-heat-gradient); }
+.analysis-progress i { position: absolute; top: 0; bottom: 0; width: 40%; border-radius: 3px; background: var(--ck-heat-gradient); animation: indeterminate 1.3s ease-in-out infinite; }
+@keyframes indeterminate { 0% { left: -40%; } 100% { left: 100%; } }
+.elapsed-time { margin-top: 6px; font-size: 14px; font-variant-numeric: tabular-nums; }
+.recognition-card small { color: var(--ck-text-3); font-size: 12px; }
+.recognition-card button { min-height: 44px; margin-top: 10px; padding: 0 22px; border: 0; border-radius: 999px; background: var(--ck-heat-deep); color: #fff; font-weight: 600; }
 
-.food-card:hover { transform: translateY(-2px); box-shadow: var(--cookx-shadow-hover); }
-.food-card:active { transform: scale(.985); }
-
-.food-visual {
-  position: relative;
-  display: grid;
-  width: 100%;
-  height: 112px;
-  margin: 0;
-  overflow: hidden;
-  border-radius: 13px;
-  background: linear-gradient(145deg, #f1f4ed, #e4ece3);
-  color: rgba(23, 63, 53, .35);
-  font-size: 32px;
-  place-items: center;
-}
-
-.food-image-placeholder { display: grid; width: 52px; height: 52px; border: 1px solid rgba(23, 63, 53, .08); border-radius: 17px; background: rgba(255, 255, 255, .55); place-items: center; }
-.food-visual img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.food-card-body { padding: 10px 3px 3px; text-align: left; }
-.food-title-row { display: flex; align-items: center; gap: 6px; }
-.food-title-row h3 { min-width: 0; margin: 0; overflow: hidden; color: var(--cookx-text); font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
-.food-title-row > span { flex: 0 0 auto; margin-left: auto; padding: 3px 7px; border-radius: 999px; background: #eaf3e8; color: var(--cookx-success); font-size: 8px; }
-.food-title-row > span.category-meat { background: #fff0ee; color: #c9574d; }
-.food-title-row > span.category-dairy { background: #edf6fb; color: #397ca2; }
-.food-title-row > span.category-staple,
-.food-title-row > span.category-condiment { background: #fff3e4; color: #bd702f; }
-.food-title-row > span.category-fruit { background: #fff1e8; color: var(--cookx-accent); }
-.food-title-row > span.category-other { background: #f0f2ef; color: var(--cookx-text-secondary); }
-.food-meta { margin: 7px 0 5px; color: var(--cookx-text-secondary); font-size: 10px; }
-.freshness-label { display: block; font-size: 11px; }
-.freshness-label.expired, .freshness-label.urgent { color: var(--cookx-danger); }
-.freshness-label.soon { color: var(--cookx-accent); }
-.freshness-label.fresh { color: var(--cookx-success); }
-.food-footer { display: flex; align-items: center; margin-top: 9px; padding-top: 8px; border-top: var(--cookx-border); color: var(--cookx-text-secondary); font-size: 9px; }
-.card-actions { display: flex; gap: 4px; margin-left: auto; }
-.card-actions button { display: grid; width: 27px; height: 27px; padding: 0; border: 0; border-radius: 9px; background: #f5f5f1; color: var(--cookx-primary); cursor: pointer; place-items: center; }
-.card-actions button:last-child { color: var(--cookx-danger); }
-
-.inventory-empty {
-  padding: 42px 20px;
-  border: 1px dashed rgba(23, 63, 53, .14);
-  border-radius: 18px;
-  background: #faf9f5;
-  text-align: center;
-}
-
-.inventory-empty > span { display: grid; width: 54px; height: 54px; margin: 0 auto 13px; border-radius: 17px; background: #e7eee9; color: var(--cookx-primary); font-size: 24px; place-items: center; }
-.inventory-error > span { background: #fff0ed; color: var(--cookx-danger); }
-.inventory-empty h2 { margin: 0; font-size: 16px; }
-.inventory-empty p { margin: 7px auto 15px; color: var(--cookx-text-secondary); font-size: 11px; line-height: 1.55; }
-.empty-actions button { display: inline-flex; align-items: center; gap: 5px; min-height: 44px; padding: 0 16px; border: 0; border-radius: 13px; background: var(--cookx-primary); color: #fff; font-size: 11px; font-weight: 650; cursor: pointer; }
-
-.recommend-section { margin-top: 18px; padding: 17px; border: var(--cookx-border); border-radius: 18px; background: #fff; }
-.main-title { display: flex; align-items: center; justify-content: space-between; margin: 0 0 12px; color: var(--cookx-text); font-size: 16px; }
-.main-title > span { display: inline-flex; align-items: center; gap: 7px; }
-.main-title small { color: var(--cookx-text-secondary); font-size: 9px; font-weight: 500; }
-.recipe-row-card { padding: 12px; border: var(--cookx-border); border-radius: 14px; background: linear-gradient(135deg, #fff, #f3f7f2); box-shadow: none; }
-.rec-icon { display: grid; width: 35px; height: 35px; border-radius: 11px; background: #e7eee9; color: var(--cookx-primary); font-size: 17px; place-items: center; }
-.rec-dish-name { color: var(--cookx-text); font-size: 13px; }
-
-.fridge-tip {
-  display: flex;
-  align-items: flex-start;
-  gap: 9px;
-  margin-top: 16px;
-  padding: 13px 14px;
-  border-radius: 14px;
-  background: #eff5ee;
-  color: var(--cookx-text-secondary);
-  font-size: 10px;
-  line-height: 1.55;
-}
-
-.fridge-tip > .el-icon { flex: 0 0 auto; margin-top: 2px; color: var(--cookx-success); }
-.fridge-tip strong { color: var(--cookx-success); }
-
-.recognize-fab {
-  position: fixed;
-  z-index: 900;
-  right: max(18px, calc((100vw - var(--cookx-page-max)) / 2 + 18px));
-  bottom: calc(var(--cookx-bottom-nav-height, 72px) + env(safe-area-inset-bottom) + 16px);
-}
-
-.recognize-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 68px;
-  height: 68px;
-  border: 3px solid rgba(255, 255, 255, .92);
-  border-radius: 50%;
-  background: var(--cookx-primary);
-  color: #fff;
-  box-shadow: 0 12px 26px rgba(23, 63, 53, .27);
-  cursor: pointer;
-  flex-direction: column;
-}
-
-.recognize-button .el-icon { font-size: 21px; }
-.recognize-button span { margin-top: 3px; font-size: 9px; font-weight: 650; }
-
-.recognize-fab.is-disabled .recognize-button { opacity: .55; cursor: wait; }
-
-.recognition-overlay {
-  position: fixed;
-  z-index: 2100;
-  inset: 0;
-  display: grid;
-  padding: 22px;
-  background: rgba(8, 38, 31, .54);
-  backdrop-filter: blur(7px);
-  place-items: center;
-}
-
-.recognition-card {
-  width: min(100%, 360px);
-  padding: 28px 24px 24px;
-  border: 1px solid rgba(255, 255, 255, .68);
-  border-radius: 24px;
-  background: #fffdf8;
-  box-shadow: 0 24px 70px rgba(5, 31, 25, .28);
-  text-align: center;
-}
-
-.recognition-visual {
-  position: relative;
-  display: grid;
-  width: 70px;
-  height: 70px;
-  margin: 0 auto 17px;
-  border-radius: 22px;
-  background: #e9f2e9;
-  color: var(--cookx-primary);
-  font-size: 31px;
-  place-items: center;
-}
-
-.recognition-visual.success { background: #e7f3e9; color: var(--cookx-success); }
-.recognition-visual.error { background: #fff0ed; color: var(--cookx-danger); }
-.scan-ring { position: absolute; inset: -7px; border: 2px solid rgba(23, 63, 53, .12); border-top-color: var(--cookx-accent); border-radius: 25px; animation: recognition-spin 1.15s linear infinite; }
-.recognition-card h2 { margin: 0; color: var(--cookx-text); font-size: 20px; }
-.recognition-card > p { min-height: 38px; margin: 8px 0 17px; color: var(--cookx-text-secondary); font-size: 11px; line-height: 1.7; }
-.upload-progress > div:first-child { display: flex; justify-content: space-between; color: var(--cookx-text-secondary); font-size: 10px; }
-.upload-progress strong { color: var(--cookx-primary); }
-.progress-track,
-.analysis-progress { height: 7px; margin-top: 8px; overflow: hidden; border-radius: 999px; background: #e5ebe6; }
-.progress-track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--cookx-primary), var(--cookx-accent)); transition: width .2s ease; }
-.analysis-progress { position: relative; }
-.analysis-progress i { position: absolute; width: 38%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--cookx-primary), var(--cookx-accent)); animation: recognition-scan 1.35s ease-in-out infinite; }
-.elapsed-time { display: block; margin-top: 14px; color: var(--cookx-primary); font-size: 11px; }
-.recognition-card > small { display: block; margin-top: 5px; color: var(--cookx-text-secondary); font-size: 9px; }
-.recognition-card > button { min-height: 44px; margin-top: 4px; padding: 0 17px; border: 0; border-radius: 13px; background: var(--cookx-primary); color: #fff; cursor: pointer; }
-
-@keyframes recognition-spin { to { transform: rotate(360deg); } }
-@keyframes recognition-scan { 0% { left: -38%; } 55%, 100% { left: 100%; } }
-
-:deep(.el-dialog) { max-width: 430px; }
-
-@media (min-width: 720px) {
-  .fridge-hero { padding-right: 24px; padding-bottom: 42px; padding-left: 24px; }
-  .hero-grid { grid-template-columns: 1.05fr 1fr .9fr; }
-  .inventory-surface { margin-top: -18px; padding: 22px 22px calc(108px + env(safe-area-inset-bottom)); }
-  .food-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
-  .food-visual { height: 150px; }
-}
-
-@media (min-width: 980px) {
-  .food-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-}
-
-@media (max-width: 620px) {
-  .inventory-surface { padding-bottom: 24px; }
-
-  .recognize-fab {
-    position: relative;
-    right: auto;
-    bottom: auto;
-    display: flex;
-    width: max-content;
-    margin: 14px 14px calc(var(--cookx-bottom-nav-height, 72px) + env(safe-area-inset-bottom) + 12px) auto;
-  }
-
-  .recognize-button {
-    width: 60px;
-    height: 60px;
-    border-width: 2px;
-  }
-
-  .recognize-button .el-icon { font-size: 19px; }
-}
-@media (max-width: 370px) {
-  .fridge-hero { padding-right: 12px; padding-left: 12px; }
-  .inventory-surface { padding-right: 10px; padding-left: 10px; }
-  .fridge-wordmark { font-size: 20px; }
-  .fridge-topbar h1 { font-size: 17px; }
-  .add-food-button span { display: none; }
-  .add-food-button { width: 40px; padding: 0; }
-  .metric-card { padding: 10px 7px; }
-  .food-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
-  .food-visual { height: 96px; }
-  .food-footer > span { max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-}
-
-@media (max-width: 320px) {
-  .food-grid { grid-template-columns: 1fr; }
+@media (min-width: 560px) { .food-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 360px) {
+  .fridge-top h1 { font-size: 26px; }
+  .overview-metrics strong { font-size: 26px; }
+  .overview-metrics span { font-size: 11px; }
 }
 </style>
