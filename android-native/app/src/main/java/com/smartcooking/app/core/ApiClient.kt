@@ -112,23 +112,25 @@ class ApiClient(private val sessions: SessionManager) {
     suspend fun bytes(urlOrPath: String, timeoutMs: Long = 15_000): ByteArray {
         val full = sessions.resolveUrl(urlOrPath) ?: throw ApiException("资源地址无效")
         val response = call(Request.Builder().url(full).get().build(), timeoutMs)
-        response.use {
-            if (!it.isSuccessful) throw ApiException("资源读取失败（${it.code}）", it.code)
-            return it.body.bytes()
-        }
+        if (!response.successful) throw ApiException("资源读取失败（${response.code}）", response.code)
+        return response.body
     }
 
     private suspend fun execute(request: Request, timeoutMs: Long): JsonElement {
         val response = call(request, timeoutMs)
-        response.use {
-            val text = it.body.string()
-            val json = if (text.isBlank()) JsonNull else runCatching { AppJson.parseToJsonElement(text) }.getOrElse { JsonPrimitive(text) }
-            if (!it.isSuccessful) throw ApiException(errorMessage(json, it.code), it.code, json)
-            return json
-        }
+        val text = response.body.toString(Charsets.UTF_8)
+        val json = if (text.isBlank()) JsonNull else runCatching { AppJson.parseToJsonElement(text) }.getOrElse { JsonPrimitive(text) }
+        if (!response.successful) throw ApiException(errorMessage(json, response.code), response.code, json)
+        return json
     }
 
-    private suspend fun call(request: Request, timeoutMs: Long): Response {
+    private class RawResponse(val code: Int, val successful: Boolean, val body: ByteArray)
+
+    /**
+     * Runs the call and reads the whole body on OkHttp's worker thread: reading a response body
+     * is socket I/O, which Android forbids on the main thread (NetworkOnMainThreadException).
+     */
+    private suspend fun call(request: Request, timeoutMs: Long): RawResponse {
         val client = http.newBuilder().callTimeout(timeoutMs, TimeUnit.MILLISECONDS).readTimeout(timeoutMs, TimeUnit.MILLISECONDS).build()
         val call = client.newCall(request)
         return suspendCancellableCoroutine { cont ->
@@ -138,7 +140,13 @@ class ApiClient(private val sessions: SessionManager) {
                     if (cont.isActive) cont.resumeWithException(transportError(e))
                 }
                 override fun onResponse(call: Call, response: Response) {
-                    if (cont.isActive) cont.resume(response) else response.close()
+                    val raw = try {
+                        response.use { RawResponse(it.code, it.isSuccessful, it.body.bytes()) }
+                    } catch (e: IOException) {
+                        if (cont.isActive) cont.resumeWithException(transportError(e))
+                        return
+                    }
+                    if (cont.isActive) cont.resume(raw)
                 }
             })
         }
@@ -172,10 +180,14 @@ class ApiClient(private val sessions: SessionManager) {
     }
 }
 
-fun Throwable.userMessage(): String = when (this) {
-    is ApiException -> message ?: "请求失败，请重试"
-    is IllegalArgumentException, is IllegalStateException -> message ?: "操作无效"
-    else -> message ?: "操作失败，请重试"
+fun Throwable.userMessage(): String {
+    // Unexpected failures are logged with their stack so they can be diagnosed from logcat.
+    if (this !is ApiException) android.util.Log.e("CookX", "Unexpected failure", this)
+    return when (this) {
+        is ApiException -> message ?: "请求失败，请重试"
+        is IllegalArgumentException, is IllegalStateException -> message ?: "操作无效"
+        else -> message ?: "操作失败（${javaClass.simpleName}），请重试"
+    }
 }
 
 private class ProgressBody(private val delegate: RequestBody, private val onProgress: (Float) -> Unit) : RequestBody() {
