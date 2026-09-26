@@ -90,3 +90,6 @@ frontend/public/temperature/runtime/
 *.sqlite3-wal
 *.sqlite3-shm
 backups/
+
+# Local Android build deliverables
+/artifacts/
