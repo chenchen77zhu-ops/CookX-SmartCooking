@@ -4,7 +4,7 @@
     <p v-if="assessment.temperature !== null" class="current-reading">{{ assessment.temperature.toFixed(1) }} <small>℃</small></p>
     <p class="source">{{ replaying ? '物理仿真回放 · 非设备实测' : '设备测温 · 移动识别研究版' }}</p>
     <svg viewBox="0 0 320 100" role="img" aria-label="最近一分钟温度曲线">
-      <path d="M0 85 H320 M0 45 H320 M0 5 H320" stroke="rgba(255,255,255,0.08)" fill="none"/>
+      <path d="M0 85 H320 M0 45 H320 M0 5 H320" stroke="var(--ck-hairline)" fill="none"/>
       <polyline v-for="(line,i) in paths" :key="i" :points="line" fill="none" stroke="#FF8A3D" stroke-width="2"/>
       <text x="4" y="98" font-size="9" fill="rgba(246,243,238,0.45)">{{ extent[0].toFixed(0) }}–{{ extent[1].toFixed(0) }} ℃ · 60 秒</text>
     </svg>
@@ -65,7 +65,7 @@ const paths=computed(()=>{
 .current-reading{font-size:28px!important;color:var(--ck-text);font-weight:300}.current-reading small{font-size:14px}.insight p{font-size:12.5px;line-height:1.6;margin:8px 0}.insight svg{width:100%;height:112px}
 .event-actions{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
 button{border:1px solid var(--ck-glass-border);border-radius:999px;background:var(--ck-fill-strong);color:var(--ck-text);font:inherit;font-size:13px;font-weight:600;min-height:38px;padding:0 14px;margin:4px 6px 4px 0;margin:0}
-button:disabled{opacity:.45;cursor:default}.suggestion{padding:10px 12px;border-radius:12px;background:var(--ck-heat-soft);color:#FFD2B0}.danger{background:var(--ck-danger-soft);color:#FFB5AB}
+button:disabled{opacity:.45;cursor:default}.suggestion{padding:10px 12px;border-radius:12px;background:var(--ck-heat-soft);color:var(--ck-heat-text)}.danger{background:var(--ck-danger-soft);color:var(--ck-danger-text)}
 details{font-size:12.5px;margin-top:10px}summary{cursor:pointer;padding:8px 0;color:var(--ck-text-2)}label{display:flex;align-items:center;gap:8px}
 input[type=checkbox]{width:18px;height:18px;accent-color:var(--ck-heat-deep)}
 </style>

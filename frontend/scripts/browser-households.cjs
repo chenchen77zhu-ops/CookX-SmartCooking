@@ -6,7 +6,7 @@ const {chromium}=require(process.env.COOKX_PLAYWRIGHT||'playwright'),assert=requ
  await a.getByLabel('家庭名称',{exact:true}).fill('浏览器家庭');await a.getByRole('button',{name:'创建家庭',exact:true}).click();await a.getByRole('heading',{name:'共享库存',exact:true}).waitFor()
  await a.getByRole('button',{name:'生成一次性邀请',exact:true}).click();await a.locator('code').waitFor();const code=await a.locator('code').innerText()
  await b.getByLabel('家庭邀请码',{exact:true}).fill(code);await b.getByRole('button',{name:'确认加入',exact:true}).click();await b.getByRole('heading',{name:'共享库存',exact:true}).waitFor()
- await a.getByLabel('食材名称',{exact:true}).fill('面粉');await a.getByLabel('实际数量',{exact:true}).fill('1.5');await a.getByLabel('计量单位',{exact:true}).selectOption('千克');await a.getByRole('button',{name:'确认入库',exact:true}).click();await a.getByText('面粉 · 1.5 千克',{exact:true}).waitFor()
+ await a.getByText('新增共享库存',{exact:true}).click();await a.getByLabel('食材名称',{exact:true}).fill('面粉');await a.getByLabel('实际数量',{exact:true}).fill('1.5');await a.getByLabel('计量单位',{exact:true}).selectOption('千克');await a.getByRole('button',{name:'确认入库',exact:true}).click();await a.getByText('面粉 · 1.5 千克',{exact:true}).waitFor()
  await b.getByRole('button',{name:'刷新家庭',exact:true}).click();await b.getByText('面粉 · 1.5 千克',{exact:true}).waitFor();await b.getByText('数据不足',{exact:false}).first().waitFor()
  assert.equal(await a.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
  await b.locator('.el-message').waitFor({state:'hidden'});fs.mkdirSync('tmp/household',{recursive:true});await b.screenshot({path:'tmp/household/member-inventory.png',fullPage:true,animations:'disabled'})

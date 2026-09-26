@@ -58,7 +58,7 @@ onMounted(fetchHistory)
 .history-list { display: grid; gap: 12px; }
 .history-card { padding: 16px; }
 .history-heading { display: flex; align-items: center; gap: 12px; }
-.history-heading > span { display: grid; place-items: center; width: 44px; height: 44px; flex: 0 0 44px; border-radius: 14px; background: var(--ck-heat-soft); color: #FFB27F; font-size: 20px; }
+.history-heading > span { display: grid; place-items: center; width: 44px; height: 44px; flex: 0 0 44px; border-radius: 14px; background: var(--ck-heat-soft); color: var(--ck-heat-text); font-size: 20px; }
 .history-heading > div { flex: 1; min-width: 0; }
 .history-heading h2 { overflow: hidden; margin: 0 0 2px; font-size: 16px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .history-heading p { margin: 0; color: var(--ck-text-3); font-size: 12px; }

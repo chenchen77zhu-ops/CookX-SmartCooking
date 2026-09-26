@@ -30,14 +30,7 @@
         <article v-for="stat in profileStats" :key="stat.label"><strong>{{ stat.value }}</strong><span>{{ stat.label }}</span><small>{{ stat.description }}</small></article>
       </section>
 
-      <section class="sense-card">
-        <div class="sense-copy">
-          <span class="sense-icon"><el-icon><Connection /></el-icon></span>
-          <div><span>COOKX SENSE</span><h2>CookX Sense</h2><p>{{ savedTemperatureDevice ? '已保存测温设备，连接状态请在 AI 厨房查看' : '尚未连接测温设备' }}</p></div>
-        </div>
-        <div class="sense-status"><i></i><span>进入 AI 厨房连接设备</span></div>
-        <button type="button" @click="openAiChef">进入 AI 厨房<el-icon><ArrowRight /></el-icon></button>
-      </section>
+
 
       <section class="function-card">
         <div class="section-title"><div><span>账户服务</span><h2>功能入口</h2></div><small>只展示当前可用功能</small></div>
@@ -49,6 +42,12 @@
         </button>
         <button type="button" class="function-row" @click="openPage('/preferences')">
           <span class="row-icon"><el-icon><Setting /></el-icon></span><span class="row-copy"><b>偏好设置</b><small>口味、辣度与食材禁忌</small></span><el-icon class="row-arrow"><ArrowRight /></el-icon>
+        </button>
+        <button type="button" class="function-row" @click="themeSheet = true">
+          <span class="row-icon"><CkIcon name="sparkle" :size="18" /></span><span class="row-copy"><b>外观</b><small>{{ themeLabel }}</small></span><el-icon class="row-arrow"><ArrowRight /></el-icon>
+        </button>
+        <button type="button" class="function-row" @click="openAiChef">
+          <span class="row-icon warm"><CkIcon name="sensor" :size="18" /></span><span class="row-copy"><b>CookX Sense 设备</b><small>{{ savedTemperatureDevice ? '已保存测温设备，在厨房查看连接状态' : '尚未连接测温设备' }}</small></span><el-icon class="row-arrow"><ArrowRight /></el-icon>
         </button>
         <button type="button" class="function-row" @click="openPage('/account-security')">
           <span class="row-icon"><el-icon><Lock /></el-icon></span><span class="row-copy"><b>账号与安全</b><small>账号资料与注销管理</small></span><el-icon class="row-arrow"><ArrowRight /></el-icon>
@@ -64,6 +63,16 @@
       <button type="button" class="logout-button" @click="handleLogout"><el-icon><SwitchButton /></el-icon>退出登录</button>
       <p class="profile-brand-note">CookX · 感知每一度 · 智烹每一步</p>
     </main>
+
+    <el-drawer v-model="themeSheet" direction="btt" size="auto" title="外观" class="theme-drawer" append-to-body>
+      <div class="theme-options" role="radiogroup" aria-label="外观">
+        <button v-for="option in themeOptions" :key="option.value" type="button" role="radio" :aria-checked="themeState.preference === option.value" :class="['theme-option', { active: themeState.preference === option.value }]" @click="setThemePreference(option.value)">
+          <span :class="['theme-swatch', option.value]"></span>
+          <span class="theme-copy"><b>{{ option.label }}</b><small>{{ option.hint }}</small></span>
+          <CkIcon v-if="themeState.preference === option.value" name="check" :size="20" :stroke="2.4" />
+        </button>
+      </div>
+    </el-drawer>
 
     <!-- 消息通知抽屉 -->
     <el-drawer
@@ -196,6 +205,8 @@
 </template>
 
 <script setup>
+import CkIcon from '@/components/ck/CkIcon.vue'
+import { themeState, setThemePreference } from '@/services/theme.js'
 import PrivateAvatar from '../components/PrivateAvatar.vue'
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
@@ -358,6 +369,13 @@ const openEdit = () => {
   showEditDialog.value = true
 }
 
+const themeSheet = ref(false)
+const themeOptions = [
+  { value: 'light', label: '浅色', hint: '默认，白天使用更清爽' },
+  { value: 'dark', label: '深色', hint: '夜间与厨房弱光环境更护眼' },
+  { value: 'system', label: '跟随系统', hint: '随手机的深浅色设置自动切换' }
+]
+const themeLabel = computed(() => themeOptions.find(o => o.value === themeState.preference)?.label || '浅色')
 const openAiChef = () => {
   router.push({ path: '/home', query: { tab: 'AiChef' } })
 }
@@ -420,53 +438,56 @@ const handleLogout = () => {
 button { font: inherit; }
 .profile-topbar { display: flex; align-items: center; justify-content: space-between; min-height: 64px; }
 .profile-wordmark span, .profile-wordmark i { display: none; }
-.profile-wordmark b { font-size: 30px; font-weight: 700; letter-spacing: -0.4px; }
-.notification-bell { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 1px solid var(--ck-glass-border); border-radius: 50%; background: rgba(20, 22, 21, 0.5); color: var(--ck-text); font-size: 20px; }
+.profile-wordmark b { font-size: 34px; font-weight: 800; letter-spacing: -0.5px; }
+.notification-bell { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--ck-text); font-size: 22px; }
 .notification-bell :deep(.el-badge__content) { border: 0; }
 
-.user-hero { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto; align-items: center; column-gap: 16px; row-gap: 14px; margin-top: 8px; padding: 18px 16px; border: 1px solid var(--ck-glass-border); border-radius: var(--ck-radius-xl); background: radial-gradient(120% 100% at 100% 0%, rgba(255, 138, 61, 0.22), transparent 60%), var(--ck-glass); -webkit-backdrop-filter: var(--ck-blur); backdrop-filter: var(--ck-blur); }
+.user-hero { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 16px; row-gap: 14px; margin-top: 4px; padding: 18px 16px; border: 1px solid var(--ck-glass-border); border-radius: var(--ck-radius-xl); background: var(--ck-surface); box-shadow: var(--ck-shadow); }
 .avatar-section { position: relative; padding: 0; border: 0; border-radius: 50%; background: none; }
-.avatar-section :deep(.el-avatar) { width: 72px !important; height: 72px !important; border: 2px solid rgba(255, 255, 255, 0.2); background: var(--ck-fill-strong); color: var(--ck-text-2); font-size: 30px; }
-.avatar-edit-badge { position: absolute; right: -2px; bottom: -2px; display: grid; place-items: center; width: 26px; height: 26px; border: 2px solid #1E2220; border-radius: 50%; background: var(--ck-heat-deep); color: #fff; font-size: 12px; }
+.avatar-section :deep(.el-avatar) { width: 72px !important; height: 72px !important; background: var(--ck-fill-strong); color: var(--ck-text-3); font-size: 30px; }
+.avatar-edit-badge { position: absolute; right: -2px; bottom: -2px; display: grid; place-items: center; width: 26px; height: 26px; border: 2px solid var(--ck-surface); border-radius: 50%; background: var(--ck-heat-deep); color: #fff; font-size: 12px; }
 .user-info { display: flex; flex-direction: column; min-width: 0; }
-.user-eyebrow { color: #FFB27F; font-size: 11px; font-weight: 700; letter-spacing: 1px; }
-.user-info h1 { overflow: hidden; font-size: 24px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.user-eyebrow { color: var(--ck-heat-text); font-size: 11px; font-weight: 700; letter-spacing: 1px; }
+.user-info h1 { overflow: hidden; font-size: 24px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
 .user-info p { color: var(--ck-text-2); font-size: 13px; }
 .user-info small { color: var(--ck-text-3); font-size: 12px; }
-.edit-profile-button { grid-column: 1 / -1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 42px; border: 1px solid var(--ck-glass-border); border-radius: 999px; background: var(--ck-fill-strong); color: var(--ck-text); font-size: 14px; font-weight: 600; }
+.edit-profile-button { grid-column: 1 / -1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 42px; border: 0; border-radius: 999px; background: var(--ck-fill); color: var(--ck-text); font-size: 14px; font-weight: 600; }
 
 .profile-content { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
-.stats-card { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); padding: 14px 4px; border: 1px solid var(--ck-glass-border); border-radius: var(--ck-radius-lg); background: var(--ck-glass); -webkit-backdrop-filter: var(--ck-blur); backdrop-filter: var(--ck-blur); }
+.stats-card { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); padding: 14px 4px; border: 1px solid var(--ck-glass-border); border-radius: var(--ck-radius-lg); background: var(--ck-surface); box-shadow: var(--ck-shadow); }
 .stats-card article { display: flex; flex-direction: column; align-items: center; min-width: 0; padding: 0 6px; text-align: center; }
 .stats-card article + article { border-left: 1px solid var(--ck-hairline); }
-.stats-card strong { font-family: var(--ck-font-display); font-size: 28px; font-weight: 300; line-height: 1.15; }
+.stats-card strong { font-family: var(--ck-font-display); font-size: 26px; font-weight: 600; line-height: 1.2; }
 .stats-card span { color: var(--ck-text-2); font-size: 12.5px; }
 .stats-card small { display: none; }
 
-.sense-card { display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid rgba(255, 138, 61, 0.25); border-radius: var(--ck-radius-lg); background: linear-gradient(150deg, rgba(120, 52, 18, 0.55), rgba(30, 34, 32, 0.75)); -webkit-backdrop-filter: var(--ck-blur); backdrop-filter: var(--ck-blur); }
-.sense-copy { display: flex; align-items: center; gap: 12px; }
-.sense-icon { display: grid; place-items: center; width: 44px; height: 44px; flex: 0 0 44px; border-radius: 14px; background: rgba(255, 138, 61, 0.2); color: #FFB27F; font-size: 20px; }
-.sense-copy span:not(.sense-icon) { color: #FFB27F; font-size: 11px; font-weight: 700; letter-spacing: 1px; }
-.sense-copy h2 { font-size: 17px; font-weight: 600; }
-.sense-copy p { color: var(--ck-text-2); font-size: 12.5px; }
-.sense-status { display: none; }
-.sense-card > button { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 42px; border: 0; border-radius: 999px; background: var(--ck-cream); color: var(--ck-cream-text); font-size: 14px; font-weight: 700; }
-
-.function-card { padding: 4px 0; border: 1px solid var(--ck-glass-border); border-radius: var(--ck-radius-lg); background: var(--ck-glass); overflow: hidden; -webkit-backdrop-filter: var(--ck-blur); backdrop-filter: var(--ck-blur); }
+.function-card { padding: 4px 0; border: 1px solid var(--ck-glass-border); border-radius: var(--ck-radius-lg); background: var(--ck-surface); overflow: hidden; box-shadow: var(--ck-shadow); }
 .section-title { display: none; }
-.function-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 60px; padding: 10px 16px; border: 0; background: none; color: var(--ck-text); text-align: left; }
+.function-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 58px; padding: 10px 16px; border: 0; background: none; color: var(--ck-text); text-align: left; }
 .function-row + .function-row { border-top: 1px solid var(--ck-hairline); }
-.function-row:active { background: rgba(255, 255, 255, 0.04); }
-.row-icon { display: grid; place-items: center; width: 36px; height: 36px; flex: 0 0 36px; border-radius: 11px; background: rgba(127, 180, 255, 0.14); color: #9CC5FF; font-size: 18px; }
-.row-icon.warm { background: var(--ck-heat-soft); color: #FFB27F; }
+.function-row:active { background: var(--ck-fill); }
+.row-icon { display: grid; place-items: center; width: 34px; height: 34px; flex: 0 0 34px; border-radius: 10px; background: var(--ck-info-soft); color: var(--ck-info-text); font-size: 18px; }
+.row-icon.warm { background: var(--ck-heat-soft); color: var(--ck-heat-text); }
 .row-copy { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
 .row-copy b { font-size: 15px; font-weight: 500; }
 .row-copy small { color: var(--ck-text-3); font-size: 12px; }
 .row-badge { display: grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--ck-danger); color: #fff; font-size: 11px; font-weight: 700; }
 .row-arrow { color: var(--ck-text-3); font-size: 14px; }
 
-.logout-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 50px; border: 1px solid rgba(255, 107, 91, 0.25); border-radius: var(--ck-radius-lg); background: rgba(255, 107, 91, 0.08); color: #FF9A8E; font-size: 15px; font-weight: 600; }
+.logout-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 50px; border: 1px solid var(--ck-glass-border); border-radius: var(--ck-radius-lg); background: var(--ck-surface); color: var(--ck-danger-text); font-size: 15px; font-weight: 600; }
 .profile-brand-note { margin: 6px 0 0; color: var(--ck-text-3); font-size: 12px; text-align: center; letter-spacing: 2px; }
+
+.theme-options { display: flex; flex-direction: column; gap: 8px; }
+.theme-option { display: flex; align-items: center; gap: 14px; min-height: 64px; padding: 10px 14px; border: 1px solid var(--ck-glass-border); border-radius: 16px; background: var(--ck-fill); color: var(--ck-text); text-align: left; }
+.theme-option.active { border-color: var(--ck-heat); background: var(--ck-heat-soft); }
+.theme-option > .ck-icon { color: var(--ck-heat); }
+.theme-swatch { width: 40px; height: 40px; flex: 0 0 40px; border: 1px solid var(--ck-glass-border); border-radius: 12px; }
+.theme-swatch.light { background: linear-gradient(135deg, #FFFFFF 50%, #F3F1EC 50%); }
+.theme-swatch.dark { background: linear-gradient(135deg, #2A2E2C 50%, #0D100F 50%); }
+.theme-swatch.system { background: linear-gradient(135deg, #FFFFFF 50%, #0D100F 50%); }
+.theme-copy { display: flex; flex-direction: column; flex: 1 1 auto; }
+.theme-copy b { font-size: 15px; }
+.theme-copy small { color: var(--ck-text-3); font-size: 12px; }
 
 .notification-content { color: var(--ck-text); }
 .message-list { display: flex; flex-direction: column; gap: 10px; padding-top: 6px; }
@@ -475,8 +496,8 @@ button { font: inherit; }
 .message-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .message-title { font-size: 15px; font-weight: 600; }
 .message-tag { flex: 0 0 auto; padding: 2px 8px; border-radius: 999px; font-size: 11px; }
-.tag-expire { background: var(--ck-warn-soft); color: var(--ck-warn); }
-.tag-system { background: rgba(127, 180, 255, 0.15); color: #9CC5FF; }
+.tag-expire { background: var(--ck-warn-soft); color: var(--ck-warn-text); }
+.tag-system { background: var(--ck-info-soft); color: var(--ck-info-text); }
 .message-content { margin-top: 6px; color: var(--ck-text-2); font-size: 13px; line-height: 1.6; }
 .message-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; }
 .message-time { color: var(--ck-text-3); font-size: 12px; }

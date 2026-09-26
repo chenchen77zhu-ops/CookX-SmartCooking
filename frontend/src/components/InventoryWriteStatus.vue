@@ -17,4 +17,4 @@ async function release() {
   } catch { /* User cancelled. */ }
 }
 </script>
-<style scoped>.pending-write { margin-top: 10px; color: #FFD89A; font-size: 13px; line-height: 1.6; }</style>
+<style scoped>.pending-write { margin-top: 10px; color: var(--ck-warn-text); font-size: 13px; line-height: 1.6; }</style>

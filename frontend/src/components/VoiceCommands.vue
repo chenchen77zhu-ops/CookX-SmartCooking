@@ -26,9 +26,9 @@ onBeforeUnmount(()=>{cancel();document.removeEventListener('visibilitychange',vi
 <style scoped>
 .voice-commands{margin:4px 0 12px;padding:14px;border-radius:16px;background:var(--ck-fill);color:var(--ck-text-2);font-size:13px;line-height:1.6}
 button{border:1px solid var(--ck-glass-border);border-radius:999px;background:var(--ck-fill-strong);color:var(--ck-text);font:inherit;font-size:13px;font-weight:600;min-height:38px;padding:0 14px;margin:4px 6px 4px 0}
-button:first-of-type{background:var(--ck-heat-soft);border-color:rgba(255,138,61,.35);color:#FFB27F}
+button:first-of-type{background:var(--ck-heat-soft);border-color:rgba(255,138,61,.35);color:var(--ck-heat-text)}
 button:disabled{opacity:.5}
 label{display:grid;gap:4px;margin:8px 0 4px;color:var(--ck-text-3);font-size:12px}
-input{box-sizing:border-box;min-height:42px;padding:0 12px;border:1px solid rgba(255,255,255,.1);border-radius:12px;background:rgba(255,255,255,.07);color:var(--ck-text);font:inherit;width:100%}
+input{box-sizing:border-box;min-height:42px;padding:0 12px;border:1px solid var(--ck-input-border);border-radius:12px;background:var(--ck-input-bg);color:var(--ck-text);font:inherit;width:100%}
 p{overflow-wrap:anywhere;margin:6px 0 0}
 </style>

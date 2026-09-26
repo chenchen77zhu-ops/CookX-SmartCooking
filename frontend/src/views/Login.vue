@@ -1,5 +1,5 @@
 <template>
-  <div class="login-container">
+  <div class="login-container ck-dark">
     <div class="login-card">
       <!-- LOGO 区域 -->
       <div class="logo-section">

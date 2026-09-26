@@ -273,12 +273,12 @@ button { font: inherit; }
 .food-grid { display: grid; gap: 12px; }
 .food-card { padding: 14px; border: 1px solid var(--ck-glass-border); border-radius: var(--ck-radius-lg); background: var(--ck-glass); -webkit-backdrop-filter: var(--ck-blur); backdrop-filter: var(--ck-blur); }
 .food-card-head { display: flex; align-items: center; gap: 12px; }
-.food-image { position: relative; display: grid; place-items: center; width: 56px; height: 56px; flex: 0 0 56px; overflow: hidden; border-radius: 16px; background: rgba(255, 255, 255, 0.92); color: #4D8B69; }
+.food-image { position: relative; display: grid; place-items: center; width: 56px; height: 56px; flex: 0 0 56px; overflow: hidden; border-radius: 16px; background: var(--ck-fill-strong); color: #4D8B69; }
 .food-image img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .freshness-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1 1 auto; }
 .freshness-copy b { overflow: hidden; font-size: 16px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .freshness-copy span { display: flex; align-items: center; gap: 6px; color: var(--ck-text-3); font-size: 12px; }
-.delete-button { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 12px; border: 1px solid var(--ck-glass-border); border-radius: 999px; background: var(--ck-fill); color: #FF9A8E; font-size: 13px; }
+.delete-button { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 12px; border: 1px solid var(--ck-glass-border); border-radius: 999px; background: var(--ck-fill); color: var(--ck-danger-text); font-size: 13px; }
 .delete-button:disabled { opacity: 0.45; }
 .freshness-note { color: var(--ck-text-3); font-size: 12px; line-height: 1.6; }
 .empty-state { display: flex; flex-direction: column; align-items: center; padding: 30px 20px; border: 1px solid var(--ck-glass-border); border-radius: var(--ck-radius-lg); background: var(--ck-glass); text-align: center; }
@@ -288,11 +288,11 @@ button { font: inherit; }
 .empty-state button { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin-top: 14px; padding: 0 20px; border: 0; border-radius: 999px; background: var(--ck-heat-deep); color: #fff; font-weight: 600; }
 .tips-card { padding: 16px; border: 1px solid var(--ck-glass-border); border-radius: var(--ck-radius-lg); background: var(--ck-glass); }
 .tips-card ul { display: grid; gap: 6px; padding-left: 18px; color: var(--ck-text-2); font-size: 13px; }
-.action-bar { position: fixed; right: 0; bottom: 0; left: 0; z-index: 30; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; padding: 12px calc(var(--ck-gutter) + var(--sar)) calc(12px + var(--sab)) calc(var(--ck-gutter) + var(--sal)); border-top: 1px solid var(--ck-hairline); background: rgba(18, 21, 20, 0.94); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+.action-bar { position: fixed; right: 0; bottom: 0; left: 0; z-index: 30; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; padding: 12px calc(var(--ck-gutter) + var(--sar)) calc(12px + var(--sab)) calc(var(--ck-gutter) + var(--sal)); border-top: 1px solid var(--ck-hairline); background: var(--ck-nav-bg); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
 .secondary-action, .primary-action { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 54px; border-radius: 999px; font-weight: 600; }
 .secondary-action { padding: 0 18px; border: 1px solid var(--ck-glass-border); background: var(--ck-fill-strong); color: var(--ck-text); }
 .primary-action { border: 0; background: var(--ck-heat-deep); color: #fff; }
 .primary-action span { display: flex; flex-direction: column; line-height: 1.25; font-size: 15px; }
-.primary-action small { color: rgba(255, 255, 255, 0.75); font-size: 11px; font-weight: 400; }
+.primary-action small { color: var(--ck-hairline); font-size: 11px; font-weight: 400; }
 .primary-action:disabled { opacity: 0.45; }
 </style>

@@ -1,109 +1,92 @@
 <template>
-  <div :class="['ai-chef-container', { 'is-cooking': cookingView }]">
-    <!-- 顶部 -->
-    <header class="chef-top">
-      <template v-if="cookingView">
-        <button type="button" class="round-btn" aria-label="收起烹饪导航" @click="minimizeNavigation"><CkIcon name="chevron-left" :size="22" :stroke="2" /></button>
-        <div class="chef-top__title"><b>烹饪中</b><small>{{ cookingStatusText }}<template v-if="recipeTotalSeconds"> · 预计 {{ estimatedFinishTime }} 完成</template></small></div>
-        <button type="button" class="round-btn" aria-label="设备与连接" @click="openTemperatureDialog"><CkIcon name="sensor" :size="20" /></button>
-      </template>
-      <template v-else>
-        <div class="chef-top__brand"><h1>厨房</h1><p>从菜谱推荐到语音步骤指导</p></div>
-        <button type="button" class="sense-chip" @click="openTemperatureDialog">
-          <span :class="['ck-dot', { 'is-on': temperatureConnected }]"></span>
-          <span><b>CookX Sense</b><small>{{ temperatureConnectionText }}</small></span>
-        </button>
-      </template>
-    </header>
+  <div :class="['ai-chef-container', `is-${viewMode}`, { 'ck-dark': darkPage, 'has-alert': liveState.alert?.level === 'danger' }]">
+    <CkStageBackdrop v-if="darkPage" :state="stageState" :cooking="cookingView" />
 
-    <main class="chef-content">
+    <!-- 完成核对与状态（三种模式共用） -->
+    <div v-if="(completionVisible && session) || (session?.status === 'completed' && !completionVisible) || sessionMessage" class="chef-shared">
       <CookingCompletion v-if="completionVisible && session" :key="session.id" :session="session" :engine="cookingStore.engine" @changed="completionChanged" @close="completionVisible=false" />
-      <button v-if="session?.status === 'completed' && !completionVisible" type="button" class="ck-btn ck-btn--ghost ck-btn--block gap" @click="completionVisible=true">查看完成与库存核对</button>
-      <!-- ============ 烹饪中（沉浸式） ============ -->
-      <template v-if="cookingView">
-        <section class="recipe-head ck-glass">
-          <div class="recipe-head__copy">
-            <h2>{{ activeRecipe.dish_name || '当前菜谱' }}</h2>
-            <span class="ai-chip"><CkIcon name="sparkle" :size="14" />CookX AI 实时引导</span>
-            <div class="recipe-head__progress">
-              <span>第 {{ currentStepIdx + 1 }} / {{ activeSteps.length }} 步</span>
-              <i><b :style="{ width: `${overallProgress}%` }"></b></i>
-              <span>{{ overallProgress }}%</span>
-            </div>
-          </div>
-          <img v-if="activeRecipeImage" :src="activeRecipeImage" :alt="activeRecipe.dish_name" class="recipe-head__img" />
-          <span v-else class="recipe-head__img is-empty"><CkIcon name="pot" :size="30" /></span>
-        </section>
+      <button v-if="session?.status === 'completed' && !completionVisible" type="button" class="ck-btn ck-btn--ghost ck-btn--block" @click="completionVisible=true">查看完成与库存核对</button>
+      <p v-if="sessionMessage" role="status" class="inline-status">{{ sessionMessage }}</p>
+    </div>
 
-        <section :class="['gauge-block', temperatureLevel.className]">
-          <CkGauge :value="currentTemperature" :size="gaugeSize" label="当前锅温" :sub="currentStepMeta.find(m => m.label === '目标温度') ? `目标 ${currentStepMeta.find(m => m.label === '目标温度').value}` : temperatureConnectionText">
-            <span class="phase-chip">{{ currentTemperature === null ? '等待数据' : temperatureLevel.status }}</span>
-          </CkGauge>
-          <div class="step-timer">
-            <template v-if="hasStepTimer"><span>本步剩余</span><b class="ck-num">{{ formatTime(timeLeft) }}</b></template>
-            <template v-else><span>本步未设定时长</span><b class="no-duration">按实际火候判断</b></template>
-          </div>
-        </section>
+    <!-- ================= 烹饪中 ================= -->
+    <template v-if="cookingView">
+      <header class="c-top">
+        <button type="button" class="c-top__btn" aria-label="收起烹饪导航" @click="minimizeNavigation"><CkIcon name="chevron-left" :size="24" :stroke="2" /></button>
+        <b>烹饪中</b>
+        <button type="button" class="c-top__btn" aria-label="烹饪工具" :aria-expanded="toolsOpen" @click="toggleTools"><CkIcon name="more" :size="24" /></button>
+      </header>
 
-        <article :class="['current-step-card', 'ck-glass', { 'is-voice-active': isVoicePlaying }]">
+      <section class="c-recipe k-glass" @click="toggleTools">
+        <div class="c-recipe__copy">
+          <h2>{{ activeRecipe.dish_name || '当前菜谱' }}</h2>
+          <span class="c-chip">CookX AI 实时引导</span>
+          <span class="c-recipe__progress">第 {{ currentStepIdx + 1 }} / {{ activeSteps.length }} 步 · {{ overallProgress }}%</span>
+        </div>
+        <img v-if="activeRecipeImage" :src="activeRecipeImage" :alt="activeRecipe.dish_name" class="c-recipe__plate" />
+        <span v-else class="c-recipe__plate is-empty"><CkIcon name="pot" :size="40" /></span>
+      </section>
+
+      <section :class="['c-gauge', { 'is-alert': liveState.alert?.level === 'danger' }]">
+        <CkGauge :value="displayTemperature" :size="gaugeSize" label="当前温度" :sub="targetText" :alert="liveState.alert?.level === 'danger'">
+          <button type="button" class="c-phase" @click="acknowledge">{{ phaseChip }}</button>
+        </CkGauge>
+        <div class="c-eta">
+          <span>{{ eta.label }}</span>
+          <b class="ck-num">{{ eta.value }}</b>
+          <small>{{ eta.hint }}</small>
+        </div>
+      </section>
+
+      <section class="k-glass k-card">
+        <div class="k-card__title"><span>实时温度曲线</span><small v-if="thermalReplaying">仿真回放</small></div>
+        <CkTempChart :points="chartPoints" :prediction="chartPrediction" :band="chartBand" :height="132" empty-text="连接 CookX Sense 后显示实时曲线" />
+        <div class="chart-legend"><span><i class="solid"></i>当前温度</span><span><i class="dash"></i>预测曲线</span></div>
+      </section>
+
+      <div class="c-duo">
+        <section class="k-glass c-mini">
+          <span class="c-mini__icon is-flame"><CkIcon name="flame" :size="22" /></span>
+          <div><small>下一阶段</small><b>{{ activeSteps[currentStepIdx + 1] ? getStepTitle(activeSteps[currentStepIdx + 1], currentStepIdx + 1) : '完成烹饪' }}</b><em>{{ hasStepTimer ? `预计 ${Math.max(0, timeLeft)} 秒后` : '按实际火候推进' }}</em></div>
+        </section>
+        <section class="k-glass c-mini">
+          <span class="c-mini__icon"><CkIcon name="clock" :size="22" /></span>
+          <div><small>本次烹饪预计</small><b>{{ totalEstimate }}</b><em>根据菜谱步骤时长估算</em></div>
+        </section>
+      </div>
+
+      <article :class="['current-step-card', 'k-advice', { 'is-voice-active': isVoicePlaying }]">
+        <span class="k-advice__icon"><CkIcon name="chef" :size="24" /></span>
+        <div class="k-advice__body">
           <div class="panel-heading">
-            <span class="step-kicker"><em>第 {{ currentStepIdx + 1 }} 步</em><b>{{ currentStepTitle }}</b></span>
-            <span v-if="hasStepTimer" class="step-remaining"><CkIcon name="timer" :size="15" />剩余 {{ formatTime(timeLeft) }}</span><span v-else class="step-remaining is-muted">时长未提供</span>
+            <span>CookX 建议 · 第 {{ currentStepIdx + 1 }} 步 {{ currentStepTitle }}</span>
+            <span v-if="hasStepTimer" class="step-remaining">剩余 {{ formatTime(timeLeft) }}</span><span v-else class="step-remaining is-muted">时长未提供</span>
           </div>
           <p class="step-description">{{ currentStepText }}</p>
-          <div v-if="currentStepMeta.length" class="step-meta">
-            <span v-for="meta in currentStepMeta" :key="meta.label"><b>{{ meta.label }}</b>{{ meta.value }}</span>
-          </div>
+          <p v-if="currentStepTip" class="k-advice__tip">{{ currentStepTip }}</p>
           <div :class="['inline-voice', voicePlaybackState]">
-            <div class="inline-voice-main">
-              <span class="voice-wave" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-              <strong>{{ inlineVoiceStatusText }}</strong>
-              <span v-if="voiceProgressVisible" class="voice-remaining">{{ voiceRemainingTime }}</span>
-            </div>
-            <div v-if="voiceProgressVisible" class="voice-progress" aria-label="本步骤语音播放进度"><span :style="{ width: `${voiceProgressPercent}%` }"></span></div>
-            <div class="inline-voice-actions">
-              <button type="button" class="voice-toggle" @click="toggleVoicePlayback"><CkIcon :name="isVoicePlaying ? 'pause' : 'play'" :size="16" />{{ voiceControlText }}</button>
-              <button type="button" @click="replayCurrentStep"><CkIcon name="refresh" :size="16" />重新播报</button>
-            </div>
+            <button type="button" class="voice-toggle" @click="toggleVoicePlayback"><span class="voice-wave" aria-hidden="true"><i></i><i></i><i></i></span>{{ voiceControlText }}</button>
+            <button type="button" @click="replayCurrentStep"><CkIcon name="refresh" :size="15" />重新播报</button>
+            <span class="voice-status">{{ inlineVoiceStatusText }}<template v-if="voiceProgressVisible"> · {{ voiceRemainingTime }}</template></span>
           </div>
-          <p v-if="voiceMessage" role="status" class="inline-status">{{ voiceMessage }}</p>
-        </article>
-
-        <button v-if="thermalAssessment.suggestion || currentStepTip" type="button" class="ck-cream advice" @click="replayCurrentStep">
-          <span class="advice__icon"><CkIcon name="chef" :size="22" /></span>
-          <span class="advice__body"><small>CookX 建议</small><b>{{ thermalAssessment.suggestion || currentStepTip }}</b></span>
-          <CkIcon name="chevron-right" :size="18" class="advice__chev" />
-        </button>
-
-        <section class="ck-glass card">
-          <div class="ck-section-title"><span>实时温度曲线</span><small>{{ thermalReplaying ? '仿真回放' : '设备测温' }}</small></div>
-          <CkTempChart :points="chartPoints" :prediction="chartPrediction" :band="chartBand" :height="150" empty-text="连接 CookX Sense 后显示实时曲线" />
-          <div class="chart-legend"><span><i class="solid"></i>当前温度</span><span><i class="dash"></i>预测曲线</span></div>
-        </section>
-
-        <div class="duo">
-          <section class="ck-glass mini">
-            <CkIcon name="flame" :size="22" class="mini__icon" />
-            <div><small>下一步</small><b>{{ activeSteps[currentStepIdx + 1] ? getStepTitle(activeSteps[currentStepIdx + 1], currentStepIdx + 1) : '即将完成' }}</b></div>
-          </section>
-          <section class="ck-glass mini">
-            <CkIcon name="clock" :size="22" class="mini__icon" />
-            <div><small>预计完成</small><b>{{ recipeTotalSeconds ? estimatedFinishTime : '时长未知' }}</b><em v-if="recipeTotalSeconds">总时长 {{ formatDuration(recipeTotalSeconds) }}</em></div>
-          </section>
+          <p v-if="voiceMessage" role="status" class="k-advice__tip">{{ voiceMessage }}</p>
         </div>
+      </article>
 
-        <section class="steps-panel ck-glass card">
-          <div class="ck-section-title"><span>烹饪步骤</span><small>{{ overallProgress }}%</small></div>
+      <button type="button" class="c-more" :aria-expanded="toolsOpen" @click="toggleTools">{{ toolsOpen ? '收起步骤、计时与设备' : '展开步骤、计时与设备' }}</button>
+
+      <section v-show="toolsOpen" ref="toolsPanel" class="c-tools">
+        <div class="k-glass k-card">
+          <div class="k-card__title"><span>烹饪步骤</span><small>{{ overallProgress }}%</small></div>
           <ol class="step-track">
             <li v-for="(step, index) in activeSteps" :key="index" :class="['track-step', { done: index < currentStepIdx, active: index === currentStepIdx }]">
               <span><CkIcon v-if="index < currentStepIdx" name="check" :size="14" :stroke="2.4" /><template v-else>{{ index + 1 }}</template></span>
               <b>{{ getStepTitle(step, index) }}</b>
             </li>
           </ol>
-        </section>
-
-        <section class="ck-glass card tools">
-          <div class="ck-section-title"><span>烹饪工具</span><small>语音 · 计时 · 调整</small></div>
+        </div>
+        <div class="k-glass k-card tools">
+          <div class="k-card__title"><span>语音与计时</span></div>
           <VoiceCommands @before-listen="silenceSpeech" @command="executeVoiceCommand" />
           <div class="timer-controls">
             <button type="button" @click="pauseTimer">暂停计时</button>
@@ -114,19 +97,14 @@
           <button type="button" class="text-btn" @click="runCloudStep">重试在线播报</button>
           <CookingReminders :key="session.id" :store="cookingStore" :assessment="thermalAssessment" :replaying="thermalReplaying" @changed="refreshSession" />
           <CookingAdjustments :key="session.id" :session="session" :engine="cookingStore.engine" @changed="refreshSession" />
-        </section>
-
-        <article :class="['sense-card', 'ck-glass', 'card', temperatureLevel.className]">
-          <div class="ck-section-title">
-            <span>CookX Sense 温度监控</span>
-            <small :class="{ connected: temperatureConnected }">{{ temperatureConnectionText }}</small>
-          </div>
+        </div>
+        <article :class="['sense-card', 'k-glass', 'k-card', temperatureLevel.className]">
+          <div class="k-card__title"><span>CookX Sense 温度监控</span><small :class="{ connected: temperatureConnected }">{{ temperatureConnectionText }}</small></div>
           <div class="temperature-grid">
             <div><span>环境温度</span><strong class="ck-num">{{ ambientTemperature === null ? '--' : ambientTemperature.toFixed(1) }}<small>°C</small></strong><p>{{ ambientTemperature === null ? '当前硬件固件未上传环境温度' : '设备环境温度' }}</p></div>
             <div><span>锅面温度</span><strong class="ck-num">{{ currentTemperature === null ? '--' : currentTemperature.toFixed(1) }}<small>°C</small></strong><p>{{ currentTemperature === null ? '等待数据' : temperatureLevel.status }}</p></div>
           </div>
-          <p v-if="temperatureConnected" class="sense-note">{{ currentTemperature === null ? '数据暂未更新' : '已收到设备读数，请结合测量质量查看' }} · 最后更新 {{ lastTemperatureTime }}</p>
-          <p v-else class="sense-note">尚未连接 CookX Sense，连接设备后可实时查看温度</p>
+          <p class="sense-note">{{ temperatureConnected ? `${currentTemperature === null ? '数据暂未更新' : '已收到设备读数，请结合测量质量查看'} · 最后更新 ${lastTemperatureTime}` : '尚未连接 CookX Sense，连接设备后可实时查看温度' }}</p>
           <TemperatureInsight :assessment="thermalAssessment" :history="thermalHistory" :prediction="thermalPrediction"
             :model-state="thermalModelState" :experimental="thermalExperimental" :replaying="thermalReplaying"
             :connected="temperatureConnected" :storage-message="thermalStorageMessage"
@@ -135,75 +113,127 @@
           <button v-if="!temperatureConnected" type="button" class="sense-action" :disabled="temperatureConnecting" @click="openTemperatureDialog">{{ temperatureConnecting ? '连接中…' : '连接测温设备' }}</button>
           <button v-else type="button" class="sense-action secondary" @click="disconnectTemperature">断开设备</button>
         </article>
-
-        <section v-if="activeRecipe.ingredients_list?.length || recipeReminder || activeRecipe.nutrition" class="ck-glass card support">
+        <section v-if="activeRecipe.ingredients_list?.length || recipeReminder || activeRecipe.nutrition" class="k-glass k-card support">
           <div v-if="activeRecipe.ingredients_list?.length" class="support-row"><CkIcon name="bag" :size="18" /><div><b>食材清单</b><p>{{ ingredientSummary }}</p></div></div>
           <div v-if="recipeReminder" class="support-row"><CkIcon name="bell" :size="18" /><div><b>CookX 提醒</b><p>{{ recipeReminder }}</p></div></div>
           <div v-if="activeRecipe.nutrition" class="support-row"><CkIcon name="chart" :size="18" /><div><b>营养信息</b><p>{{ nutritionSummary }}</p></div></div>
         </section>
+        <details class="device-diagnostics k-glass"><summary>设备状态与诊断</summary><p>{{ temperatureConnectionText }}；恢复页面后等待新测量。后台连续采集能力待真机验证。</p><div class="diag-actions"><button type="button" @click="openTemperatureDialog">扫描与连接设备</button><button type="button" @click="refreshDevice">重新核对设备状态</button><button type="button" @click="exportDeviceLog">导出设备诊断</button></div><p role="status">{{ deviceDiagnosticMessage }}</p></details>
+      </section>
 
-        <details class="device-diagnostics ck-glass"><summary>设备状态与诊断</summary><p>{{ temperatureConnectionText }}；恢复页面后等待新测量。后台连续采集能力待真机验证。</p><div class="diag-actions"><button type="button" @click="openTemperatureDialog">扫描与连接设备</button><button type="button" @click="refreshDevice">重新核对设备状态</button><button type="button" @click="exportDeviceLog">导出设备诊断</button></div><p role="status">{{ deviceDiagnosticMessage }}</p></details>
-        <p v-if="sessionMessage" role="status" class="inline-status">{{ sessionMessage }}</p>
+      <div class="step-switcher">
+        <button type="button" :disabled="currentStepIdx === 0" @click="prevStep"><CkIcon name="chevron-left" :size="18" />上一步</button>
+        <button type="button" class="next" @click="nextStep">{{ isLastStep ? '完成烹饪' : '下一步' }}<CkIcon name="chevron-right" :size="18" /></button>
+      </div>
+    </template>
 
-        <div class="step-switcher">
-          <button type="button" :disabled="currentStepIdx === 0" @click="prevStep"><CkIcon name="chevron-left" :size="18" />上一步</button>
-          <button type="button" class="next" @click="nextStep">{{ isLastStep ? '完成烹饪' : '下一步' }}<CkIcon name="chevron-right" :size="18" /></button>
+    <!-- ================= AI 菜谱 ================= -->
+    <template v-else-if="isRecipes">
+      <header class="ck-head"><div class="ck-wordmark">Cook<b>X</b></div><button type="button" class="ck-icon-btn" aria-label="设备与连接" @click="openTemperatureDialog"><CkIcon name="sensor" :size="22" /></button></header>
+      <div class="ck-title"><h1>AI 菜谱</h1><p>说出想吃的，CookX 结合冰箱与口味生成菜谱</p></div>
+      <nav class="r-links" aria-label="菜谱入口">
+        <button type="button" class="r-link" @click="router.push('/recipes')"><CkIcon name="book" :size="18" />菜谱库</button>
+        <button type="button" class="r-link" @click="router.push('/favorites')"><CkIcon name="star" :size="18" />我的收藏</button>
+        <button type="button" class="r-link" @click="router.push('/menus')"><CkIcon name="calendar" :size="18" />七日菜单</button>
+      </nav>
+
+      <section v-if="recipeError" class="r-state ck-card is-error" role="alert"><p>{{ recipeError }}</p><button type="button" class="ck-btn ck-btn--heat" @click="sendMessage(lastRecipePrompt)">重新生成菜谱</button></section>
+      <section v-if="loading" class="r-state ck-card" v-loading="true"><h2>CookX 正在生成菜谱</h2><p>正在结合你的需求整理烹饪步骤…</p></section>
+      <section v-else-if="latestRecipe" class="latest-recipe ck-card">
+        <div><small>准备开始</small><h2>{{ latestRecipe.dish_name || '已生成菜谱' }}</h2><p>菜谱已准备好，可以开启语音步骤指导。</p></div>
+        <button type="button" class="ck-btn ck-btn--heat" @click="startNavigation(latestRecipe)"><CkIcon name="mic" :size="18" />开始烹饪</button>
+      </section>
+      <section v-else class="r-empty">
+        <p>试试这样问</p>
+        <div class="r-chips">
+          <button v-for="idea in promptIdeas" :key="idea" type="button" @click="sendMessage(idea)">{{ idea }}</button>
         </div>
-      </template>
+      </section>
 
-      <!-- ============ 待机：选菜与 AI 对话 ============ -->
-      <template v-else>
-        <section :class="['gauge-block', 'is-idle', temperatureLevel.className]">
-          <CkGauge :value="currentTemperature" :size="220" label="当前锅温" :sub="temperatureConnected ? (currentTemperature === null ? '等待新数据' : temperatureLevel.status) : '测温设备未连接'" />
-          <button v-if="!temperatureConnected" type="button" class="ck-btn ck-btn--ghost connect-btn" :disabled="temperatureConnecting" @click="openTemperatureDialog"><CkIcon name="bluetooth" :size="16" />{{ temperatureConnecting ? '连接中…' : '连接测温设备' }}</button>
-        </section>
-
-        <p v-if="sessionMessage" role="status" class="inline-status">{{ sessionMessage }}</p>
-        <section v-if="session?.status === 'active'" class="ck-cream advice resume">
-          <span class="advice__icon"><CkIcon name="pot" :size="22" /></span>
-          <span class="advice__body"><small>未完成的烹饪</small><b>{{ session.recipe?.dish_name || '继续上次的菜' }}</b><em>计时按实际经过时间核对</em></span>
-          <button type="button" class="ck-btn ck-btn--heat" @click="restoreCooking">恢复烹饪</button>
-        </section>
-        <section v-if="recipeError" class="chef-state-card ck-glass is-error" role="alert"><p>{{ recipeError }}</p><button type="button" class="ck-btn ck-btn--heat" @click="sendMessage(lastRecipePrompt)">重新生成菜谱</button></section>
-
-        <section v-if="loading" class="chef-state-card ck-glass" v-loading="true"><h2>CookX 正在生成菜谱</h2><p>正在结合你的需求整理烹饪步骤…</p></section>
-        <section v-else-if="!latestRecipe" class="chef-state-card ck-glass empty-state">
-          <span class="empty-icon"><CkIcon name="chef" :size="28" /></span><h2>还没有开始烹饪</h2><p>告诉 CookX 想吃什么，或从冰箱推荐里挑一道菜。</p><button type="button" class="ck-btn ck-btn--heat" @click="focusRecipeInput">去选择菜谱</button>
-        </section>
-        <section v-else class="latest-recipe ck-cream">
-          <div><small>准备开始</small><h2>{{ latestRecipe.dish_name || '已生成菜谱' }}</h2><p>菜谱已准备好，可以开启语音步骤指导。</p></div>
-          <button type="button" class="ck-btn ck-btn--heat" @click="startNavigation(latestRecipe)"><CkIcon name="mic" :size="18" />开始烹饪</button>
-        </section>
-
-        <section class="conversation-panel">
-          <div class="ck-section-title"><span>AI 菜谱对话</span><small>{{ messages.length }} 条记录</small></div>
-          <div ref="chatBox" class="chat-messages">
-            <div v-for="(msg, index) in messages" :key="index" :class="['message-wrapper', msg.role]">
-              <span class="avatar"><CkIcon :name="msg.role === 'user' ? 'user' : 'chef'" :size="18" /></span>
-              <div class="message-bubble">
-                <div class="text-content">{{ msg.content }}</div>
-                <article v-if="msg.recipe?.steps" class="recipe-card">
-                  <div class="recipe-header"><div><span>COOKX RECIPE</span><h3>{{ msg.recipe.dish_name || '美味教程' }}</h3></div></div>
-                  <div v-if="msg.recipe.ingredients_list?.length" class="ing-grid"><span v-for="(ing, i) in msg.recipe.ingredients_list" :key="i"><b>{{ ing.item }}</b>{{ ing.amount }}</span></div>
-                  <div class="steps-preview"><p v-for="(step, sIdx) in msg.recipe.steps.slice(0, 3)" :key="sIdx"><i>{{ sIdx + 1 }}</i>{{ getStepText(step) }}</p></div>
-                  <button type="button" class="start-guide" @click="startNavigation(msg.recipe)"><CkIcon name="mic" :size="16" />开始指导</button>
-                  <div class="card-actions"><button type="button" @click="goToMarket"><CkIcon name="pin" :size="16" />买食材</button><button type="button" @click="orderDelivery(msg.recipe.dish_name)"><CkIcon name="bike" :size="16" />点外卖</button></div>
-                </article>
-              </div>
+      <section class="conversation-panel">
+        <div ref="chatBox" class="chat-messages">
+          <div v-for="(msg, index) in messages" :key="index" :class="['message-wrapper', msg.role]">
+            <span class="avatar"><CkIcon :name="msg.role === 'user' ? 'user' : 'chef'" :size="18" /></span>
+            <div class="message-bubble">
+              <div class="text-content">{{ msg.content }}</div>
+              <article v-if="msg.recipe?.steps" class="recipe-card">
+                <div class="recipe-header"><span>COOKX RECIPE</span><h3>{{ msg.recipe.dish_name || '美味教程' }}</h3></div>
+                <div v-if="msg.recipe.ingredients_list?.length" class="ing-grid"><span v-for="(ing, i) in msg.recipe.ingredients_list" :key="i"><b>{{ ing.item }}</b>{{ ing.amount }}</span></div>
+                <div class="steps-preview"><p v-for="(step, sIdx) in msg.recipe.steps.slice(0, 3)" :key="sIdx"><i>{{ sIdx + 1 }}</i>{{ getStepText(step) }}</p></div>
+                <button type="button" class="start-guide" @click="startNavigation(msg.recipe)"><CkIcon name="mic" :size="16" />开始指导</button>
+                <div class="card-actions"><button type="button" @click="goToMarket"><CkIcon name="pin" :size="16" />买食材</button><button type="button" @click="orderDelivery(msg.recipe.dish_name)"><CkIcon name="bike" :size="16" />点外卖</button></div>
+              </article>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <details class="device-diagnostics ck-glass"><summary>设备状态与诊断</summary><p>{{ temperatureConnectionText }}；恢复页面后等待新测量。后台连续采集能力待真机验证。</p><div class="diag-actions"><button type="button" @click="openTemperatureDialog">扫描与连接设备</button><button type="button" @click="refreshDevice">重新核对设备状态</button><button type="button" @click="exportDeviceLog">导出设备诊断</button></div><p role="status">{{ deviceDiagnosticMessage }}</p></details>
-      </template>
-    </main>
-
-    <div v-if="!navigationVisible" class="chat-input-bar-fixed">
-      <div class="input-content">
-        <el-input ref="recipeInput" v-model="userInput" placeholder="告诉 CookX 你想做什么…" @keyup.enter="sendMessage()" />
-        <button type="button" class="send-btn" aria-label="发送" :disabled="loading" @click="sendMessage()"><CkIcon name="send" :size="20" /></button>
+      <div class="chat-input-bar-fixed">
+        <div class="input-content">
+          <el-input ref="recipeInput" v-model="userInput" placeholder="告诉 CookX 你想做什么…" @keyup.enter="sendMessage()" />
+          <button type="button" class="send-btn" aria-label="发送" :disabled="loading" @click="sendMessage()"><CkIcon name="send" :size="20" /></button>
+        </div>
       </div>
-    </div>
+    </template>
+
+    <!-- ================= 实时厨房 ================= -->
+    <template v-else>
+      <header class="k-head">
+        <div class="ck-wordmark">Cook<b>X</b></div>
+        <button type="button" class="ck-icon-btn" aria-label="查看消息" @click="router.push('/profile')"><CkIcon name="bell" :size="24" /><span class="dot"></span></button>
+      </header>
+      <div class="k-title">
+        <div><h1>实时厨房</h1><p>好食材 · 更好味</p></div>
+        <button type="button" class="k-sense" @click="openTemperatureDialog">
+          <span :class="['ck-dot', { 'is-on': temperatureConnected || thermalReplaying }]"></span>
+          <span><b>CookX Sense</b><small>{{ thermalReplaying && !temperatureConnected ? '仿真回放' : temperatureConnectionText }}</small></span>
+        </button>
+      </div>
+
+      <section :class="['k-hero', { 'is-alert': liveState.alert?.level === 'danger', 'is-warn': liveState.alert?.level === 'warn' }]">
+        <span class="k-hero__label">当前锅温</span>
+        <div class="k-hero__temp ck-num"><span :class="{ 'is-empty': displayTemperature === null }">{{ displayTemperature === null ? '--' : Math.round(displayTemperature) }}</span><sup v-if="displayTemperature !== null">°C</sup></div>
+        <button type="button" class="k-pill" @click="liveState.alert ? acknowledge() : openTemperatureDialog()">
+          <CkIcon :name="liveState.alert ? 'info' : 'flame'" :size="20" />
+          <span><b>{{ pill.title }}</b><small>{{ pill.text }}</small></span>
+        </button>
+      </section>
+
+      <section class="k-glass k-card" aria-label="烹饪阶段">
+        <div class="k-card__title"><span>烹饪阶段</span></div>
+        <ol class="stepper">
+          <li v-for="(item, index) in stageLabels" :key="item" :class="{ done: index < stageIndex, current: index === stageIndex }"><i></i><span>{{ item }}</span></li>
+        </ol>
+      </section>
+
+      <button type="button" class="k-glass k-card k-trend" @click="trendOpen = true">
+        <div class="k-card__title"><span>温度趋势</span><CkIcon name="chevron-right" :size="18" /></div>
+        <CkTempChart :points="trendPoints" :height="92" empty-text="连接 CookX Sense 后显示实时曲线" />
+      </button>
+
+      <div class="k-advice" :class="{ 'is-alert': liveState.alert?.level === 'danger' }">
+        <span class="k-advice__icon"><CkIcon :name="liveState.alert ? 'info' : 'chef'" :size="24" /></span>
+        <div class="k-advice__body">
+          <small>CookX 建议</small>
+          <b>{{ kitchenAdvice.text }}</b>
+          <button v-if="session?.status === 'active'" type="button" class="ck-btn ck-btn--heat k-advice__action" @click="restoreCooking">恢复烹饪</button>
+          <button v-else-if="!displayTemperature && displayTemperature !== 0" type="button" class="ck-btn ck-btn--heat k-advice__action" @click="router.push({ path: '/home', query: { tab: 'Recipes' } })">去选一道菜</button>
+        </div>
+        <CkIcon name="chevron-right" :size="20" class="k-advice__chev" />
+      </div>
+      <p v-if="recipeError" class="inline-status" role="alert">{{ recipeError }}</p>
+    </template>
+
+    <el-drawer v-model="trendOpen" direction="btt" size="72%" title="温度详情" class="trend-drawer" append-to-body>
+      <div class="trend-sheet">
+        <CkTempChart :points="chartPoints.length ? chartPoints : trendPoints" :prediction="chartPrediction" :band="chartBand" :height="180" />
+        <TemperatureInsight v-if="!cookingView" :assessment="thermalAssessment" :history="thermalHistory" :prediction="thermalPrediction"
+          :model-state="thermalModelState" :experimental="thermalExperimental" :replaying="thermalReplaying"
+          :connected="temperatureConnected" :storage-message="thermalStorageMessage"
+          @confirm="thermal.confirm($event)" @experimental="thermal.setExperimental($event)"
+          @replay="thermal.startReplay()" @stop-replay="thermal.stopReplay()" @export="thermal.exportSession($event)" />
+      </div>
+    </el-drawer>
 
     <el-dialog v-model="temperatureDialogVisible" title="连接 CookX Sense" width="90%" @closed="stopTemperatureScan">
       <div class="bluetooth-scan-status">
@@ -225,6 +255,7 @@
         <p v-if="!sortedTemperatureDevices.length" class="temperature-dialog-help">{{ temperatureScanning ? '正在扫描附近的 JDY-31…' : '暂未发现设备，请确认模块已上电。' }}</p>
       </div>
       <details class="bluetooth-debug"><summary>高级调试：手工地址</summary><el-input v-model="temperatureDeviceAddress" placeholder="00:11:22:33:44:55" maxlength="17" clearable /></details>
+      <details v-if="!cookingView" class="device-diagnostics"><summary>设备状态与诊断</summary><p>{{ temperatureConnectionText }}；恢复页面后等待新测量。后台连续采集能力待真机验证。</p><div class="diag-actions"><button type="button" @click="refreshDevice">重新核对设备状态</button><button type="button" @click="exportDeviceLog">导出设备诊断</button><button v-if="temperatureConnected" type="button" @click="disconnectTemperature">断开设备</button></div><p role="status">{{ deviceDiagnosticMessage }}</p></details>
       <template #footer>
         <el-button @click="temperatureDialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="temperatureConnecting" :disabled="!temperatureDeviceAddress" @click="connectTemperature">{{ temperatureConnecting ? '正在连接…' : '连接' }}</el-button>
@@ -250,6 +281,10 @@ import CkIcon from '@/components/ck/CkIcon.vue'
 import CkGauge from '@/components/ck/CkGauge.vue'
 import CkTempChart from '@/components/ck/CkTempChart.vue'
 import { uiState } from '@/services/uiState.js'
+import CkStageBackdrop from '@/components/ck/CkStageBackdrop.vue'
+import { live, liveAdvice, heatStage, stageCopy, backdropState, targetEta, formatClock, publishKitchen, acknowledgeAlert, refreshSession as refreshLiveSession } from '@/services/liveKitchen.js'
+import { setForcedDarkPage } from '@/services/theme.js'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElNotification, ElMessageBox } from 'element-plus'
 import {
   reconcileTemperatureDevice,
@@ -273,7 +308,9 @@ import { adaptCookingContext } from '@/temperature/context'
 import { API_BASE_URL, resolveBackendUrl } from '@/config/backend'
 
 // --- 基础定义 ---
-const props = defineProps(['pendingDish'])
+const props = defineProps(['pendingDish', 'mode'])
+const router = useRouter()
+const liveState = live
 const emit = defineEmits(['clear-pending'])
 const userInput = ref('')
 const loading = ref(false)
@@ -828,6 +865,7 @@ const startNavigation = async recipe => {
     recipe=normalizeRecipe(recipe)
     if(session.value?.status==='active')await ElMessageBox.confirm('开始新的菜谱将替换当前烹饪记录，是否继续？','替换烹饪',{confirmButtonText:'替换',cancelButtonText:'保留当前'})
     clearPreloadedVoice();cookingStore.engine.start(recipe,true);cookingStore.ready=true;refreshSession();navigationVisible.value=true;startStepTimer();runStep()
+    if(isRecipes.value)router.replace({path:'/home',query:{tab:'AiChef'}})
   } catch(error) {if(error!=='cancel'&&error!=='close')recipeError.value=error.message}
 }
 const startStepTimer = () => {if(timer)clearInterval(timer);timer=setInterval(()=>{tick.value=Date.now()},250)}
@@ -1051,12 +1089,83 @@ onUnmounted(cleanupTemperatureDevice)
 
 // ---- 实时厨房界面 ----
 const cookingView = computed(() => navigationVisible.value && activeSteps.value.length > 0)
+const isRecipes = computed(() => props.mode === 'Recipes')
+const viewMode = computed(() => (cookingView.value ? 'cooking' : isRecipes.value ? 'recipes' : 'live'))
+const darkPage = computed(() => viewMode.value !== 'recipes')
 const hasStepTimer = computed(() => Boolean(currentStepDuration.value || session.value?.timers[currentStepIdx.value]?.round > 0))
-watch(cookingView, value => { uiState.immersive = value }, { immediate: true })
-onUnmounted(() => { uiState.immersive = false })
+watch(cookingView, value => { uiState.immersive = value; refreshLiveSession(); if (value) window.scrollTo({ top: 0 }) }, { immediate: true })
+watch(darkPage, value => setForcedDarkPage(value), { immediate: true })
+onUnmounted(() => { uiState.immersive = false; setForcedDarkPage(false); publishKitchen({ assessment: null }) })
 watch(completionVisible, visible => { if (visible) window.scrollTo({ top: 0, behavior: 'smooth' }) })
-const minimizeNavigation = () => { stopNavigation(); navigationVisible.value = false }
-const gaugeSize = Math.min(280, Math.max(220, Math.round((window.innerWidth || 390) * 0.66)))
+const minimizeNavigation = () => { stopNavigation(); navigationVisible.value = false; toolsOpen.value = false }
+const gaugeSize = Math.min(300, Math.max(236, Math.round((window.innerWidth || 390) * 0.72)))
+
+// 显示温度：设备实测优先；仿真回放时使用回放读数（界面会标注「仿真回放」）
+const displayTemperature = computed(() => {
+  if (currentTemperature.value !== null) return currentTemperature.value
+  if (thermalReplaying.value && Number.isFinite(thermalAssessment.value?.temperature)) return thermalAssessment.value.temperature
+  return live.temperature
+})
+watch([displayTemperature, thermalAssessment, thermalReplaying], () => {
+  const simulated = thermalReplaying.value && currentTemperature.value === null
+  const replayValue = simulated && Number.isFinite(thermalAssessment.value?.temperature) ? thermalAssessment.value.temperature : undefined
+  publishKitchen({ temperature: replayValue, simulated, assessment: Number.isFinite(thermalAssessment.value?.temperature) ? thermalAssessment.value : null })
+})
+
+const stageState = computed(() => backdropState(displayTemperature.value, live.alert))
+const stageLabels = ['预热', '升温', '煎香', '烹饪', '完成']
+const stageIndex = computed(() => (session.value?.status === 'completed' ? 4 : heatStage(displayTemperature.value)?.index ?? -1))
+const pill = computed(() => {
+  if (live.alert) return { title: live.alert.title, text: `${live.alert.text}，点按静音 60 秒` }
+  const stage = heatStage(displayTemperature.value)
+  if (stage) { const [title, text] = stageCopy(stage.id); return { title, text } }
+  if (temperatureConnected.value) return { title: '等待温度数据', text: '保持探头贴近锅面' }
+  return { title: '未连接测温设备', text: live.supported ? '点按扫描并连接 CookX Sense' : '在 Android App 中连接 CookX Sense' }
+})
+const kitchenAdvice = computed(() => {
+  if (live.alert) return { text: `${live.alert.title}：${live.alert.text}` }
+  if (session.value?.status === 'active') return { text: `继续烹饪「${activeRecipe.value.dish_name || '当前菜谱'}」，进行到第 ${currentStepIdx.value + 1} 步` }
+  const advice = liveAdvice()
+  if (advice) return { text: advice.text }
+  return { text: '连接 CookX Sense，或先选一道菜开始烹饪' }
+})
+const trendPoints = computed(() => live.history.map(p => ({ at: p.at, t: p.t })))
+const acknowledge = () => { if (!live.alert) return; acknowledgeAlert(); ElMessage.success('已静音 60 秒，请及时调小火力') }
+
+const phaseChip = computed(() => {
+  if (live.alert) return live.alert.title
+  if (displayTemperature.value === null) return '等待数据'
+  const stage = heatStage(displayTemperature.value)
+  return temperatureLevel.value.status || (stage ? `${stage.label}阶段` : '温度监测中')
+})
+const targetText = computed(() => {
+  if (chartBand.value) return `目标 ${chartBand.value[0]}–${chartBand.value[1]}°C`
+  return thermalReplaying.value && !temperatureConnected.value ? '仿真回放' : temperatureConnectionText.value
+})
+const eta = computed(() => {
+  const target = chartBand.value
+  const seconds = targetEta(displayTemperature.value, target)
+  if (target && displayTemperature.value !== null && displayTemperature.value < target[0]) {
+    return { label: '预计还需', value: formatClock(seconds), hint: seconds === null ? '正在估算升温速度' : '即将达到食材下锅温度' }
+  }
+  if (hasStepTimer.value) return { label: '本步剩余', value: formatTime(timeLeft.value), hint: target && displayTemperature.value !== null ? '已在目标温区，按菜谱计时' : '按菜谱时长计时' }
+  return { label: '预计还需', value: '--:--', hint: displayTemperature.value === null ? '等待温度数据' : '本步未设定时长' }
+})
+const totalEstimate = computed(() => {
+  const total = recipeTotalSeconds.value
+  if (!total) return '时长未知'
+  const low = Math.max(1, Math.round((total * 0.9) / 60)), high = Math.max(low + 1, Math.ceil((total * 1.2) / 60))
+  return `${low}-${high} 分钟`
+})
+const toolsOpen = ref(false)
+const toolsPanel = ref(null)
+const toggleTools = async () => {
+  toolsOpen.value = !toolsOpen.value
+  if (toolsOpen.value) { await nextTick(); toolsPanel.value?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }
+}
+const trendOpen = ref(false)
+const promptIdeas = ['用冰箱里的食材做晚餐', '15 分钟快手菜', '番茄炒蛋怎么做']
+
 const chartPoints = computed(() => (thermalHistory.value || [])
   .filter(sample => sample.valid && Number.isFinite(sample.temperature))
   .map(sample => ({ at: sample.updatedAt, t: sample.temperature })))
@@ -1076,181 +1185,197 @@ const chartBand = computed(() => {
 </script>
 
 <style scoped>
-.ai-chef-container { position: relative; z-index: 1; width: min(100%, var(--ck-page-max)); min-height: 100vh; margin: 0 auto; padding: var(--sat) calc(var(--ck-gutter) + var(--sar)) calc(96px + var(--sab)) calc(var(--ck-gutter) + var(--sal)); color: var(--ck-text); }
-.ai-chef-container.is-cooking { padding-bottom: calc(96px + var(--sab)); }
+.ai-chef-container { position: relative; z-index: 1; width: min(100%, var(--ck-page-max)); min-height: 100vh; margin: 0 auto; padding: var(--sat) calc(var(--ck-gutter) + 4px + var(--sar)) 20px calc(var(--ck-gutter) + 4px + var(--sal)); color: var(--ck-text); }
+.ai-chef-container.is-cooking { padding-bottom: calc(100px + var(--sab)); }
+.ai-chef-container.is-recipes { padding-bottom: calc(96px + var(--sab)); }
 button { font: inherit; }
+.inline-status { margin: 8px 0; color: var(--ck-text-2); font-size: 13px; }
+.chef-shared { display: flex; flex-direction: column; gap: 10px; padding-top: 12px; }
 
-/* 顶部 */
-.chef-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 64px; padding: 8px 0; }
-.chef-top__brand h1 { font-size: 30px; font-weight: 700; letter-spacing: -0.4px; line-height: 1.2; }
-.chef-top__brand p { margin-top: 2px; color: var(--ck-text-2); font-size: 13px; }
-.chef-top__title { display: flex; flex-direction: column; align-items: center; min-width: 0; text-align: center; }
-.chef-top__title b { font-size: 17px; font-weight: 600; }
-.chef-top__title small { color: var(--ck-text-2); font-size: 12px; }
-.round-btn { display: grid; place-items: center; width: 40px; height: 40px; flex: 0 0 40px; padding: 0; border: 1px solid var(--ck-glass-border); border-radius: 50%; background: rgba(20, 22, 21, 0.5); color: var(--ck-text); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
-.sense-chip { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 6px 14px 6px 12px; border: 1px solid var(--ck-glass-border); border-radius: 16px; background: rgba(20, 22, 21, 0.5); color: var(--ck-text); text-align: left; -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
-.sense-chip span:last-child { display: flex; flex-direction: column; line-height: 1.25; }
-.sense-chip b { font-size: 12.5px; font-weight: 600; }
-.sense-chip small { color: var(--ck-text-2); font-size: 11.5px; }
+/* ---------- 深色玻璃（图三） ---------- */
+.k-glass {
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 22px;
+  background: linear-gradient(160deg, rgba(40, 38, 35, 0.52), rgba(22, 21, 20, 0.46));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  -webkit-backdrop-filter: saturate(140%) blur(24px);
+  backdrop-filter: saturate(140%) blur(24px);
+}
+.k-card { width: 100%; margin-bottom: 12px; padding: 16px 18px; color: var(--ck-text); text-align: left; }
+.k-card__title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; font-size: 17px; font-weight: 700; }
+.k-card__title small { color: var(--ck-text-3); font-size: 12px; font-weight: 400; }
+.k-card__title small.connected { color: #7EE6A4; }
 
-.chef-content { display: flex; flex-direction: column; gap: 12px; }
-.card { padding: 16px; }
-.inline-status { color: var(--ck-text-2); font-size: 13px; }
+/* ---------- 实时厨房（图三左） ---------- */
+.k-head { display: flex; align-items: center; justify-content: space-between; height: 58px; }
+.k-head .ck-wordmark { color: #fff; font-size: 30px; }
+.k-head .ck-icon-btn { color: #fff; }
+.k-head .ck-icon-btn .dot { border-color: transparent; }
+.k-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.k-title h1 { color: #fff; font-size: 31px; font-weight: 800; letter-spacing: 0.5px; line-height: 1.25; }
+.k-title p { margin-top: 2px; color: rgba(255, 255, 255, 0.82); font-size: 16px; letter-spacing: 1px; }
+.k-sense { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 8px 16px 8px 14px; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 16px; background: rgba(38, 38, 36, 0.4); color: #fff; text-align: left; -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+.k-sense .ck-dot { width: 11px; height: 11px; }
+.k-sense .ck-dot.is-on { background: #34D160; box-shadow: 0 0 0 4px rgba(52, 209, 96, 0.22), 0 0 12px rgba(52, 209, 96, 0.7); }
+.k-sense span:last-child { display: flex; flex-direction: column; line-height: 1.3; }
+.k-sense b { font-size: 14px; font-weight: 500; }
+.k-sense small { color: rgba(255, 255, 255, 0.72); font-size: 12.5px; }
 
-/* 菜谱头 */
-.recipe-head { display: flex; align-items: center; gap: 12px; padding: 16px; overflow: hidden; }
-.recipe-head__copy { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; flex: 1 1 auto; }
-.recipe-head h2 { max-width: 100%; overflow: hidden; font-size: 22px; font-weight: 700; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
-.ai-chip { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px; border: 1px solid rgba(255, 138, 61, 0.4); border-radius: 999px; background: rgba(255, 138, 61, 0.12); color: #FFB27F; font-size: 12px; }
-.recipe-head__progress { display: flex; align-items: center; gap: 8px; width: 100%; color: var(--ck-text-2); font-size: 12px; font-variant-numeric: tabular-nums; }
-.recipe-head__progress i { position: relative; flex: 1 1 auto; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
-.recipe-head__progress i b { position: absolute; inset: 0 auto 0 0; border-radius: 2px; background: var(--ck-heat-gradient); transition: width 0.4s ease; }
-.recipe-head__img { width: 84px; height: 84px; flex: 0 0 84px; border-radius: 50%; object-fit: cover; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4); }
-.recipe-head__img.is-empty { display: grid; place-items: center; background: var(--ck-fill); color: var(--ck-heat); }
+.k-hero { display: flex; flex-direction: column; align-items: center; padding: clamp(6px, 2.4vh, 28px) 0 clamp(18px, 6.5vh, 72px); text-align: center; }
+.k-hero__label { color: rgba(255, 255, 255, 0.88); font-size: 17px; letter-spacing: 1px; text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5); }
+.k-hero__temp { display: flex; align-items: flex-start; margin-top: -4px; color: #fff; font-size: clamp(96px, 29vw, 128px); font-weight: 600; line-height: 1; letter-spacing: -3px; text-shadow: 0 6px 30px rgba(0, 0, 0, 0.45); transition: color 0.5s ease; }
+.k-hero__temp sup { margin: 0.16em 0 0 6px; font-size: 0.3em; font-weight: 500; letter-spacing: 0; }
+.k-hero__temp .is-empty { color: rgba(255, 255, 255, 0.6); font-family: var(--ck-font); font-size: 0.62em; font-weight: 200; letter-spacing: 0.12em; }
+.k-hero.is-warn .k-hero__temp { color: #FFC36B; }
+.k-hero.is-alert .k-hero__temp { color: #FF4B3E; text-shadow: 0 0 40px rgba(255, 50, 30, 0.55); animation: temp-alert 1.2s ease-in-out infinite; }
+@keyframes temp-alert { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
+.k-pill { display: flex; align-items: center; gap: 12px; margin-top: 8px; padding: 12px 30px 12px 24px; border: 1px solid rgba(255, 175, 115, 0.38); border-radius: 30px; background: linear-gradient(135deg, rgba(112, 58, 28, 0.62), rgba(70, 36, 18, 0.55)); color: #fff; text-align: left; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
+.k-pill > .ck-icon { color: #FF8F2E; }
+.k-pill span { display: flex; flex-direction: column; align-items: center; line-height: 1.35; }
+.k-pill b { font-size: 19px; font-weight: 700; }
+.k-pill small { color: rgba(255, 255, 255, 0.86); font-size: 14px; }
+.k-hero.is-alert .k-pill { border-color: rgba(255, 120, 100, 0.6); background: linear-gradient(135deg, rgba(190, 30, 20, 0.72), rgba(120, 16, 10, 0.66)); }
+.k-hero.is-alert .k-pill > .ck-icon { color: #FFD4CC; }
 
-/* 仪表 */
-.gauge-block { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 0 4px; }
-.gauge-block.is-idle { padding-top: 0; }
-.phase-chip { display: inline-flex; align-items: center; height: 32px; margin-top: 10px; padding: 0 18px; border-radius: 999px; background: linear-gradient(90deg, #E8641F, #C8501A); color: #fff; font-size: 14px; font-weight: 600; box-shadow: 0 8px 20px rgba(232, 100, 31, 0.35); }
-.temperature-danger .phase-chip { background: #D8412F; }
-.step-timer { display: flex; flex-direction: column; align-items: center; margin-top: -4px; }
-.step-timer span { color: var(--ck-text-2); font-size: 13px; }
-.step-timer b { color: #fff; font-size: 44px; font-weight: 300; line-height: 1.1; }
-.step-timer b.no-duration { font-size: 18px; font-weight: 500; color: var(--ck-text-2); }
-.connect-btn { min-height: 40px; margin-top: 4px; font-size: 14px; }
+.stepper { position: relative; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 2px 0 0; padding: 0; list-style: none; }
+.stepper li { position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; color: rgba(255, 255, 255, 0.72); font-size: 13.5px; text-align: center; }
+.stepper li::before { content: ''; position: absolute; top: 9px; right: 50%; left: -50%; height: 2px; background: rgba(255, 255, 255, 0.18); }
+.stepper li:first-child::before { display: none; }
+.stepper li.done::before, .stepper li.current::before { background: #FF8A2A; }
+.stepper i { position: relative; z-index: 1; width: 20px; height: 20px; border: 2px solid rgba(255, 255, 255, 0.35); border-radius: 50%; background: rgba(40, 38, 36, 0.9); }
+.stepper li.done i { border-color: #FF8A2A; background: #FF8A2A; }
+.stepper li.current i { border: 3px solid #FF9A3C; background: #FFF4E8; box-shadow: 0 0 0 4px rgba(255, 138, 42, 0.28), 0 0 14px rgba(255, 138, 42, 0.8); }
+.stepper li.current { color: #fff; font-weight: 700; }
+.k-trend { display: block; border: 1px solid rgba(255, 255, 255, 0.13); }
+.k-trend:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.45); outline-offset: -3px; }
+.k-trend .k-card__title .ck-icon { color: rgba(255, 255, 255, 0.8); }
 
-/* 当前步骤 */
-.current-step-card { padding: 18px 16px; }
-.current-step-card.is-voice-active { border-color: rgba(255, 138, 61, 0.45); }
-.panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
-.step-kicker { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
-.step-kicker em { flex: 0 0 auto; color: var(--ck-heat); font-size: 13px; font-style: normal; font-weight: 700; }
-.step-kicker b { overflow: hidden; font-size: 15px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.step-remaining { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; background: var(--ck-heat-soft); color: #FFB27F; font-size: 12.5px; font-variant-numeric: tabular-nums; }
-.step-remaining.is-muted { background: var(--ck-fill); color: var(--ck-text-3); }
-.step-description { color: var(--ck-text); font-size: 19px; font-weight: 500; line-height: 1.6; }
-.step-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.step-meta span { display: inline-flex; gap: 6px; padding: 5px 10px; border-radius: 10px; background: var(--ck-fill); color: var(--ck-text); font-size: 13px; }
-.step-meta b { color: var(--ck-text-3); font-weight: 500; }
-.inline-voice { margin-top: 14px; padding: 12px; border-radius: 16px; background: rgba(255, 255, 255, 0.05); }
-.inline-voice-main { display: flex; align-items: center; gap: 10px; font-size: 13px; }
-.inline-voice-main strong { flex: 1 1 auto; font-weight: 500; }
-.voice-remaining { color: var(--ck-text-3); font-variant-numeric: tabular-nums; }
-.voice-wave { display: flex; align-items: flex-end; gap: 2px; height: 16px; }
-.voice-wave i { width: 3px; height: 5px; border-radius: 2px; background: var(--ck-heat); }
+.k-advice { display: flex; align-items: center; gap: 14px; width: 100%; margin-bottom: 12px; padding: 18px 16px 18px 18px; border-radius: 22px; background: #F4EEE6; color: #1F1B16; text-align: left; box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35); }
+.k-advice__icon { display: grid; place-items: center; width: 50px; height: 50px; flex: 0 0 50px; border-radius: 50%; background: #FDE2C4; color: #E8781E; }
+.k-advice__body { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1 1 auto; }
+.k-advice__body > small { color: #6E655B; font-size: 14px; }
+.k-advice__body > b { font-size: 18px; font-weight: 700; line-height: 1.45; }
+.k-advice__action { align-self: flex-start; min-height: 38px !important; margin-top: 6px; padding: 0 16px !important; font-size: 14px !important; }
+.k-advice__chev { color: #8E8479; flex: 0 0 auto; }
+.k-advice.is-alert { background: #FFE9E6; }
+.k-advice.is-alert .k-advice__icon { background: #FFC9C2; color: #D6281C; }
+.k-advice__tip { color: #6E655B; font-size: 13px; line-height: 1.55; }
+
+/* ---------- 烹饪中（图三右） ---------- */
+.c-top { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; height: 56px; color: #fff; }
+.c-top b { font-size: 19px; font-weight: 700; text-align: center; }
+.c-top__btn { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; background: none; color: #fff; }
+.c-recipe { position: relative; display: flex; align-items: flex-start; min-height: 120px; margin-top: 6px; overflow: hidden; padding: 18px 18px 16px; cursor: pointer; }
+.c-recipe__copy { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; max-width: 64%; }
+.c-recipe h2 { color: #fff; font-size: 25px; font-weight: 800; line-height: 1.25; }
+.c-chip { padding: 4px 13px; border: 1px solid rgba(255, 196, 150, 0.45); border-radius: 999px; background: rgba(120, 66, 30, 0.38); color: #F6D5B8; font-size: 13px; }
+.c-recipe__progress { color: rgba(255, 255, 255, 0.65); font-size: 12.5px; }
+.c-recipe__plate { position: absolute; top: -18px; right: -22px; width: 150px; height: 150px; border-radius: 50%; object-fit: cover; box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45); }
+.c-recipe__plate.is-empty { display: grid; place-items: center; background: radial-gradient(circle at 40% 35%, #FFFFFF, #E7E1D8); color: #D07A33; }
+.c-gauge { display: flex; flex-direction: column; align-items: center; margin: -6px 0 14px; }
+.c-phase { margin-top: 12px; padding: 8px 26px; border: 1px solid rgba(255, 170, 100, 0.55); border-radius: 999px; background: linear-gradient(135deg, #C8561B, #9E3E12); color: #fff; font-size: 17px; font-weight: 700; box-shadow: 0 8px 22px rgba(200, 86, 27, 0.4); }
+.c-gauge.is-alert .c-phase { border-color: rgba(255, 140, 120, 0.6); background: linear-gradient(135deg, #E0281B, #A5160D); }
+.c-eta { display: flex; flex-direction: column; align-items: center; margin-top: 4px; color: #fff; text-align: center; }
+.c-eta span { color: rgba(255, 255, 255, 0.82); font-size: 16px; }
+.c-eta b { font-size: 50px; font-weight: 600; line-height: 1.1; letter-spacing: -1px; }
+.c-eta small { color: rgba(255, 255, 255, 0.85); font-size: 15px; }
+.chart-legend { display: flex; justify-content: center; gap: 22px; margin-top: 8px; color: rgba(255, 255, 255, 0.72); font-size: 12.5px; }
+.chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.chart-legend i.solid { width: 9px; height: 9px; border-radius: 50%; background: #FF8A3D; }
+.chart-legend i.dash { width: 18px; border-top: 2px dashed rgba(255, 255, 255, 0.7); }
+.c-duo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
+.c-mini { display: flex; align-items: flex-start; gap: 10px; padding: 14px; }
+.c-mini__icon { display: grid; place-items: center; width: 40px; height: 40px; flex: 0 0 40px; border-radius: 50%; background: rgba(255, 255, 255, 0.08); color: #fff; }
+.c-mini__icon.is-flame { background: rgba(255, 120, 40, 0.18); color: #FF7A1F; }
+.c-mini div { display: flex; flex-direction: column; min-width: 0; }
+.c-mini small { color: rgba(255, 255, 255, 0.72); font-size: 12.5px; }
+.c-mini b { overflow: hidden; color: #fff; font-size: 17px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.c-mini em { overflow: hidden; color: rgba(255, 255, 255, 0.7); font-size: 12px; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
+.current-step-card.is-voice-active { box-shadow: 0 0 0 2px rgba(232, 120, 30, 0.6), 0 18px 40px rgba(0, 0, 0, 0.35); }
+.panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #6E655B; font-size: 13.5px; }
+.panel-heading > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.step-remaining { flex: 0 0 auto; padding: 2px 10px; border-radius: 999px; background: #FDE2C4; color: #B8520F; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.step-remaining.is-muted { background: #ECE5DC; color: #8E8479; }
+.step-description { margin: 4px 0 2px; color: #1F1B16; font-size: 17.5px; font-weight: 700; line-height: 1.5; }
+.inline-voice { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.inline-voice button { display: inline-flex; align-items: center; gap: 5px; min-height: 34px; padding: 0 12px; border: 1px solid #E4DACD; border-radius: 999px; background: #FFFFFF; color: #4A3F35; font-size: 13px; font-weight: 600; }
+.inline-voice .voice-toggle { border-color: #F6C9A3; background: #FFF0E2; color: #B8520F; }
+.voice-status { color: #8E8479; font-size: 12px; }
+.voice-wave { display: inline-flex; align-items: flex-end; gap: 2px; height: 12px; }
+.voice-wave i { width: 2.5px; height: 4px; border-radius: 2px; background: currentColor; }
 .inline-voice.playing .voice-wave i { animation: wave 0.9s ease-in-out infinite; }
 .inline-voice.playing .voice-wave i:nth-child(2) { animation-delay: 0.15s; }
 .inline-voice.playing .voice-wave i:nth-child(3) { animation-delay: 0.3s; }
-.inline-voice.playing .voice-wave i:nth-child(4) { animation-delay: 0.45s; }
-@keyframes wave { 0%, 100% { height: 5px; } 50% { height: 16px; } }
-.voice-progress { height: 3px; margin-top: 10px; border-radius: 2px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
-.voice-progress span { display: block; height: 100%; background: var(--ck-heat); }
-.inline-voice-actions { display: flex; gap: 8px; margin-top: 10px; }
-.inline-voice-actions button { display: inline-flex; flex: 1 1 0; align-items: center; justify-content: center; gap: 6px; min-height: 40px; border: 1px solid var(--ck-glass-border); border-radius: 999px; background: var(--ck-fill); color: var(--ck-text); font-size: 13px; font-weight: 600; }
-.inline-voice-actions .voice-toggle { background: var(--ck-heat-soft); border-color: rgba(255, 138, 61, 0.35); color: #FFB27F; }
+@keyframes wave { 0%, 100% { height: 4px; } 50% { height: 12px; } }
+.c-more { display: block; width: 100%; min-height: 44px; margin-bottom: 12px; border: 1px dashed rgba(255, 255, 255, 0.25); border-radius: 16px; background: rgba(20, 20, 18, 0.35); color: rgba(255, 255, 255, 0.82); font-size: 14px; }
+.c-tools { scroll-margin-top: calc(var(--sat) + 12px); }
 
-/* 奶油建议卡 */
-.advice { display: flex; align-items: center; gap: 14px; width: 100%; padding: 16px; border: 0; text-align: left; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35); }
-.advice__icon { display: grid; place-items: center; width: 44px; height: 44px; flex: 0 0 44px; border-radius: 14px; background: #FFE3CC; color: #D2561A; }
-.advice__body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
-.advice__body small { color: var(--ck-cream-text-2); font-size: 12px; }
-.advice__body b { font-size: 16px; font-weight: 700; line-height: 1.45; }
-.advice__body em { color: var(--ck-cream-text-2); font-size: 12.5px; font-style: normal; }
-.advice__chev { color: var(--ck-cream-text-2); }
-.advice.resume .ck-btn { min-height: 40px; padding: 0 16px; font-size: 14px; }
-
-.chart-legend { display: flex; justify-content: center; gap: 18px; margin-top: 8px; color: var(--ck-text-3); font-size: 12px; }
-.chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
-.chart-legend i { width: 16px; height: 0; border-top: 2px solid var(--ck-heat); }
-.chart-legend i.dash { border-top: 2px dashed rgba(246, 243, 238, 0.55); }
-
-.duo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.mini { display: flex; align-items: flex-start; gap: 10px; padding: 14px; }
-.mini__icon { color: var(--ck-heat); margin-top: 2px; }
-.mini div { display: flex; flex-direction: column; min-width: 0; }
-.mini small { color: var(--ck-text-3); font-size: 12px; }
-.mini b { overflow: hidden; font-size: 15px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.mini em { color: var(--ck-text-3); font-size: 11.5px; font-style: normal; }
-
-/* 步骤列表 */
 .step-track { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
-.track-step { position: relative; display: flex; align-items: center; gap: 12px; min-height: 44px; color: var(--ck-text-3); font-size: 14px; }
-.track-step:not(:last-child)::after { content: ''; position: absolute; top: 34px; bottom: -10px; left: 12px; width: 2px; background: rgba(255, 255, 255, 0.1); }
-.track-step span { position: relative; z-index: 1; display: grid; place-items: center; width: 26px; height: 26px; flex: 0 0 26px; border: 1.5px solid rgba(255, 255, 255, 0.2); border-radius: 50%; background: #202422; font-size: 12px; font-variant-numeric: tabular-nums; }
-.track-step b { font-weight: 500; }
-.track-step.done { color: var(--ck-text-2); }
-.track-step.done span { border-color: var(--ck-heat); background: var(--ck-heat); color: #fff; }
-.track-step.done::after { background: var(--ck-heat); }
-.track-step.active { color: var(--ck-text); }
-.track-step.active span { border-color: var(--ck-heat); color: var(--ck-heat); box-shadow: 0 0 0 4px rgba(255, 138, 61, 0.2); }
+.track-step { position: relative; display: flex; align-items: center; gap: 12px; min-height: 42px; color: rgba(255, 255, 255, 0.55); font-size: 14px; }
+.track-step:not(:last-child)::after { content: ''; position: absolute; top: 32px; bottom: -10px; left: 12px; width: 2px; background: rgba(255, 255, 255, 0.12); }
+.track-step span { position: relative; z-index: 1; display: grid; place-items: center; width: 26px; height: 26px; flex: 0 0 26px; border: 1.5px solid rgba(255, 255, 255, 0.25); border-radius: 50%; background: #242220; font-size: 12px; }
+.track-step.done span { border-color: #FF8A3D; background: #FF8A3D; color: #fff; }
+.track-step.done::after { background: #FF8A3D; }
+.track-step.active { color: #fff; }
+.track-step.active span { border-color: #FF8A3D; color: #FF8A3D; box-shadow: 0 0 0 4px rgba(255, 138, 61, 0.2); }
 .track-step.active b { font-weight: 700; }
-
-/* 工具 */
-.tools :deep(button) { font-family: inherit; }
 .timer-controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; margin: 12px 0; }
 .timer-controls button, .text-btn, .diag-actions button { min-height: 40px; padding: 0 14px; border: 1px solid var(--ck-glass-border); border-radius: 999px; background: var(--ck-fill-strong); color: var(--ck-text); font-size: 13px; font-weight: 600; }
 .timer-controls label { display: flex; flex-direction: column; gap: 4px; color: var(--ck-text-3); font-size: 12px; }
-.timer-controls input { width: 110px; min-height: 40px; padding: 0 12px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; background: rgba(255, 255, 255, 0.07); color: var(--ck-text); }
-.text-btn { margin-bottom: 4px; }
-
-/* 设备 */
-.sense-card small.connected { color: var(--ck-fresh); }
+.timer-controls input { width: 110px; min-height: 40px; padding: 0 12px; border: 1px solid var(--ck-input-border); border-radius: 12px; background: var(--ck-input-bg); color: var(--ck-text); }
 .temperature-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .temperature-grid > div { padding: 12px; border-radius: 14px; background: var(--ck-fill); }
 .temperature-grid span { color: var(--ck-text-3); font-size: 12px; }
-.temperature-grid strong { display: block; font-size: 28px; font-weight: 300; }
+.temperature-grid strong { display: block; font-size: 28px; font-weight: 500; }
 .temperature-grid strong small { font-size: 13px; }
 .temperature-grid p { color: var(--ck-text-3); font-size: 11.5px; line-height: 1.5; }
 .sense-note { margin: 10px 0 0; color: var(--ck-text-3); font-size: 12px; }
 .sense-action { width: 100%; min-height: 46px; margin-top: 14px; border: 0; border-radius: 999px; background: var(--ck-heat-deep); color: #fff; font-weight: 600; }
 .sense-action.secondary { border: 1px solid var(--ck-glass-border); background: var(--ck-fill); color: var(--ck-text); }
-.sense-action:disabled { opacity: 0.5; }
-
 .support { display: flex; flex-direction: column; gap: 14px; }
 .support-row { display: flex; gap: 12px; }
-.support-row > .ck-icon { color: var(--ck-heat); margin-top: 2px; }
-.support-row b { font-size: 14px; }
+.support-row > .ck-icon { margin-top: 2px; color: var(--ck-heat); }
 .support-row p { color: var(--ck-text-2); font-size: 13px; line-height: 1.6; }
-
-.device-diagnostics { padding: 0 16px; font-size: 13px; color: var(--ck-text-2); }
-.device-diagnostics summary { display: flex; align-items: center; min-height: 48px; color: var(--ck-text-2); list-style: none; cursor: pointer; }
+.device-diagnostics { margin-bottom: 12px; padding: 0 16px; color: var(--ck-text-2); font-size: 13px; }
+.device-diagnostics summary { display: flex; align-items: center; min-height: 48px; list-style: none; cursor: pointer; }
 .device-diagnostics summary::-webkit-details-marker { display: none; }
 .device-diagnostics summary::after { content: '›'; margin-left: auto; font-size: 20px; transition: transform 0.2s ease; }
 .device-diagnostics[open] summary::after { transform: rotate(90deg); }
 .device-diagnostics p { margin-bottom: 10px; line-height: 1.6; }
 .diag-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
-
-/* 底部步骤切换 */
-.step-switcher { position: fixed; right: 0; bottom: 0; left: 0; z-index: 30; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); gap: 10px; padding: 12px calc(var(--ck-gutter) + var(--sar)) calc(12px + var(--sab)) calc(var(--ck-gutter) + var(--sal)); background: linear-gradient(180deg, rgba(13, 16, 15, 0), rgba(13, 16, 15, 0.92) 30%); }
-.step-switcher button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 54px; border: 1px solid var(--ck-glass-border); border-radius: 999px; background: rgba(40, 44, 42, 0.9); color: var(--ck-text); font-size: 16px; font-weight: 600; -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
-.step-switcher button.next { border: 0; background: var(--ck-heat-deep); color: #fff; box-shadow: 0 10px 24px rgba(232, 100, 31, 0.35); }
+.step-switcher { position: fixed; right: 0; bottom: 0; left: 0; z-index: 30; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); gap: 10px; padding: 14px calc(var(--ck-gutter) + var(--sar)) calc(12px + var(--sab)) calc(var(--ck-gutter) + var(--sal)); background: linear-gradient(180deg, rgba(10, 10, 9, 0), rgba(10, 10, 9, 0.9) 35%); }
+.step-switcher button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 54px; border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 999px; background: rgba(40, 38, 36, 0.82); color: #fff; font-size: 16px; font-weight: 600; -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
+.step-switcher button.next { border: 0; background: linear-gradient(135deg, #F07A2A, #E0561A); box-shadow: 0 10px 24px rgba(232, 100, 31, 0.4); }
 .step-switcher button:disabled { opacity: 0.4; }
 
-/* 待机：状态卡与对话 */
-.gap { margin: 0; }
-.chef-state-card { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 24px 18px; text-align: center; }
-.chef-state-card h2 { font-size: 18px; font-weight: 600; }
-.chef-state-card p { color: var(--ck-text-2); font-size: 13px; line-height: 1.6; }
-.chef-state-card .ck-btn { margin-top: 6px; }
-.chef-state-card.is-error { border-color: rgba(255, 107, 91, 0.35); }
-.empty-icon { display: grid; place-items: center; width: 60px; height: 60px; border-radius: 20px; background: var(--ck-heat-soft); color: var(--ck-heat); }
-.latest-recipe { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 18px 16px; }
-.latest-recipe small { color: #C4561C; font-size: 12px; font-weight: 700; }
+/* ---------- AI 菜谱（随主题） ---------- */
+.r-links { display: flex; gap: 8px; margin: 16px calc(-1 * var(--ck-gutter)) 14px; padding: 0 var(--ck-gutter); overflow-x: auto; scrollbar-width: none; }
+.r-links::-webkit-scrollbar { display: none; }
+.r-link { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 6px; min-height: 40px; padding: 0 16px; border: 1px solid var(--ck-glass-border); border-radius: 999px; background: var(--ck-surface); color: var(--ck-text); font-size: 14px; font-weight: 600; box-shadow: var(--ck-shadow); }
+.r-link .ck-icon { color: var(--ck-heat); }
+.r-state { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 12px; padding: 22px 18px; text-align: center; }
+.r-state h2 { font-size: 17px; }
+.r-state p { color: var(--ck-text-2); font-size: 13px; }
+.r-state.is-error { border-color: var(--ck-danger-soft); }
+.r-empty { margin-bottom: 12px; }
+.r-empty p { margin-bottom: 8px; color: var(--ck-text-3); font-size: 13px; }
+.r-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.r-chips button { min-height: 38px; padding: 0 14px; border: 1px solid var(--ck-glass-border); border-radius: 999px; background: var(--ck-heat-soft); color: var(--ck-heat-text); font-size: 13.5px; font-weight: 600; }
+.latest-recipe { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 12px; padding: 18px 16px; }
+.latest-recipe small { color: var(--ck-heat-text); font-size: 12px; font-weight: 700; }
 .latest-recipe h2 { margin: 2px 0; font-size: 19px; font-weight: 700; }
-.latest-recipe p { color: var(--ck-cream-text-2); font-size: 12.5px; }
+.latest-recipe p { color: var(--ck-text-2); font-size: 12.5px; }
 .latest-recipe .ck-btn { flex: 0 0 auto; min-height: 44px; padding: 0 16px; font-size: 14px; }
-
-.conversation-panel { margin-top: 4px; }
 .chat-messages { display: flex; flex-direction: column; gap: 14px; }
 .message-wrapper { display: flex; align-items: flex-start; gap: 10px; }
 .message-wrapper.user { flex-direction: row-reverse; }
-.avatar { display: grid; place-items: center; width: 32px; height: 32px; flex: 0 0 32px; border-radius: 50%; background: var(--ck-fill-strong); color: var(--ck-heat); }
-.message-wrapper.user .avatar { background: rgba(255, 138, 61, 0.2); color: #FFB27F; }
+.avatar { display: grid; place-items: center; width: 32px; height: 32px; flex: 0 0 32px; border-radius: 50%; background: var(--ck-heat-soft); color: var(--ck-heat-text); }
+.message-wrapper.user .avatar { background: var(--ck-fill-strong); color: var(--ck-text-2); }
 .message-bubble { max-width: calc(100% - 44px); min-width: 0; }
-.text-content { padding: 11px 14px; border: 1px solid var(--ck-glass-border); border-radius: 18px 18px 18px 6px; background: var(--ck-glass); color: var(--ck-text); font-size: 14.5px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; -webkit-backdrop-filter: var(--ck-blur); backdrop-filter: var(--ck-blur); }
+.text-content { padding: 11px 14px; border: 1px solid var(--ck-glass-border); border-radius: 18px 18px 18px 6px; background: var(--ck-surface); color: var(--ck-text); font-size: 15px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; box-shadow: var(--ck-shadow); }
 .message-wrapper.user .text-content { border-color: transparent; border-radius: 18px 18px 6px 18px; background: var(--ck-heat-deep); color: #fff; }
-.recipe-card { margin-top: 10px; padding: 16px; border: 1px solid var(--ck-glass-border); border-radius: 20px; background: var(--ck-glass-strong); -webkit-backdrop-filter: var(--ck-blur); backdrop-filter: var(--ck-blur); }
-.recipe-header span { color: #FFB27F; font-size: 11px; font-weight: 700; letter-spacing: 1px; }
+.recipe-card { margin-top: 10px; padding: 16px; border: 1px solid var(--ck-glass-border); border-radius: 20px; background: var(--ck-surface); box-shadow: var(--ck-shadow); }
+.recipe-header span { color: var(--ck-heat-text); font-size: 11px; font-weight: 700; letter-spacing: 1px; }
 .recipe-header h3 { margin: 2px 0 10px; font-size: 18px; font-weight: 700; }
 .ing-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
 .ing-grid span { display: inline-flex; gap: 5px; padding: 5px 10px; border-radius: 10px; background: var(--ck-fill); color: var(--ck-text-2); font-size: 12.5px; }
@@ -1261,31 +1386,31 @@ button { font: inherit; }
 .start-guide { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 46px; margin-top: 14px; border: 0; border-radius: 999px; background: var(--ck-heat-deep); color: #fff; font-size: 15px; font-weight: 600; }
 .card-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
 .card-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 42px; border: 1px solid var(--ck-glass-border); border-radius: 999px; background: var(--ck-fill); color: var(--ck-text); font-size: 13.5px; font-weight: 600; }
-
-/* 输入栏：贴在底栏上方 */
-.chat-input-bar-fixed { position: fixed; right: 0; bottom: calc(var(--ck-tabbar-height) + var(--sab)); left: 0; z-index: 40; padding: 10px calc(var(--ck-gutter) + var(--sar)) 10px calc(var(--ck-gutter) + var(--sal)); background: linear-gradient(180deg, rgba(13, 16, 15, 0), rgba(13, 16, 15, 0.9) 40%); }
-.input-content { display: flex; align-items: center; gap: 8px; width: min(100%, calc(var(--ck-page-max) - 32px)); margin: 0 auto; padding: 5px 5px 5px 6px; border: 1px solid var(--ck-glass-border); border-radius: 999px; background: rgba(36, 40, 38, 0.92); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+.chat-input-bar-fixed { position: fixed; right: 0; bottom: calc(var(--ck-tabbar-height) + var(--sab)); left: 0; z-index: 40; padding: 10px calc(var(--ck-gutter) + var(--sar)) 10px calc(var(--ck-gutter) + var(--sal)); background: linear-gradient(180deg, transparent, var(--ck-bg) 45%); }
+.input-content { display: flex; align-items: center; gap: 8px; width: min(100%, calc(var(--ck-page-max) - 32px)); margin: 0 auto; padding: 5px 5px 5px 6px; border: 1px solid var(--ck-glass-border); border-radius: 999px; background: var(--ck-surface); box-shadow: var(--ck-shadow-strong); }
 .input-content :deep(.el-input__wrapper) { min-height: 42px; background: transparent !important; box-shadow: none !important; }
 .send-btn { display: grid; place-items: center; width: 42px; height: 42px; flex: 0 0 42px; padding: 0; border: 0; border-radius: 50%; background: var(--ck-heat-deep); color: #fff; }
 .send-btn:disabled { opacity: 0.5; }
 
-/* 蓝牙对话框 */
+/* ---------- 抽屉与对话框 ---------- */
+.trend-sheet { display: flex; flex-direction: column; gap: 12px; }
 .bluetooth-scan-status { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--ck-text); }
 .temperature-dialog-help { margin: 10px 0; color: var(--ck-text-3); font-size: 12.5px; line-height: 1.6; }
-.bluetooth-device-list { display: flex; flex-direction: column; gap: 8px; max-height: 46vh; overflow-y: auto; }
+.bluetooth-device-list { display: flex; flex-direction: column; gap: 8px; max-height: 40vh; overflow-y: auto; }
 .bluetooth-device-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 56px; padding: 10px 14px; border: 1px solid var(--ck-glass-border); border-radius: 14px; background: var(--ck-fill); color: var(--ck-text); text-align: left; }
 .bluetooth-device-item span { display: flex; flex-direction: column; min-width: 0; }
 .bluetooth-device-item small { color: var(--ck-text-3); font-size: 12px; }
 .bluetooth-device-item em { flex: 0 0 auto; color: var(--ck-text-2); font-size: 12px; font-style: normal; }
-.bluetooth-device-item.recommended em { color: var(--ck-fresh); }
+.bluetooth-device-item.recommended em { color: var(--ck-fresh-text); }
 .bluetooth-device-item.selected { border-color: var(--ck-heat); background: var(--ck-heat-soft); }
 .bluetooth-debug { margin-top: 12px; color: var(--ck-text-2); font-size: 13px; }
 .bluetooth-debug summary { min-height: 36px; cursor: pointer; }
+.el-dialog .device-diagnostics { margin: 8px 0 0; padding: 0; border-top: 1px solid var(--ck-hairline); }
 
 @media (max-width: 360px) {
-  .chef-top__brand h1 { font-size: 26px; }
-  .step-description { font-size: 17px; }
-  .recipe-head__img { width: 68px; height: 68px; flex-basis: 68px; }
-  .duo { grid-template-columns: minmax(0, 1fr); }
+  .k-title h1 { font-size: 27px; }
+  .k-sense { padding: 6px 12px; }
+  .c-duo { grid-template-columns: minmax(0, 1fr); }
+  .c-recipe__plate { width: 120px; height: 120px; }
 }
 </style>

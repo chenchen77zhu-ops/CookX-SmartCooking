@@ -42,6 +42,6 @@ onMounted(()=>{if(!props.session.recipe?.inventory_scope?.family_id)load()});onB
 .completion input[type=checkbox]{width:20px;height:20px;margin-right:8px;vertical-align:-4px;accent-color:var(--ck-heat-deep)}
 .completion button{border:1px solid var(--ck-glass-border);border-radius:999px;background:var(--ck-fill-strong);color:var(--ck-text);font:inherit;font-size:13px;font-weight:600;min-height:38px;padding:0 14px;margin:4px 6px 4px 0}
 .completion button:disabled{opacity:.45}
-.completion span{color:#FFB27F}
-.completion input[type=number]{box-sizing:border-box;min-height:42px;padding:0 12px;border:1px solid rgba(255,255,255,.1);border-radius:12px;background:rgba(255,255,255,.07);color:var(--ck-text);font:inherit;display:block;width:110px;margin:8px 0 0}
+.completion span{color:var(--ck-heat-text)}
+.completion input[type=number]{box-sizing:border-box;min-height:42px;padding:0 12px;border:1px solid var(--ck-input-border);border-radius:12px;background:var(--ck-input-bg);color:var(--ck-text);font:inherit;display:block;width:110px;margin:8px 0 0}
 </style>

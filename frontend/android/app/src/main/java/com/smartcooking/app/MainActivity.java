@@ -13,6 +13,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(TemperatureBluetoothPlugin.class);
         registerPlugin(CookingVoicePlugin.class);
+        registerPlugin(LiveCookingPlugin.class);
         super.onCreate(savedInstanceState);
 
         // ✅ 核心修复：使用 Capacitor 专属的 BridgeWebViewClient

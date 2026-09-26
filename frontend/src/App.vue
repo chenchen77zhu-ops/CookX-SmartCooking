@@ -1,7 +1,7 @@
 <template>
   <div :class="['app-container', { 'has-tabbar': showBottomNav }]">
     <CookXSplash :visible="showNativeSplash" />
-    <CkBackdrop :variant="backdrop" />
+    <CkBackdrop v-if="backdrop !== 'none'" :variant="backdrop" />
     <router-view v-slot="{ Component }">
       <transition name="page" mode="out-in">
         <component :is="Component" :key="routeKey" />
@@ -23,6 +23,7 @@
         </button>
       </div>
     </nav>
+    <CkLiveFloat />
   </div>
 </template>
 
@@ -39,6 +40,9 @@ import { Capacitor } from '@capacitor/core'
 import CkIcon from '@/components/ck/CkIcon.vue'
 import CkBackdrop from '@/components/ck/CkBackdrop.vue'
 import { uiState } from './services/uiState.js'
+import CkLiveFloat from '@/components/ck/CkLiveFloat.vue'
+import { startLiveKitchen } from './services/liveKitchen.js'
+import { themeState, setForcedDarkPage } from './services/theme.js'
 import CookXSplash from '@/components/CookXSplash.vue'
 
 const router = useRouter()
@@ -67,36 +71,38 @@ const tabs = [
   { id: 'Home', label: '首页', icon: 'home' },
   { id: 'Manage', label: '冰箱', icon: 'fridge' },
   { id: 'AiChef', label: '厨房', icon: 'pot' },
-  { id: 'Recipes', label: '菜谱', icon: 'book' },
+  { id: 'Recipes', label: 'AI 菜谱', icon: 'chef' },
   { id: 'Profile', label: '我的', icon: 'user' }
 ]
 
 // 只有一级页面显示底栏；二级页面和沉浸式烹饪隐藏底栏
-const TAB_ROUTES = ['Home', 'Profile', 'Recipes']
+const TAB_ROUTES = ['Home', 'Profile']
 const showBottomNav = computed(() => TAB_ROUTES.includes(route.name) && !uiState.immersive)
 
 const activeTab = computed(() => {
   if (route.name === 'Profile') return 'Profile'
-  if (route.name === 'Recipes') return 'Recipes'
-  if (route.query.tab === 'Manage') return 'Manage'
-  if (route.query.tab === 'AiChef') return 'AiChef'
+  if (['Manage', 'AiChef', 'Recipes'].includes(route.query.tab)) return route.query.tab
   return 'Home'
 })
 
+// 登录页与实时厨房使用摄影深色背景；其余页面随主题
+const darkRoute = computed(() => ['Login', 'Register'].includes(route.name))
+watch(darkRoute, value => setForcedDarkPage(value), { immediate: true })
 const backdrop = computed(() => {
-  if (route.name === 'Login' || route.name === 'Register') return 'kitchen'
-  if (route.name === 'Home') return route.query.tab === 'Manage' ? 'fresh' : 'kitchen'
-  if (route.name === 'CaptureConfirm') return 'fresh'
-  return 'warm'
+  if (darkRoute.value) return 'kitchen'
+  if (route.name === 'Home' && (route.query.tab === 'AiChef' || uiState.immersive)) return 'none'
+  if (!themeState.dark) return 'plain'
+  return route.query.tab === 'Manage' ? 'fresh' : 'warm'
 })
 
 const switchTab = (tab) => {
   if (tab === activeTab.value) { window.scrollTo({ top: 0, behavior: 'smooth' }); return }
   if (tab === 'Profile') router.push('/profile')
-  else if (tab === 'Recipes') router.push('/recipes')
   else if (tab === 'Home') router.push('/home')
   else router.push({ path: '/home', query: { tab } })
 }
+
+onMounted(() => { startLiveKitchen() })
 </script>
 
 <style>
@@ -115,7 +121,7 @@ const switchTab = (tab) => {
   z-index: 1000;
   padding: 0 var(--sar) var(--sab) var(--sal);
   background: var(--ck-tabbar-bg);
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  border-top: 1px solid var(--ck-tabbar-border);
   -webkit-backdrop-filter: saturate(180%) blur(24px);
   backdrop-filter: saturate(180%) blur(24px);
 }
@@ -148,8 +154,8 @@ const switchTab = (tab) => {
   transition: background-color 0.2s ease, transform 0.2s ease;
 }
 .tabbar__label { font-size: 11px; font-weight: 500; line-height: 1.1; white-space: nowrap; }
-.tabbar__item.active { color: #E8641F; }
-.tabbar__item.active .tabbar__icon { background: rgba(232, 100, 31, 0.13); }
+.tabbar__item.active { color: var(--ck-tabbar-active); }
+.tabbar__item.active .tabbar__icon { background: var(--ck-heat-soft); }
 .tabbar__item.active .tabbar__label { font-weight: 700; }
 .tabbar__item:active .tabbar__icon { transform: scale(0.92); }
 

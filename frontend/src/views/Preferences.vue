@@ -48,6 +48,6 @@ onMounted(load)
 .preference-form { display: grid; gap: 18px; }
 .preference-form label { display: grid; gap: 8px; }
 .preference-form label > b { color: var(--ck-text-2); font-size: 13px; font-weight: 500; }
-.preference-form > p[role=alert] { padding: 10px 12px; border-radius: 12px; background: var(--ck-danger-soft); color: #FFB5AB; font-size: 13px; }
+.preference-form > p[role=alert] { padding: 10px 12px; border-radius: 12px; background: var(--ck-danger-soft); color: var(--ck-danger-text); font-size: 13px; }
 .save-button { width: 100%; margin-top: 4px; }
 </style>

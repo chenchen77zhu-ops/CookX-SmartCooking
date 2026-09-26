@@ -18,7 +18,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs')
  const api='http://127.0.0.1:8001/api'
  assert.equal((await alice.request.get(api+'/inventory?user_id='+b.user.id,{headers:{Authorization:'Bearer '+a.session.access_token}})).status(),403)
  const bobRows=await(await bob.request.get(api+'/inventory?user_id='+b.user.id,{headers:{Authorization:'Bearer '+b.session.access_token}})).json();assert.deepEqual(bobRows,[])
- await alice.reload();await alice.getByText('西红柿',{exact:true}).first().waitFor()
+ await alice.goto(base+'/#/fridge');await alice.getByText('西红柿',{exact:true}).first().waitFor()
  fs.mkdirSync('tmp/sqlite',{recursive:true});await alice.screenshot({path:'tmp/sqlite/authenticated-inventory.png',fullPage:true,animations:'disabled'})
  await alice.goto(base+'/#/profile');await alice.getByRole('button',{name:'退出登录',exact:true}).click();await alice.locator('.el-message-box__btns .el-button--primary').click();await alice.waitForURL('**/#/login')
  assert.equal((await alice.request.get(api+'/auth/session',{headers:{Authorization:'Bearer '+a.session.access_token}})).status(),401)

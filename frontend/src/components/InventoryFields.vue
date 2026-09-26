@@ -23,10 +23,10 @@ defineProps({ editing: Boolean, disabled: Boolean, original: { type: Object, def
 <style scoped>
 .inventory-fields { min-width: 0; margin: 0; padding: 0; border: 0; text-align: left; }
 label { display: grid; gap: 6px; margin: 12px 0; color: var(--ck-text-2); font-size: 13px; }
-input, select { box-sizing:border-box;min-height:42px;padding:0 12px;border:1px solid rgba(255,255,255,.1);border-radius:12px;background:rgba(255,255,255,.07);color:var(--ck-text);font:inherit; width: 100%; min-width: 0; min-height: 46px; font-size: 15px; }
+input, select { box-sizing:border-box;min-height:42px;padding:0 12px;border:1px solid var(--ck-input-border);border-radius:12px;background:var(--ck-input-bg);color:var(--ck-text);font:inherit; width: 100%; min-width: 0; min-height: 46px; font-size: 15px; }
 input:focus, select:focus { outline: none; border-color: var(--ck-heat); }
 select { -webkit-appearance: none; appearance: none; }
-select option { background: #1E2220; }
+select option { background: var(--ck-surface-strong); }
 input[type=datetime-local] { color-scheme: dark; }
 p { color: var(--ck-text-3); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 </style>

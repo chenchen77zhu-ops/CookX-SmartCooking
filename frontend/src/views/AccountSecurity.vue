@@ -42,7 +42,7 @@ const deleteAccount = () => {
 <style scoped>
 .account-card { display: grid; gap: 12px; }
 .account-summary { display: flex; align-items: center; gap: 14px; padding-bottom: 16px; border-bottom: 1px solid var(--ck-hairline); }
-.account-summary > span { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 16px; background: var(--ck-heat-soft); color: #FFB27F; font-size: 22px; }
+.account-summary > span { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 16px; background: var(--ck-heat-soft); color: var(--ck-heat-text); font-size: 22px; }
 .account-summary h2 { margin: 0 0 2px; font-size: 18px; font-weight: 600; }
 .account-summary p { margin: 0; color: var(--ck-text-3); font-size: 13px; }
 .account-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 60px; padding: 8px 0; border: 0; background: transparent; color: inherit; text-align: left; }
@@ -56,5 +56,5 @@ const deleteAccount = () => {
 .account-note p { margin: 0; font-size: 12.5px; line-height: 1.6; }
 .account-note b, .account-note span { display: block; }
 .account-note b { color: var(--ck-text); font-size: 14px; font-weight: 500; }
-.delete-account { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 48px; border: 1px solid rgba(255, 107, 91, 0.25); border-radius: 999px; background: rgba(255, 107, 91, 0.08); color: #FF9A8E; font-weight: 600; }
+.delete-account { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 48px; border: 1px solid rgba(255, 107, 91, 0.25); border-radius: 999px; background: rgba(255, 107, 91, 0.08); color: var(--ck-danger-text); font-weight: 600; }
 </style>

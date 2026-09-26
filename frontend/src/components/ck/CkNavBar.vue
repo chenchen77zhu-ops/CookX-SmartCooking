@@ -41,7 +41,7 @@ const goBack = () => {
   padding: var(--sat) var(--ck-gutter) 0;
 }
 .ck-navbar.is-solid {
-  background: linear-gradient(180deg, rgba(13,16,15,0.92), rgba(13,16,15,0.72));
+  background: linear-gradient(180deg, var(--ck-nav-bg), var(--ck-nav-bg));
   -webkit-backdrop-filter: saturate(160%) blur(20px);
   backdrop-filter: saturate(160%) blur(20px);
   border-bottom: 1px solid var(--ck-hairline);

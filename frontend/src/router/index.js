@@ -8,6 +8,7 @@ const routes = [
   {path:'/community',name:'Community',component:()=>import('../views/Community.vue'),meta:{requiresAuth:true}},
   {path:'/recipes',name:'Recipes',component:()=>import('../views/RecipeLibrary.vue'),meta:{requiresAuth:true}},
   {path:'/shopping',name:'Shopping',component:()=>import('../views/Shopping.vue'),meta:{requiresAuth:true}},
+  {path:'/fridge',name:'FridgeItems',component:()=>import('../views/FridgeItems.vue'),meta:{requiresAuth:true}},
   {path:'/household',name:'Household',component:()=>import('../views/Household.vue'),meta:{requiresAuth:true}},
   {
     path: '/login',

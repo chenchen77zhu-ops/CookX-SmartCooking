@@ -17,7 +17,7 @@
         <polyline v-if="predictionPoints" :points="predictionPoints" fill="none" stroke="rgba(246,243,238,0.55)" stroke-width="1.6" stroke-dasharray="4 4" vector-effect="non-scaling-stroke" />
       </svg>
       <span v-if="endPoint" class="ck-chart__dot" :style="{ left: `${endPoint.x}%`, top: `${endPoint.y}%` }"></span>
-      <span v-if="endPoint && showValue" class="ck-chart__value" :style="{ left: `${Math.min(endPoint.x, 86)}%`, top: `${endPoint.y}%` }">{{ lastValue }}°C</span>
+      <span v-if="endPoint && showValue" class="ck-chart__value" :style="{ left: `${Math.min(Math.max(endPoint.x, 14), 86)}%`, top: `${endPoint.y}%` }">{{ lastValue }}°C</span>
       <p v-if="!points.length" class="ck-chart__empty">{{ emptyText }}</p>
     </div>
     <div class="ck-chart__x">
@@ -75,6 +75,16 @@ const clock = at => { const d = new Date(at); return `${d.getHours()}:${String(d
 const xLabels = computed(() => {
   if (!range.value) return ['-6 分钟', '-4', '-2', '现在']
   const { start, end } = range.value
+  const lastPoint = props.points[props.points.length - 1]?.at ?? end
+  // 短时间窗口用相对秒数，长窗口用钟点
+  if (end - start < 180000) {
+    return [0, 1, 2, 3].map(i => {
+      const at = start + ((end - start) * i) / 3
+      const diff = Math.round((at - lastPoint) / 1000)
+      if (Math.abs(diff) < 2) return '现在'
+      return diff < 0 ? `${diff} 秒` : `+${diff} 秒`
+    })
+  }
   return [0, 1, 2, 3].map(i => (i === 3 && !props.prediction.length ? '现在' : clock(start + ((end - start) * i) / 3)))
 })
 </script>
@@ -84,11 +94,11 @@ const xLabels = computed(() => {
 .ck-chart__axis { position: relative; }
 .ck-chart__axis span { position: absolute; right: 0; color: var(--ck-text-3); font-size: 10.5px; font-variant-numeric: tabular-nums; transform: translateY(-50%); }
 .ck-chart__plot { position: relative; min-width: 0; }
-.ck-chart__grid { position: absolute; left: 0; right: 0; height: 1px; background: rgba(255, 255, 255, 0.07); }
+.ck-chart__grid { position: absolute; left: 0; right: 0; height: 1px; background: var(--ck-hairline); }
 .ck-chart__band { position: absolute; left: 0; right: 0; background: rgba(255, 138, 61, 0.1); border-block: 1px dashed rgba(255, 138, 61, 0.35); }
 .ck-chart__svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .ck-chart__dot { position: absolute; width: 12px; height: 12px; border: 2.5px solid #FF8A3D; border-radius: 50%; background: #fff; box-shadow: 0 0 0 5px rgba(255, 138, 61, 0.22); transform: translate(-50%, -50%); }
-.ck-chart__value { position: absolute; color: #FFB27F; font-size: 13px; font-weight: 700; transform: translate(-50%, -165%); white-space: nowrap; }
+.ck-chart__value { position: absolute; color: #FF9A4A; font-size: 13px; font-weight: 700; transform: translate(-50%, -165%); white-space: nowrap; }
 .ck-chart__empty { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; color: var(--ck-text-3); font-size: 12px; }
 .ck-chart__x { grid-column: 2; display: flex; justify-content: space-between; color: var(--ck-text-3); font-size: 10.5px; font-variant-numeric: tabular-nums; align-items: flex-end; }
 </style>

@@ -34,8 +34,8 @@ onMounted(async()=>{try{await loadCatalog();families.value=(await businessApi('/
 .week { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin: 12px 0; }
 .week > div { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 10px; border-radius: 14px; background: var(--ck-fill); }
 .week > div > b { width: 52px; flex: 0 0 52px; color: var(--ck-text-2); font-size: 13px; font-weight: 600; }
-.business-page .week label { display: inline-flex; flex: 1 1 0; align-items: center; justify-content: center; gap: 6px; min-height: 38px; margin: 0; padding: 0 8px; border: 1px solid var(--ck-glass-border); border-radius: 999px; background: rgba(255, 255, 255, 0.04); color: var(--ck-text-2); font-size: 13px; }
-.business-page .week label:has(input:checked) { border-color: rgba(255, 138, 61, 0.5); background: var(--ck-heat-soft); color: #FFB27F; }
+.business-page .week label { display: inline-flex; flex: 1 1 0; align-items: center; justify-content: center; gap: 6px; min-height: 38px; margin: 0; padding: 0 8px; border: 1px solid var(--ck-glass-border); border-radius: 999px; background: var(--ck-input-bg); color: var(--ck-text-2); font-size: 13px; }
+.business-page .week label:has(input:checked) { border-color: rgba(255, 138, 61, 0.5); background: var(--ck-heat-soft); color: var(--ck-heat-text); }
 .business-page .week input { width: 16px; height: 16px; }
 .planner details { margin: 12px 0; }
 .planner article button { margin: 5px 6px 5px 0; }

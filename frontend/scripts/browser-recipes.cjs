@@ -6,7 +6,7 @@ const {chromium}=require(process.env.COOKX_PLAYWRIGHT||'playwright'),assert=requ
  const session=await page.evaluate(()=>JSON.parse(sessionStorage.getItem('cookx:session:v1'))),before=await page.evaluate(()=>localStorage.getItem('cookx:cooking:v1:'+JSON.parse(localStorage.getItem('user')).id))
  await page.getByRole('button',{name:'收藏此版本',exact:true}).first().click();await page.getByRole('button',{name:'一键复刻',exact:true}).first().click();await page.getByRole('region',{name:'复刻食材核对'}).waitFor()
  assert.equal(await page.evaluate(()=>localStorage.getItem('cookx:cooking:v1:'+JSON.parse(localStorage.getItem('user')).id)),before)
- await page.getByRole('button',{name:'已核对，送到烹饪页',exact:true}).click();await page.waitForURL('**/#/home?tab=AiChef');await page.getByRole('button',{name:'开始指导',exact:true}).last().waitFor()
+ await page.getByRole('button',{name:'已核对，送到烹饪页',exact:true}).click();await page.waitForURL('**/#/home?tab=Recipes');await page.getByRole('button',{name:'开始指导',exact:true}).last().waitFor()
  assert.equal(await page.evaluate(()=>localStorage.getItem('cookx:cooking:v1:'+JSON.parse(localStorage.getItem('user')).id)),before)
  await page.getByRole('button',{name:'开始指导',exact:true}).last().click();await page.getByText('时长未提供',{exact:true}).first().waitFor()
  const active=await page.evaluate(()=>JSON.parse(localStorage.getItem('cookx:cooking:v1:'+JSON.parse(localStorage.getItem('user')).id)));assert.equal(active.recipe.dish_name,'番茄炒鸡蛋');assert.equal(active.timers[0].deadline,null);assert.ok(active.recipe.cookx_copy_id)

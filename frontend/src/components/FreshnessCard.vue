@@ -39,7 +39,7 @@ const summary = computed(() => freshnessStatus(props.detail))
 const formatTime = value => value && Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString('zh-CN') : '未知'
 </script>
 <style scoped>
-.freshness-card { margin: 10px 0; padding: 12px; border-radius: 14px; background: rgba(255,255,255,.05); color: var(--ck-text-2); font-size: 12.5px; line-height: 1.65; overflow-wrap: anywhere; }
+.freshness-card { margin: 10px 0; padding: 12px; border-radius: 14px; background: var(--ck-input-bg); color: var(--ck-text-2); font-size: 12.5px; line-height: 1.65; overflow-wrap: anywhere; }
 .freshness-card strong { color: var(--ck-text); font-size: 13.5px; }
 .fc-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 10px; }
 .fc-score { color: var(--ck-text); font-variant-numeric: tabular-nums; }
