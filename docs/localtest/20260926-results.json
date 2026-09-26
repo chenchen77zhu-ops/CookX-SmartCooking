@@ -1,0 +1,86 @@
+{
+  "sourceCommit": "63e66fd70238adf9198065a3eb006276f245dd69",
+  "sourceDirty": false,
+  "apk": "CookX-localtest-63e66fd-debug.apk",
+  "sha256": "E2669BBC8C136E39E5BB1594CFC2BDC3A0F018D073F0969D1A5CA1FEBFB2C70F",
+  "builtAt": "2026-09-26T16:26:19.2914370+08:00",
+  "apkChecks": {
+    "applicationId": "com.smartcooking.app.localtest",
+    "label": "CookX 本地测试",
+    "versionCode": 6,
+    "versionName": "1.3.1-localtest-ui",
+    "launcher": "com.smartcooking.app.MainActivity",
+    "launcherIcon": "res/mipmap-anydpi-v26/ic_launcher.xml",
+    "bundledLocalTest": true,
+    "signatureVerified": true,
+    "signerSHA256": "dc6cf3024db90fcc75e7282eb3bb209a015b4863da32f3e3ea78b4f355fdde2a",
+    "comparedPreviousApk": true,
+    "alignmentVerified": true,
+    "apkSHA256": "E2669BBC8C136E39E5BB1594CFC2BDC3A0F018D073F0969D1A5CA1FEBFB2C70F",
+    "bytes": 10560537,
+    "deviceInstallation": "not verified: no connected Android device"
+  },
+  "unitTests": {
+    "frontendAndTemperature": 75,
+    "localRuntime": 9,
+    "androidJvm": 4,
+    "failures": 0,
+    "skipped": 0
+  },
+  "browser": {
+    "localtest": {
+      "suite": "localtest",
+      "checks": [
+        "no-login",
+        "persistent-inventory",
+        "duplicate-click",
+        "recognition-fixture-confirm",
+        "recipe-invalid-json-retry",
+        "timer-and-speech",
+        "text-command",
+        "adjustments-undo",
+        "session-reload",
+        "account-isolation",
+        "batch-selection",
+        "lost-ack-readback",
+        "mobile-overflow",
+        "decimal-and-date-edit",
+        "explicit-null",
+        "zero-and-partial-evidence",
+        "bundled-temperature-replay-and-model",
+        "recommendation-offline"
+      ],
+      "externalOrApiRequests": [],
+      "pageErrors": []
+    },
+    "deferred": {
+      "suite": "offline-deferred-examples",
+      "checks": [
+        "same-device-role-demo",
+        "explicit-fixture-boundary",
+        "purchase-stock-once",
+        "community-toggle",
+        "growth-and-badge-demo",
+        "feedback-isolation",
+        "persistent-local-state",
+        "mobile-layout"
+      ],
+      "externalOrApiRequests": [],
+      "pageErrors": []
+    },
+    "uiScreenshots": 42,
+    "sizes": [
+      "360x780",
+      "390x844",
+      "430x932"
+    ],
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "systemInsetsPx": 24,
+    "offlineToolbarPx": 32
+  },
+  "deviceInstallation": "Not verified; phone not connected",
+  "previousUiApkFailure": "Cause unknown without Android installer logs"
+}
