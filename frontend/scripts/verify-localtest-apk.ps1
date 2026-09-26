@@ -5,6 +5,12 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $Apk = (Resolve-Path -LiteralPath $Apk).Path
+# Windows SDK native tools can reject non-ASCII paths; verify a byte-identical
+# temporary copy, while leaving the user's APK untouched.
+$checkPath = Join-Path $env:TEMP ('cookx-apk-check-' + [guid]::NewGuid().ToString('N') + '.apk')
+Copy-Item -LiteralPath $Apk -Destination $checkPath
+$Apk = $checkPath
+try {
 $buildTools = Join-Path $env:ANDROID_HOME 'build-tools/35.0.0'
 $badging = (& (Join-Path $buildTools 'aapt.exe') dump badging $Apk) -join "`n"
 if ($LASTEXITCODE -ne 0) { throw 'APK resources cannot be read' }
@@ -51,3 +57,5 @@ $record = [ordered]@{
 $json = $record | ConvertTo-Json
 if ($Output) { [IO.File]::WriteAllText([IO.Path]::GetFullPath($Output),$json,[Text.UTF8Encoding]::new($false)) }
 $json
+
+} finally { Remove-Item -LiteralPath $checkPath -ErrorAction SilentlyContinue }
