@@ -15,7 +15,7 @@ cd android-native
 ```
 
 - 默认后端地址：`http://192.168.43.49:8000`，可用 `-Pcookx.backendOrigin=http://电脑IPv4:8000` 覆盖；App 登录页的「局域网后端地址」也能随时修改。
-- 发布签名：在 `android-native/keystore.properties` 写入 `storeFile / storePassword / keyAlias / keyPassword`（不要提交）。没有该文件时 release 使用 debug 签名，方便内测安装。
+- 发布签名：在 `android-native/keystore.properties` 写入 `storeFile / storePassword / keyAlias / keyPassword`（不要提交），然后运行 `.\sign-release.ps1` 得到带 v1+v2+v3 签名的安装包。**不要用 debug 签名分发**：部分国产系统会静默拦截调试证书签名的应用。之后每次更新都必须用同一个证书，否则手机上无法覆盖安装，请备份好证书和密码。
 - 只打包 `arm64-v8a` 和 `armeabi-v7a` 两种 ABI（ONNX Runtime 原生库很大，x86 只在模拟器上用得到）。
 - 仓库在中文路径下时，`gradle.properties` 里的 `android.overridePathCheck=true` 让 AGP 正常构建。**单元测试**的 classpath 仍会被中文路径破坏，需要先映射一个 ASCII 盘符：`subst K: "<仓库上级目录>"`，然后在 `K:\CookX-web\android-native` 下运行。
 

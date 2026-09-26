@@ -38,6 +38,10 @@ android {
                 storePassword = signingProps.getProperty("storePassword")
                 keyAlias = signingProps.getProperty("keyAlias")
                 keyPassword = signingProps.getProperty("keyPassword")
+                // v1 is kept for vendor installers that still check JAR signatures.
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
             }
         }
     }

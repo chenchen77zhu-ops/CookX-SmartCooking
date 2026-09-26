@@ -7,3 +7,6 @@ local.properties
 captures/
 app/build/
 screenshots/
+keystore.properties
+keystore/
+*.jks
