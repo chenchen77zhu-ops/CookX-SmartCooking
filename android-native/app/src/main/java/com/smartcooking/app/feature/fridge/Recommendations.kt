@@ -1,5 +1,6 @@
 package com.smartcooking.app.feature.fridge
 
+import com.smartcooking.app.core.toFiniteOrNull
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -122,7 +123,7 @@ class RecommendationsViewModel(private val c: AppContainer) : ViewModel() {
         preferenceVersion = prefs.version
         prefValues = prefs.values
         if (prefs.version > 0 && !dirty) {
-            val remote = prefs.recommendation.mapValues { (k, v) -> v.asText()?.let { t -> if (k == "difficulty_target") t else t.toDoubleOrNull()?.clean(2) ?: t }.orEmpty() }
+            val remote = prefs.recommendation.mapValues { (k, v) -> v.asText()?.let { t -> if (k == "difficulty_target") t else t.toFiniteOrNull()?.clean(2) ?: t }.orEmpty() }
             _state.update { it.copy(criteria = remote) }
         }
     }
@@ -149,7 +150,7 @@ class RecommendationsViewModel(private val c: AppContainer) : ViewModel() {
         for ((key, label) in listOf("budget" to "整道菜预算") + PreferenceOptions.nutritionFields) {
             val raw = criteria[key].orEmpty().trim()
             if (raw.isEmpty()) continue
-            val v = raw.toDoubleOrNull()
+            val v = raw.toFiniteOrNull()
             if (v == null || v <= 0 || v.isInfinite()) throw IllegalArgumentException("${label.substringBefore("（")}必须是正数")
             if (key == "budget") result["budget"] = v else nutrition[key] = v
         }
@@ -367,7 +368,7 @@ private fun RecommendationCard(item: JsonObject, onCook: (String) -> Unit) {
                         Text(pct(v), fontSize = 11.sp, color = CookX.TextSecondary, modifier = Modifier.padding(start = 8.dp).width(52.dp))
                     }
                 }
-                val weights = item.obj("effective_weights")?.entries?.joinToString(" · ") { "${metricLabels[it.key] ?: it.key} ${pct(it.value.asText()?.toDoubleOrNull())}" }.orEmpty()
+                val weights = item.obj("effective_weights")?.entries?.joinToString(" · ") { "${metricLabels[it.key] ?: it.key} ${pct(it.value.asText()?.toFiniteOrNull())}" }.orEmpty()
                 Text("$weights · 缺失惩罚 ${pct(item.num("missing_penalty_weight"))}", fontSize = 11.sp, color = CookX.TextSecondary)
                 item.strings("unavailable_components").takeIf { it.isNotEmpty() }?.let { Text("未参与评分：${it.joinToString("、")}", fontSize = 11.sp, color = CookX.TextSecondary) }
                 val notes = buildList {

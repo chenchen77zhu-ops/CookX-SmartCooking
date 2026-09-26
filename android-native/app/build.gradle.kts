@@ -26,6 +26,8 @@ android {
         versionCode = 5
         versionName = "2.0.0"
         buildConfigField("String", "DEFAULT_BACKEND_ORIGIN", "\"$backendOrigin\"")
+        // Phones only: the x86 ONNX Runtime libraries would add ~43 MB for emulators nobody tests on.
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

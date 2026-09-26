@@ -1,5 +1,6 @@
 package com.smartcooking.app.data
 
+import com.smartcooking.app.core.toFiniteOrNull
 import com.smartcooking.app.core.Time
 import com.smartcooking.app.core.asDouble
 import com.smartcooking.app.core.asText
@@ -107,15 +108,15 @@ object InventoryRules {
     fun serialize(form: InventoryForm, original: InventoryItem? = null, now: Long = System.currentTimeMillis()): JsonObject {
         val name = form.name.trim()
         if (name.isEmpty()) throw IllegalArgumentException("请填写名称")
-        val quantity = form.quantity.trim().toDoubleOrNull()
+        val quantity = form.quantity.trim().toFiniteOrNull()
         if (quantity == null || quantity <= 0 || quantity != Math.floor(quantity) || quantity > 9_007_199_254_740_991.0) {
             throw IllegalArgumentException("数量必须是正整数")
         }
         val result = linkedMapOf<String, Any?>("name" to name, "quantity" to quantity.toLong())
         if (form.storageType.isNotBlank()) result["storage_type"] = form.storageType
         if (form.shelfLife.isNotBlank()) {
-            val days = form.shelfLife.trim().toDoubleOrNull()
-            if (days == null || days <= 0) throw IllegalArgumentException("保质期必须大于 0")
+            val days = form.shelfLife.trim().toFiniteOrNull()
+            if (days == null || !days.isFinite() || days <= 0) throw IllegalArgumentException("保质期必须大于 0")
             result["shelf_life"] = days
         }
         if (original != null) {

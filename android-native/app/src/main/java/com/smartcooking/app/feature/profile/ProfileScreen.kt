@@ -78,6 +78,7 @@ import com.smartcooking.app.ui.components.SegmentedTabs
 import com.smartcooking.app.ui.components.StatusChip
 import com.smartcooking.app.ui.components.TonalButton
 import com.smartcooking.app.ui.components.Tone
+import com.smartcooking.app.ui.components.overlapHero
 import com.smartcooking.app.ui.components.pressable
 import com.smartcooking.app.ui.nav.Navigator
 import com.smartcooking.app.ui.nav.Routes
@@ -208,7 +209,7 @@ fun ProfileContent(
     }
 }
 
-private fun Modifier.offsetUp() = this.offset(y = (-26).dp)
+private fun Modifier.offsetUp() = this.overlapHero(26.dp)
 
 @Composable
 private fun NotificationsSheet(state: ProfileState, onDismiss: () -> Unit, onRead: (String) -> Unit) {

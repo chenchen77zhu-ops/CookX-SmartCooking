@@ -39,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -137,8 +138,12 @@ fun SubpageScaffold(
     }
 }
 
-/** Places the first card of a subpage over the hero's bottom edge. */
-fun Modifier.overlapHero(): Modifier = this.offset(y = (-24).dp)
+/** Pulls content up over the hero's bottom edge; unlike offset, following items move up too. */
+fun Modifier.overlapHero(amount: androidx.compose.ui.unit.Dp = 24.dp): Modifier = this.layout { measurable, constraints ->
+    val placeable = measurable.measure(constraints)
+    val shift = amount.roundToPx()
+    layout(placeable.width, (placeable.height - shift).coerceAtLeast(0)) { placeable.place(0, -shift) }
+}
 
 /** Standard horizontal page padding for list items inside scaffolds. */
 fun Modifier.page(): Modifier = this.padding(horizontal = 16.dp)

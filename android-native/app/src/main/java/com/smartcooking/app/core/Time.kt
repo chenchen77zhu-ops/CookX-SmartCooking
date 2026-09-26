@@ -15,7 +15,8 @@ import java.time.format.DateTimeParseException
  */
 object Time {
     private val zone: ZoneId get() = ZoneId.systemDefault()
-    private val localInput = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm")
+    // Strict resolution rejects impossible dates such as 2025-02-30 instead of clamping them.
+    private val localInput = DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm").withResolverStyle(java.time.format.ResolverStyle.STRICT)
     private val display = DateTimeFormatter.ofPattern("yyyy/M/d HH:mm")
     private val displayShort = DateTimeFormatter.ofPattern("M月d日 HH:mm")
     private val monthDay = DateTimeFormatter.ofPattern("M-d")

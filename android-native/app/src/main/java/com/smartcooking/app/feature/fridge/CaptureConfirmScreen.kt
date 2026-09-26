@@ -1,5 +1,6 @@
 package com.smartcooking.app.feature.fridge
 
+import com.smartcooking.app.core.toFiniteOrNull
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -104,8 +105,8 @@ fun CaptureConfirmScreen(navigator: Navigator) {
     val messenger = LocalMessenger.current
     val items = state.items
     val kinds = items.map { FoodCatalog.key(it.form.name) }.filter { it.isNotEmpty() }.toSet().size
-    val total = items.sumOf { it.form.quantity.toDoubleOrNull() ?: 0.0 }.toLong()
-    val minShelf = items.mapNotNull { it.form.shelfLife.toDoubleOrNull()?.takeIf { d -> d > 0 } }.minOrNull()
+    val total = items.sumOf { it.form.quantity.toFiniteOrNull() ?: 0.0 }.toLong()
+    val minShelf = items.mapNotNull { it.form.shelfLife.toFiniteOrNull()?.takeIf { d -> d > 0 } }.minOrNull()
 
     SubpageScaffold(
         "识别结果确认", navigator::back,

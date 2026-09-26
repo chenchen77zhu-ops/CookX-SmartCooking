@@ -68,6 +68,9 @@ fun Any?.toJsonElement(): JsonElement = when (this) {
     null -> JsonNull
     is JsonElement -> this
     is String -> JsonPrimitive(this)
+    // Like JSON.stringify: whole numbers are written without ".0" (the backend uses strict ints for versions).
+    is Double -> if (isFinite() && this == Math.floor(this) && kotlin.math.abs(this) < 9.0e15) JsonPrimitive(toLong()) else JsonPrimitive(this)
+    is Float -> toDouble().toJsonElement()
     is Number -> JsonPrimitive(this)
     is Boolean -> JsonPrimitive(this)
     is Map<*, *> -> JsonObject(entries.associate { (k, v) -> k.toString() to v.toJsonElement() })
@@ -93,3 +96,6 @@ fun Double.clean(maxDecimals: Int = 2): String {
     if (this == Math.floor(this) && kotlin.math.abs(this) < 1e15) return this.toLong().toString()
     return "%.${maxDecimals}f".format(this).trimEnd('0').trimEnd('.')
 }
+
+/** Parses user input as a finite number; "NaN" and "Infinity" are treated as invalid. */
+fun String.toFiniteOrNull(): Double? = trim().toDoubleOrNull()?.takeIf { it.isFinite() }
