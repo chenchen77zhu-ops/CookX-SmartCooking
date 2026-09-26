@@ -14,13 +14,13 @@ const router = useRouter()
 </script>
 
 <style scoped>
-.about-card { text-align: center; }
-.about-mark { display: inline-block; padding: 13px 18px; border-radius: 17px; background: var(--cookx-primary-dark); color: #fff; font-size: 28px; font-weight: 800; }
-.about-mark strong { color: var(--cookx-accent); }
-.about-card h2 { margin: 20px 0 10px; font-size: 20px; }
-.about-card > p { max-width: 560px; margin: 0 auto; color: var(--cookx-text-secondary); font-size: 12px; line-height: 1.8; }
-dl { margin: 24px 0 0; text-align: left; }
-dl > div { padding: 14px 0; border-top: var(--cookx-border); }
-dt { margin-bottom: 5px; color: var(--cookx-primary); font-size: 12px; font-weight: 750; }
-dd { margin: 0; color: var(--cookx-text-secondary); font-size: 11px; line-height: 1.65; }
+.about-card { padding: 28px 18px 8px; text-align: center; }
+.about-mark { display: inline-block; color: var(--ck-text); font-family: var(--ck-font-display); font-size: 40px; font-weight: 700; letter-spacing: -1.2px; }
+.about-mark strong { color: var(--ck-heat); }
+.about-card h2 { margin: 12px 0 10px; color: var(--ck-text-2); font-size: 15px; font-weight: 500; letter-spacing: 2px; }
+.about-card > p { max-width: 520px; margin: 0 auto; color: var(--ck-text-2); font-size: 13.5px; line-height: 1.8; }
+dl { margin: 22px 0 0; text-align: left; }
+dl > div { padding: 14px 0; border-top: 1px solid var(--ck-hairline); }
+dt { margin-bottom: 4px; color: var(--ck-text); font-size: 14px; font-weight: 600; }
+dd { margin: 0; color: var(--ck-text-3); font-size: 13px; line-height: 1.65; }
 </style>

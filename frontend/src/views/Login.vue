@@ -1,10 +1,10 @@
 <template>
-  <div class="login-container">
+  <div class="login-container ck-dark">
     <div class="login-card">
       <!-- LOGO 区域 -->
       <div class="logo-section">
-        <div class="logo-icon">🍳</div>
-        <h1 class="login-title">CookX</h1>
+        <img class="logo-icon" :src="cookxMark" alt="" />
+        <h1 class="login-title">Cook<strong>X</strong></h1>
         <p class="login-subtitle">感知每一度 · 智烹每一步</p>
       </div>
 
@@ -54,6 +54,7 @@
 </template>
 
 <script setup>
+import cookxMark from '@/assets/brand/cookx-mark.svg'
 import ServerSettings from '../components/ServerSettings.vue'
 import { saveSession, clearSession } from '../services/authSession'
 import { ref, reactive } from 'vue'
@@ -124,157 +125,18 @@ const handleLogin = async () => {
 </script>
 
 <style scoped>
-.login-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  background: var(--cookx-bg);
-  position: relative;
-  overflow: hidden;
-}
-
-/* 装饰性背景元素 */
-.login-container::before {
-  content: '';
-  position: absolute;
-  top: -100px;
-  right: -100px;
-  width: 300px;
-  height: 300px;
-  background: radial-gradient(circle, rgba(216, 107, 53, 0.10) 0%, transparent 70%);
-  border-radius: 50%;
-}
-
-.login-container::after {
-  content: '';
-  position: absolute;
-  bottom: -150px;
-  left: -150px;
-  width: 400px;
-  height: 400px;
-  background: radial-gradient(circle, rgba(23, 63, 53, 0.08) 0%, transparent 70%);
-  border-radius: 50%;
-}
-
-.login-card {
-  background: var(--cookx-surface);
-  /* 调小内边距：上下从48px减到30px，左右从40px减到24px */
-  padding: 30px 24px;
-  border: var(--cookx-border);
-  border-radius: var(--cookx-radius-large);
-  box-shadow: var(--cookx-shadow);
-  width: 88%;      /* ✅ 关键：宽度占屏幕88%，不撑满 */
-  max-width: 350px; /* ✅ 关键：最大宽度从420px缩小到350px */
-  position: relative;
-  z-index: 1;
-  animation: slideUp 0.5s ease;
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.logo-section {
-  text-align: center;
-  margin-bottom: 24px; /* 间距缩小 */
-}
-
-.logo-icon {
-  font-size: 48px; /* 图标从64px减小到48px */
-  margin-bottom: 10px;
-}
-
-@keyframes bounce {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-}
-
-.login-title {
-  color: var(--cookx-primary);
-  margin-bottom: 4px;
-  font-size: 24px; /* 标题从32px减小到24px */
-  font-weight: 600;
-}
-
-.login-subtitle {
-  color: var(--cookx-text-secondary);
-  font-size: 13px; /* 副标题缩小 */
-}
-
-:deep(.el-input__wrapper) {
-  padding: 8px 12px; /* 输入框高度略微压缩 */
-}
-
-:deep(.el-input__wrapper:hover) {
-  box-shadow: 0 0 0 1px var(--cookx-success) inset !important;
-  background-color: #fff;
-}
-
-:deep(.el-input__wrapper.is-focus) {
-  box-shadow: 0 0 0 1px var(--cookx-primary) inset !important;
-  background-color: #fff;
-}
-
-:deep(.el-input__inner) {
-  font-size: 15px;
-  color: var(--cookx-text);
-}
-
-:deep(.el-form-item) {
-  margin-bottom: 18px; /* 间距从24px减小到18px */
-}
-
-.login-button {
-  width: 100%;
-  height: 44px; /* 按钮高度从50px减小到44px */
-  font-size: 15px;
-  letter-spacing: 1px;
-}
-
-.login-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 22px rgba(23, 63, 53, 0.22);
-}
-
-.login-button:active {
-  transform: scale(0.98);
-}
-
-.register-link {
-  margin-top: 16px; /* 底部链接间距缩小 */
-  font-size: 13px;
-}
-
-.link {
-  color: var(--cookx-primary);
-  text-decoration: none;
-  margin-left: 5px;
-  font-weight: 600;
-  transition: color 0.3s ease;
-}
-
-.link:hover {
-  color: var(--cookx-accent);
-  text-decoration: underline;
-}
-
-:deep(.el-input__prefix) {
-  color: #9CA3AF;
-}
-
-:deep(.el-input__prefix-inner) {
-  font-size: 18px;
-}
+.login-container { position: relative; z-index: 1; display: flex; flex-direction: column; justify-content: flex-end; min-height: 100vh; min-height: 100dvh; padding: calc(var(--sat) + 24px) calc(var(--ck-gutter) + var(--sar)) calc(24px + var(--sab)) calc(var(--ck-gutter) + var(--sal)); }
+.login-card { width: min(100%, 440px); margin: 0 auto; }
+.logo-section { margin-bottom: 28px; color: var(--ck-text); text-shadow: 0 2px 20px rgba(0, 0, 0, 0.4); }
+.logo-icon { display: block; width: 64px; height: 64px; margin-bottom: 18px; padding: 10px; border: 1px solid var(--ck-glass-border); border-radius: 20px; background: rgba(20, 22, 21, 0.55); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+.login-title { font-family: var(--ck-font-display); font-size: 44px; font-weight: 700; letter-spacing: -1.4px; line-height: 1; }
+.login-title strong { color: var(--ck-heat); font-weight: inherit; }
+.login-subtitle { margin-top: 10px; color: var(--ck-text-2); font-size: 15px; letter-spacing: 2px; }
+.login-card :deep(.el-form) { padding: 20px 16px 8px; border: 1px solid var(--ck-glass-border); border-radius: var(--ck-radius-xl); background: rgba(24, 27, 26, 0.72); -webkit-backdrop-filter: var(--ck-blur); backdrop-filter: var(--ck-blur); }
+.login-card :deep(.el-form-item) { margin-bottom: 16px; }
+.login-card :deep(.el-input__wrapper) { min-height: 50px; padding: 0 14px; border-radius: 16px !important; }
+.login-card :deep(.el-input__inner) { font-size: 16px; }
+.login-button { width: 100%; min-height: 52px !important; font-size: 16px !important; }
+.register-link, .login-link { padding: 4px 0 12px; color: var(--ck-text-2); font-size: 14px; text-align: center; }
+.link { color: var(--ck-heat); font-weight: 600; text-decoration: none; }
 </style>

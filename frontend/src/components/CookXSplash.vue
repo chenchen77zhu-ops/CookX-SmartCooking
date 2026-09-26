@@ -21,25 +21,17 @@ defineProps({ visible: { type: Boolean, default: false } })
 </script>
 
 <style scoped>
-.cookx-splash { position: fixed; z-index: 10000; inset: 0; display: grid; overflow: hidden; background: #f7f5ef; color: #173f35; place-items: center; }
-.cookx-splash__halo { position: absolute; top: -22vw; right: -25vw; width: min(78vw, 560px); aspect-ratio: 1; border-radius: 50%; background: rgba(77,139,105,.08); }
+.cookx-splash { position: fixed; z-index: 10000; inset: 0; display: grid; overflow: hidden; background: #0D100F; color: #F6F3EE; place-items: center; }
+.cookx-splash__halo { position: absolute; top: 18%; left: 50%; width: min(120vw, 620px); aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, rgba(255,138,61,.28), rgba(255,138,61,0) 62%); transform: translateX(-50%); }
 .cookx-splash__content { position: relative; z-index: 2; display: flex; align-items: center; flex-direction: column; transform: translateY(-4vh); }
-.cookx-splash__mark { display: grid; width: 132px; height: 132px; padding: 15px; border-radius: 34px; background: #173f35; box-shadow: 0 18px 45px rgba(23,63,53,.18); place-items: center; }
+.cookx-splash__mark { display: grid; width: 112px; height: 112px; padding: 14px; border: 1px solid rgba(255,255,255,.1); border-radius: 30px; background: rgba(255,255,255,.06); place-items: center; }
 .cookx-splash__mark img { display: block; width: 100%; height: 100%; }
-.cookx-splash__wordmark { margin-top: 20px; font-size: 42px; font-weight: 800; letter-spacing: -1.5px; line-height: 1; }
-.cookx-splash__wordmark strong { color: #4d8b69; }
-.cookx-splash__subtitle { margin: 14px 0 0; color: #737a75; font-size: 14px; letter-spacing: 3px; }
-.cookx-splash__content > i { width: 34px; height: 3px; margin-top: 18px; border-radius: 99px; background: #e9a23b; }
-.cookx-splash__slogan { margin: 15px 0 0; font-size: 15px; font-weight: 600; letter-spacing: 2px; }
-.cookx-splash__wave { position: absolute; right: 0; bottom: max(34px, env(safe-area-inset-bottom)); left: 0; height: 70px; opacity: .16; }
-.cookx-splash__wave span { position: absolute; right: -8%; left: -8%; height: 52px; border: 2px solid #4d8b69; border-color: #4d8b69 transparent transparent; border-radius: 50%; }
-.cookx-splash__wave span:nth-child(2) { top: 14px; transform: scaleX(.82); }
-.cookx-splash__wave span:nth-child(3) { top: 28px; transform: scaleX(.64); }
+.cookx-splash__wordmark { margin-top: 22px; font-size: 40px; font-weight: 700; letter-spacing: -1.2px; line-height: 1; }
+.cookx-splash__wordmark strong { color: #FF8A3D; }
+.cookx-splash__subtitle { margin: 12px 0 0; color: rgba(246,243,238,.6); font-size: 13px; letter-spacing: 4px; }
+.cookx-splash__content > i { width: 28px; height: 3px; margin-top: 18px; border-radius: 99px; background: #FF8A3D; }
+.cookx-splash__slogan { margin: 14px 0 0; color: rgba(246,243,238,.8); font-size: 14px; letter-spacing: 3px; }
+.cookx-splash__wave { display: none; }
 .cookx-splash-fade-leave-active { transition: opacity .28s ease; }
 .cookx-splash-fade-leave-to { opacity: 0; }
-
-@media (max-width: 390px) {
-  .cookx-splash__mark { width: 116px; height: 116px; border-radius: 30px; }
-  .cookx-splash__wordmark { font-size: 38px; }
-}
 </style>

@@ -1,14 +1,18 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" href="/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#F3F1EC" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="format-detection" content="telephone=no" />
     <title>CookX - AI 智能烹饪助手</title>
+    <style>html,body{background:#F3F1EC}html[data-theme=dark],html[data-theme=dark] body{background:#0D100F}</style>
+    <script>try{var t=localStorage.getItem('cookx:theme');if(t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.dataset.theme='dark';document.documentElement.classList.add('dark')}}catch(e){}</script>
   </head>
   <body>
     <div id="app"></div>
-    <!-- 注意这里的路径要指向你的 src/main.js -->
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

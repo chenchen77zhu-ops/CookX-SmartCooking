@@ -1,0 +1,159 @@
+{
+  "date": "2026-09-26",
+  "branch": "feat/ui-reference-polish",
+  "bundle_base": "352730e",
+  "main_unchanged": "11559f8",
+  "source_commit": "81b02e25560f86a336521b06137bcf89510c4d87",
+  "unit_tests": {
+    "passed": 75,
+    "failed": 0,
+    "skipped": 0
+  },
+  "frontend_build": "passed",
+  "browser_regressions": [
+    {
+      "exit_code": 0,
+      "script": "research/temperature/browser-parity.cjs"
+    },
+    {
+      "exit_code": 0,
+      "script": "research/temperature/browser-smoke.cjs"
+    },
+    {
+      "exit_code": 0,
+      "script": "research/temperature/browser-application.cjs"
+    },
+    {
+      "exit_code": 0,
+      "script": "frontend/scripts/browser-p2.cjs"
+    },
+    {
+      "exit_code": 0,
+      "script": "frontend/scripts/browser-p2-flow.cjs"
+    },
+    {
+      "exit_code": 0,
+      "script": "frontend/scripts/browser-p2-writes.cjs"
+    },
+    {
+      "exit_code": 0,
+      "script": "frontend/scripts/browser-copilot.cjs"
+    },
+    {
+      "exit_code": 0,
+      "script": "frontend/scripts/browser-online-v2.cjs"
+    },
+    {
+      "exit_code": 0,
+      "script": "frontend/scripts/browser-preferences.cjs"
+    },
+    {
+      "exit_code": 0,
+      "script": "frontend/scripts/browser-sqlite.cjs"
+    },
+    {
+      "exit_code": 0,
+      "script": "frontend/scripts/browser-households.cjs"
+    },
+    {
+      "exit_code": 0,
+      "script": "frontend/scripts/browser-shopping.cjs"
+    },
+    {
+      "exit_code": 0,
+      "script": "frontend/scripts/browser-recipes.cjs"
+    },
+    {
+      "exit_code": 0,
+      "script": "frontend/scripts/browser-community.cjs"
+    },
+    {
+      "exit_code": 0,
+      "script": "frontend/scripts/browser-leftovers.cjs"
+    },
+    {
+      "exit_code": 0,
+      "script": "frontend/scripts/browser-growth.cjs"
+    },
+    {
+      "exit_code": 0,
+      "script": "frontend/scripts/browser-challenges.cjs"
+    },
+    {
+      "exit_code": 0,
+      "script": "frontend/scripts/browser-planning.cjs"
+    },
+    {
+      "exit_code": 0,
+      "script": "frontend/scripts/browser-learning.cjs"
+    },
+    {
+      "exit_code": 0,
+      "script": "frontend/scripts/browser-full-integration.cjs"
+    },
+    {
+      "exit_code": 0,
+      "script": "frontend/scripts/browser-server-config.cjs"
+    },
+    {
+      "exit_code": 0,
+      "script": "frontend/scripts/browser-private-media.cjs"
+    }
+  ],
+  "visual_review": {
+    "standard_screenshots": 42,
+    "temperature_states": [
+      25,
+      120,
+      180,
+      270
+    ],
+    "additional_safe_area_screenshots": 46,
+    "safe_area_px": {
+      "top": 24,
+      "bottom": 24
+    },
+    "source": "explicit visual fixtures; not hardware or cloud recognition",
+    "width_height": [
+      [
+        360,
+        780
+      ],
+      [
+        390,
+        844
+      ],
+      [
+        430,
+        932
+      ]
+    ],
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "no_horizontal_overflow": true,
+    "home_live_cooking_no_vertical_overflow": true
+  },
+  "android": {
+    "assembleDebug": "passed",
+    "testDebugUnitTest": {
+      "passed": 4,
+      "failed": 0
+    },
+    "apk": "artifacts/ui-reference-polish/CookX-81b02e2-debug.apk",
+    "bytes": 10546929,
+    "sha256": "C729A1D813763D0CBF796B3C112674ED6274844F9A25EC2D9C72F6CF5A1C1348",
+    "environment": "Windows JDK21 Android SDK36; no physical device"
+  },
+  "pending": [
+    "physical Android UI and font rendering",
+    "physical speech and lockscreen notifications",
+    "Bluetooth and real temperature measurements"
+  ],
+  "publication": {
+    "pushed": false,
+    "pull_request_created": false,
+    "main_merged": false
+  }
+}

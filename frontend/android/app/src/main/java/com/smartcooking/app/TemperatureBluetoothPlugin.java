@@ -245,6 +245,7 @@ public class TemperatureBluetoothPlugin extends Plugin {
                 byte[] bytes = Arrays.copyOf(buffer, count);
                 JSObject raw = new JSObject(); raw.put("hex", toHex(bytes)); raw.put("length", count); raw.put("ascii", safeAscii(bytes)); notifyListeners("dataReceived", raw);
                 JSObject legacy = new JSObject(); legacy.put("chunk", new String(bytes, StandardCharsets.US_ASCII)); notifyListeners("temperatureData", legacy);
+                LiveCookingNotifier.onBytes(getContext(), bytes);
                 Log.d(TAG, "Received " + count + " bytes: " + toHex(bytes));
             }
         } catch (IOException error) { Log.w(TAG, "SPP stream closed", error); }
@@ -301,7 +302,7 @@ public class TemperatureBluetoothPlugin extends Plugin {
     }
 
     private void setState(State next, BluetoothDevice device, String message) { setState(next, device, message, ""); }
-    private void setState(State next, BluetoothDevice device, String message, String errorCode) { state = next; notifyListeners("connectionStateChanged", stateObject(next, device, message, errorCode)); Log.i(TAG, "State " + next + ": " + message); }
+    private void setState(State next, BluetoothDevice device, String message, String errorCode) { state = next; if (next == State.CONNECTED || next == State.DISCONNECTED || next == State.ERROR) LiveCookingNotifier.onConnection(getContext(), next == State.CONNECTED); notifyListeners("connectionStateChanged", stateObject(next, device, message, errorCode)); Log.i(TAG, "State " + next + ": " + message); }
     private JSObject stateObject(State value, BluetoothDevice device, String message) { return stateObject(value, device, message, ""); }
     private JSObject stateObject(State value, BluetoothDevice device, String message, String errorCode) { JSObject result = deviceObject(device); result.put("state", value.name().toLowerCase(Locale.ROOT)); result.put("message", message); result.put("errorCode", errorCode); return result; }
     private void fail(PluginCall call, String code, String message, Exception error) { setState(State.ERROR, currentDevice, message, code); if (call != null) call.reject(message, code, error); }

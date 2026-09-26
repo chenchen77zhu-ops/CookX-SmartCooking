@@ -1,1 +1,302 @@
-.business-page{max-width:760px;margin:auto;padding:22px 18px 110px;color:var(--cookx-text);background:var(--cookx-bg);min-height:100vh}.business-page header{display:flex;align-items:center;gap:14px;margin-bottom:18px}.business-page h1{font-size:24px;margin:0}.business-page h2{font-size:18px}.business-page section,.business-card{background:var(--cookx-surface);padding:18px;border-radius:18px;border:var(--cookx-border);margin:14px 0}.business-page label{display:grid;gap:6px;margin:12px 0;font-size:13px}.business-page input,.business-page select,.business-page textarea{width:100%;box-sizing:border-box;padding:11px;border:1px solid #d8ddd6;border-radius:10px;background:#fff;font:inherit;min-height:44px}.business-page textarea{min-height:90px}.business-page button{border:var(--cookx-border);border-radius:10px;padding:10px 14px;min-height:44px;background:#eaf2ec;color:var(--cookx-primary);font:inherit;cursor:pointer}.business-page button.primary{background:var(--cookx-primary);color:white}.business-page button:disabled{opacity:.5;cursor:wait}.business-page .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.business-page small,.business-page .note{color:var(--cookx-text-secondary);font-size:12px;line-height:1.7}.business-page .error{color:#a63a30;background:#fff2ee;padding:12px;border-radius:10px;white-space:pre-wrap}.business-page .item{padding:14px 0;border-bottom:1px solid #eee}.business-page .item:last-child{border-bottom:0}.business-page .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}.business-page code{overflow-wrap:anywhere}.business-page .success{color:#21523f;background:#ecf6ed;padding:10px;border-radius:10px}
+/* ==========================================================
+   业务二级页（家庭 / 采购 / 菜谱 / 菜单 / 剩菜 / 晒菜 / 成长 / 学习）
+   统一：顶部导航栏 + 毛玻璃分组卡片 + 原生感表单
+   ========================================================== */
+
+.business-page {
+  position: relative;
+  z-index: 1;
+  width: min(100%, var(--ck-page-max));
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 0 calc(var(--ck-gutter) + var(--sar)) calc(40px + var(--sab)) calc(var(--ck-gutter) + var(--sal));
+  color: var(--ck-text);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* 顶部导航栏：返回按钮 + 居中标题 */
+.business-page > header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 8px;
+  height: calc(52px + var(--sat));
+  margin: 0 calc(-1 * var(--ck-gutter)) 6px;
+  padding: var(--sat) var(--ck-gutter) 0;
+  background: linear-gradient(180deg, var(--ck-nav-bg), var(--ck-nav-bg));
+  border-bottom: 1px solid var(--ck-hairline);
+  -webkit-backdrop-filter: saturate(160%) blur(20px);
+  backdrop-filter: saturate(160%) blur(20px);
+}
+.business-page > header::after { content: ''; }
+.business-page > header > button {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  min-height: 0;
+  padding: 0 0 3px;
+  border: 1px solid var(--ck-glass-border);
+  border-radius: 50%;
+  background: var(--ck-fill);
+  color: var(--ck-text);
+  font-size: 26px;
+  font-weight: 300;
+  line-height: 1;
+}
+.business-page > header h1 {
+  margin: 0;
+  overflow: hidden;
+  font-size: 17px;
+  font-weight: 600;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 页面说明 */
+.business-page > .note:first-of-type,
+.business-page > header + .note {
+  margin: 10px 2px 14px;
+  color: var(--ck-text-3);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+.business-page h2 { margin: 0 0 12px; font-size: 16px; font-weight: 600; line-height: 1.4; }
+.business-page h3 { margin: 0 0 6px; font-size: 15px; font-weight: 600; line-height: 1.4; }
+.business-page p { margin: 0 0 8px; overflow-wrap: anywhere; }
+.business-page b { font-weight: 600; }
+.business-page ol, .business-page ul { margin: 8px 0; padding-left: 20px; color: var(--ck-text-2); }
+.business-page li { margin: 6px 0; }
+.business-page a { color: var(--ck-heat); overflow-wrap: anywhere; }
+
+/* 分组卡片 */
+.business-page section,
+.business-page .business-card,
+.business-page > form {
+  position: relative;
+  margin: 12px 0;
+  padding: 16px;
+  border: 1px solid var(--ck-glass-border);
+  border-radius: var(--ck-radius-lg);
+  background: var(--ck-surface);
+  box-shadow: var(--ck-shadow);
+}
+.business-page section section {
+  margin: 12px 0 0;
+  padding: 14px;
+  background: var(--ck-fill);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* 表单 */
+.business-page label {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0;
+  color: var(--ck-text-2);
+  font-size: 13px;
+}
+.business-page input,
+.business-page select,
+.business-page textarea {
+  width: 100%;
+  min-height: 46px;
+  padding: 11px 14px;
+  border: 1px solid var(--ck-input-border);
+  border-radius: 14px;
+  outline: none;
+  background: var(--ck-input-bg);
+  color: var(--ck-text);
+  font-size: 15px;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.business-page input::placeholder, .business-page textarea::placeholder { color: var(--ck-text-3); }
+.business-page input:focus,
+.business-page select:focus,
+.business-page textarea:focus { border-color: var(--ck-heat); background: var(--ck-fill-strong); }
+.business-page textarea { min-height: 110px; resize: vertical; line-height: 1.6; }
+.business-page select {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 40px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238E9390' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+}
+.business-page select option { background: var(--ck-surface-strong); color: var(--ck-text); }
+.business-page input[type='date'],
+.business-page input[type='datetime-local'] { color-scheme: dark; }
+.business-page input[type='checkbox'],
+.business-page input[type='radio'] {
+  width: 20px;
+  height: 20px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  flex: 0 0 auto;
+  accent-color: var(--ck-heat-deep);
+}
+.business-page label:has(> input[type='checkbox']),
+.business-page label:has(> input[type='radio']) {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  margin: 6px 0;
+  color: var(--ck-text);
+  font-size: 14px;
+}
+.business-page input[type='file'] {
+  padding: 8px;
+  color: var(--ck-text-3);
+  font-size: 13px;
+}
+.business-page input[type='file']::file-selector-button {
+  margin-right: 12px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ck-fill-strong);
+  color: var(--ck-text);
+  font: inherit;
+  font-weight: 600;
+}
+.business-page .two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.business-page .two label { margin-top: 0; }
+
+/* 按钮：次要为半透明胶囊，主要为火候橙 */
+.business-page button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 42px;
+  margin: 4px 6px 4px 0;
+  padding: 0 16px;
+  border: 1px solid var(--ck-input-border);
+  border-radius: 999px;
+  background: var(--ck-fill-strong);
+  color: var(--ck-text);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+  transition: transform 0.12s ease, background-color 0.15s ease, opacity 0.15s ease;
+}
+.business-page button:active { transform: scale(0.97); }
+.business-page button.primary {
+  border-color: transparent;
+  background: var(--ck-heat-deep);
+  color: #fff;
+}
+.business-page form > button.primary,
+.business-page section > button.primary:last-child { width: 100%; min-height: 48px; margin: 12px 0 0; font-size: 15px; }
+.business-page button[aria-pressed='true'] { background: var(--ck-heat-soft); border-color: rgba(255, 138, 61, 0.5); color: var(--ck-heat-text); }
+.business-page button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.business-page .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.business-page .actions button { margin: 0; }
+
+/* 列表项 */
+.business-page .item { padding: 12px 0; border-bottom: 1px solid var(--ck-hairline); }
+.business-page .item:last-child { border-bottom: 0; padding-bottom: 0; }
+.business-page .item > b:first-child { display: block; margin-bottom: 2px; font-size: 15px; }
+
+/* 展开 */
+.business-page details:not(.ck-disclosure) {
+  margin: 10px 0 0;
+  border-top: 1px solid var(--ck-hairline);
+}
+.business-page details:not(.ck-disclosure) > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  color: var(--ck-text-2);
+  font-size: 14px;
+  list-style: none;
+  cursor: pointer;
+}
+.business-page details:not(.ck-disclosure) > summary::-webkit-details-marker { display: none; }
+.business-page details:not(.ck-disclosure) > summary::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  margin-right: 4px;
+  border-right: 1.6px solid currentColor;
+  border-bottom: 1.6px solid currentColor;
+  transform: rotate(45deg) translateY(-3px);
+  transition: transform 0.2s ease;
+  opacity: 0.7;
+}
+.business-page details:not(.ck-disclosure)[open] > summary::after { transform: rotate(-135deg) translateY(-2px); }
+.business-page details:not(.ck-disclosure) > :not(summary) { margin-bottom: 8px; }
+.business-page .ck-disclosure { margin: 12px 0; }
+.business-page .ck-disclosure__body { padding-top: 2px; }
+
+/* 文本状态 */
+.business-page small, .business-page .note { color: var(--ck-text-3); font-size: 12.5px; line-height: 1.7; }
+.business-page .error {
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 107, 91, 0.25);
+  border-radius: 14px;
+  background: var(--ck-danger-soft);
+  color: var(--ck-danger-text);
+  white-space: pre-wrap;
+}
+.business-page .success {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--ck-fresh-soft);
+  color: var(--ck-fresh-text);
+}
+.business-page [role='status'] { color: var(--ck-text-2); }
+.business-page code {
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: var(--ck-fill-strong);
+  color: var(--ck-heat-text);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  letter-spacing: 0.5px;
+  overflow-wrap: anywhere;
+}
+.business-page img { border-radius: 14px; }
+
+@media (max-width: 360px) {
+  .business-page .two { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .business-page button { padding: 0 13px; font-size: 13px; }
+}
+
+/* 一级页（菜谱标签）：左对齐大标题，无返回键 */
+.business-page.is-tab-page > header {
+  position: static;
+  display: block;
+  height: auto;
+  margin: 0 0 4px;
+  padding: calc(var(--sat) + 14px) 0 0;
+  background: none;
+  border: 0;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.business-page.is-tab-page > header h1 { font-size: 30px; font-weight: 700; letter-spacing: -0.4px; text-align: left; }
+
+/* 分段筛选（晒菜） */
+.business-page .feed-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 14px calc(-1 * var(--ck-gutter)) 4px;
+  padding: 0 var(--ck-gutter) 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.business-page .feed-tabs::-webkit-scrollbar { display: none; }
+.business-page .feed-tabs button { flex: 0 0 auto; margin: 0; }
+.business-page .feed-tabs button[aria-pressed='true'] { border-color: transparent; background: var(--ck-cream); color: var(--ck-cream-text); }
+.business-page .post-card > b:first-child { font-size: 15px; }

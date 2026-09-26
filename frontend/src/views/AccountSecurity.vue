@@ -40,20 +40,21 @@ const deleteAccount = () => {
 </script>
 
 <style scoped>
-.account-card { display: grid; gap: 13px; }
-.account-summary { display: flex; align-items: center; gap: 13px; padding-bottom: 17px; border-bottom: var(--cookx-border); }
-.account-summary > span { display: grid; width: 50px; height: 50px; border-radius: 16px; background: #eaf2ec; color: var(--cookx-primary); font-size: 22px; place-items: center; }
-.account-summary h2 { margin: 0 0 5px; font-size: 18px; }
-.account-summary p { margin: 0; color: var(--cookx-text-secondary); font-size: 11px; }
-.account-row { display: flex; align-items: center; width: 100%; min-height: 64px; padding: 8px 0; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
-.account-row > span { display: grid; width: 40px; height: 40px; margin-right: 11px; border-radius: 13px; background: #fff1e7; color: var(--cookx-accent); place-items: center; }
-.account-row > div { display: flex; flex: 1; flex-direction: column; gap: 4px; }
-.account-row b { font-size: 13px; }
-.account-row small { color: var(--cookx-text-secondary); font-size: 10px; }
-.account-note { display: flex; gap: 11px; padding: 14px; border-radius: 14px; background: #f7f7f2; color: var(--cookx-text-secondary); }
-.account-note > .el-icon { flex: 0 0 auto; margin-top: 2px; color: var(--cookx-primary); }
-.account-note p { margin: 0; font-size: 10px; line-height: 1.6; }
+.account-card { display: grid; gap: 12px; }
+.account-summary { display: flex; align-items: center; gap: 14px; padding-bottom: 16px; border-bottom: 1px solid var(--ck-hairline); }
+.account-summary > span { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 16px; background: var(--ck-heat-soft); color: var(--ck-heat-text); font-size: 22px; }
+.account-summary h2 { margin: 0 0 2px; font-size: 18px; font-weight: 600; }
+.account-summary p { margin: 0; color: var(--ck-text-3); font-size: 13px; }
+.account-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 60px; padding: 8px 0; border: 0; background: transparent; color: inherit; text-align: left; }
+.account-row > span { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; background: var(--ck-fill-strong); color: var(--ck-text); }
+.account-row > div { display: flex; flex: 1; flex-direction: column; gap: 2px; }
+.account-row b { font-size: 15px; font-weight: 500; }
+.account-row small { color: var(--ck-text-3); font-size: 12px; }
+.account-row > .el-icon { color: var(--ck-text-3); }
+.account-note { display: flex; gap: 12px; padding: 14px; border-radius: 16px; background: var(--ck-fill); color: var(--ck-text-3); }
+.account-note > .el-icon { flex: 0 0 auto; margin-top: 3px; color: var(--ck-text-2); }
+.account-note p { margin: 0; font-size: 12.5px; line-height: 1.6; }
 .account-note b, .account-note span { display: block; }
-.account-note b { color: var(--cookx-text); font-size: 12px; }
-.delete-account { min-height: 44px; border: 1px solid rgba(216,74,58,.16); border-radius: 14px; background: #fff6f4; color: var(--cookx-danger); font-weight: 700; cursor: pointer; }
+.account-note b { color: var(--ck-text); font-size: 14px; font-weight: 500; }
+.delete-account { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 48px; border: 1px solid rgba(255, 107, 91, 0.25); border-radius: 999px; background: rgba(255, 107, 91, 0.08); color: var(--ck-danger-text); font-weight: 600; }
 </style>

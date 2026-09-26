@@ -10,4 +10,4 @@ const {pending,busy,error,send,retry}=usePendingCommand('comments-'+props.postId
 async function load(){opened.value=true;items.value=[];try{items.value=(await businessApi(root.value)).items}catch(e){error.value=apiError(e)}}
 async function remove(c){try{await ElMessageBox.confirm('确认删除这条评论？','删除评论',{confirmButtonText:'删除',cancelButtonText:'取消'});await send(root.value+'/'+c.id,'delete',{expected_version:c.version})}catch{}}
 </script>
-<style scoped>.comments{margin-top:15px;padding-top:15px;border-top:1px solid #eee}.comments p{white-space:pre-wrap;overflow-wrap:anywhere}.comments small{display:block}</style>
+<style scoped>.comments{margin-top:14px;padding-top:12px;border-top:1px solid var(--ck-hairline)}.comments p{white-space:pre-wrap;overflow-wrap:anywhere}.comments small{display:block}.comments article.item{padding:10px 12px;margin:8px 0;border:0;border-radius:14px;background:var(--ck-fill)}</style>

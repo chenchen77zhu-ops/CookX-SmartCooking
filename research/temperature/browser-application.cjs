@@ -21,7 +21,8 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
   await page.getByPlaceholder('请输入密码').fill('test-pass-123')
   await page.getByRole('button',{name:'登录',exact:true}).click()
   await page.waitForURL('**/#/home')
-  await page.goto(base+'/#/home?tab=Manage')
+  await page.goto(base+'/#/fridge')
+  await page.locator('.food-card-top').filter({hasText:'胡萝卜'}).click()
   await page.getByText('保质期信息不足',{exact:true}).waitFor()
   for(const name of ['番茄','鸡蛋']) {
    await page.getByRole('button',{name:'添加食材',exact:true}).first().click()
@@ -31,6 +32,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
    await page.getByRole('button',{name:'确认添加',exact:true}).click()
    await page.getByRole('dialog',{name:'添加食材'}).waitFor({state:'hidden'})
   }
+  await page.goto(base+'/#/home?tab=Manage')
   await page.getByRole('button',{name:'获取智能推荐',exact:true}).click()
   await page.locator('.recommendation-card').first().waitFor()
   assert.ok(await page.locator('.recommendation-card').count()>0)
@@ -41,11 +43,12 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
   assert.equal(body.evaluable_count,2)
   const inventory=await (await page.request.get('http://127.0.0.1:8000/api/inventory?user_id='+uid)).json()
   assert.equal(inventory.length,3)
-  await page.goto(base+'/#/home?tab=AiChef')
+  await page.goto(base+'/#/home?tab=Recipes')
   await page.getByPlaceholder('告诉 CookX 你想做什么…').fill('番茄炒蛋')
   await page.getByPlaceholder('告诉 CookX 你想做什么…').press('Enter')
   await page.getByRole('button',{name:'开始指导'}).last().click()
-  await page.waitForFunction(()=>document.querySelector('.current-step-card .panel-heading')?.innerText.includes('00:29'))
+  await page.waitForFunction(()=>document.querySelector('.c-eta')?.innerText.includes('00:29'))
+  await page.getByRole('button',{name:'烹饪工具',exact:true}).click()
   await page.getByRole('button',{name:'完成烹饪',exact:true}).click()
   const milkless=page.locator('.completion label').filter({hasText:'鸡蛋'})
   await milkless.getByRole('checkbox').check()
@@ -62,5 +65,6 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
    checks:['login','inventory-read','legacy-unknown-ui','inventory-add-persistence','recommendation-ui-with-real-algorithm','freshfusion-api-with-real-algorithm','recipe-to-cooking','timer-during-provider-outage','completion-review','real-consumption-readback'],uncaughtErrors:errors}
   fs.writeFileSync(path.resolve(__dirname,'../../docs/temperature/application-results.json'),JSON.stringify(report,null,2))
   console.log(JSON.stringify(report))
+  await page.unrouteAll({behavior:'ignoreErrors'}) // The post-completion freshness refresh may still be in flight.
  }finally{await browser.close()}
 })().catch(e=>{console.error(e);process.exit(1)})

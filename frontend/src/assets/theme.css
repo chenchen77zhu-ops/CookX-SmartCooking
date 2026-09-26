@@ -1,272 +1,578 @@
-/* ========================================
-   CookX Design System
-   自然 × 温暖 × AI 科技
-   ======================================== */
+/* ==========================================================
+   CookX 设计系统
+   默认浅色（Apple Home 式中控）；深色可选；实时厨房始终为摄影深色
+   ========================================================== */
 
+@font-face { font-family: 'CookX Numeric'; src: url('./fonts/outfit-latin-500-normal.woff2') format('woff2'); font-weight: 500; font-display: swap; }
+@font-face { font-family: 'CookX Numeric'; src: url('./fonts/outfit-latin-600-normal.woff2') format('woff2'); font-weight: 600; font-display: swap; }
+@font-face { font-family: 'CookX Numeric'; src: url('./fonts/outfit-latin-700-normal.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+
+/* ---------- 与主题无关的令牌 ---------- */
 :root {
-  /* CookX 品牌色 */
-  --cookx-primary: #173F35;
-  --cookx-primary-dark: #102E27;
-  --cookx-accent: #D86B35;
-  --cookx-gold: #E9A23B;
-  --cookx-bg: #F7F5EF;
-  --cookx-surface: #FFFFFF;
-  --cookx-text: #202522;
-  --cookx-text-secondary: #737A75;
-  --cookx-success: #4D8B69;
-  --cookx-danger: #D84A3A;
+  --sat: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --sab: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --sal: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+  --sar: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
 
-  /* CookX 形状、边框与阴影 */
-  --cookx-radius-large: 24px;
-  --cookx-radius-card: 18px;
-  --cookx-radius-button: 15px;
-  --cookx-radius-input: 14px;
-  --cookx-shadow: 0 8px 30px rgba(28, 48, 40, 0.08);
-  --cookx-shadow-hover: 0 12px 36px rgba(28, 48, 40, 0.12);
-  --cookx-border: 1px solid rgba(23, 63, 53, 0.08);
+  --ck-radius-xl: 26px;
+  --ck-radius-lg: 22px;
+  --ck-radius-md: 16px;
+  --ck-radius-sm: 12px;
+  --ck-gutter: 16px;
+  --ck-page-max: 640px;
+  --ck-tabbar-height: 62px;
+  --ck-blur: saturate(160%) blur(22px);
 
-  /* CookX 页面布局 */
-  --cookx-page-max: 1180px;
-  --cookx-settings-max: 920px;
-  --cookx-page-gutter: 24px;
-  --cookx-page-gutter-mobile: 16px;
+  --ck-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "HarmonyOS Sans SC", "MiSans", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", Roboto, sans-serif;
+  --ck-font-display: "CookX Numeric", "SF Pro Display", -apple-system, BlinkMacSystemFont, Roboto, "PingFang SC", "Noto Sans SC", sans-serif;
 
-  /* Element Plus 全局主题 */
-  --el-color-primary: var(--cookx-primary);
-  --el-color-primary-dark-2: var(--cookx-primary-dark);
-  --el-color-primary-light-3: #5D7B73;
-  --el-color-primary-light-5: #8B9F9A;
-  --el-color-primary-light-7: #B9C7C3;
-  --el-color-primary-light-8: #D1DBD8;
-  --el-color-primary-light-9: #E8EEEC;
-  --el-color-success: var(--cookx-success);
-  --el-color-success-light-3: #82AA91;
-  --el-color-success-light-5: #A6C5B4;
-  --el-color-success-light-7: #CADFD2;
-  --el-color-success-light-8: #DCEADF;
-  --el-color-success-light-9: #EDF4EF;
-  --el-color-warning: var(--cookx-gold);
-  --el-color-warning-light-3: #F0BA70;
-  --el-color-warning-light-5: #F4CD9D;
-  --el-color-warning-light-7: #F8E1C5;
-  --el-color-warning-light-8: #FAEBD8;
-  --el-color-warning-light-9: #FDF5EB;
-  --el-color-danger: var(--cookx-danger);
-  --el-color-danger-light-3: #E27E72;
-  --el-color-danger-light-5: #EAA49D;
-  --el-color-danger-light-7: #F3C9C5;
-  --el-color-danger-light-8: #F7DBD8;
-  --el-color-danger-light-9: #FBEDEC;
-  --el-text-color-primary: var(--cookx-text);
-  --el-text-color-regular: var(--cookx-text-secondary);
-  --el-bg-color-page: var(--cookx-bg);
-  --el-border-radius-base: var(--cookx-radius-input);
-  --el-border-color: rgba(23, 63, 53, 0.12);
-  --el-fill-color-blank: var(--cookx-surface);
-
-  /* 兼容现有页面变量，统一收口到 CookX Tokens */
-  --primary-green: var(--cookx-primary);
-  --light-green: var(--cookx-success);
-  --super-light-green: #E8EFEA;
-  --fresh-blue: #5B7E75;
-  --warning-orange: var(--cookx-accent);
-  --danger-red: var(--cookx-danger);
-  --voice-purple: var(--cookx-accent);
-  --camera-blue: var(--cookx-primary);
-  --text-title: var(--cookx-text);
-  --text-body: #4E5651;
-  --text-secondary: var(--cookx-text-secondary);
-  --bg-page: var(--cookx-bg);
-  --bg-card: var(--cookx-surface);
-  --border-light: rgba(23, 63, 53, 0.08);
-  --radius-card: var(--cookx-radius-card);
-  --radius-button: var(--cookx-radius-button);
-  --radius-input: var(--cookx-radius-input);
-
-  /* 间距规范 */
-  --spacing-xs: 8px;
-  --spacing-sm: 16px;
-  --spacing-md: 24px;
-  --spacing-lg: 32px;
-  
-  /* 阴影规范 */
-  --shadow-light: var(--cookx-shadow);
-  --shadow-medium: var(--cookx-shadow-hover);
-  --shadow-heavy: 0 16px 44px rgba(28, 48, 40, 0.16);
+  --ck-heat-gradient: linear-gradient(90deg, #FFC27A 0%, #FF8A3D 55%, #F0561C 100%);
+  --ck-alert: #FF4438;
+  --ck-on-accent: #FFFFFF;
 }
 
-/* 全局基础样式 */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+/* ---------- 浅色（默认） ---------- */
+:root {
+  color-scheme: light;
+  --ck-bg: #F3F1EC;
+  --ck-bg-raised: #FFFFFF;
+  --ck-surface: #FFFFFF;
+  --ck-surface-strong: #FFFFFF;
+  --ck-glass: rgba(255, 255, 255, 0.86);
+  --ck-glass-strong: rgba(255, 255, 255, 0.96);
+  --ck-glass-border: rgba(24, 28, 26, 0.06);
+  --ck-fill: rgba(24, 28, 26, 0.045);
+  --ck-fill-strong: rgba(24, 28, 26, 0.08);
+  --ck-hairline: rgba(24, 28, 26, 0.07);
+  --ck-input-bg: #F5F4F0;
+  --ck-input-border: rgba(24, 28, 26, 0.08);
+  --ck-shadow: 0 6px 24px rgba(40, 36, 26, 0.06);
+  --ck-shadow-strong: 0 14px 40px rgba(40, 36, 26, 0.12);
+  --ck-nav-bg: rgba(243, 241, 236, 0.88);
+  --ck-overlay: rgba(20, 18, 14, 0.4);
+
+  --ck-text: #1B1D1C;
+  --ck-text-2: #5E6461;
+  --ck-text-3: #8E9390;
+
+  --ck-heat: #F0701E;
+  --ck-heat-deep: #EE6A1B;
+  --ck-heat-soft: rgba(240, 112, 30, 0.12);
+  --ck-heat-text: #C4560F;
+  --ck-fresh: #2E8B57;
+  --ck-fresh-soft: rgba(46, 139, 87, 0.12);
+  --ck-fresh-text: #237148;
+  --ck-warn: #D98A00;
+  --ck-warn-soft: rgba(217, 138, 0, 0.13);
+  --ck-warn-text: #9A6100;
+  --ck-danger: #E5484D;
+  --ck-danger-soft: rgba(229, 72, 77, 0.1);
+  --ck-danger-text: #C4353A;
+  --ck-info-soft: rgba(59, 111, 224, 0.1);
+  --ck-info-text: #3160C4;
+
+  --ck-cream: #FFF4EA;
+  --ck-cream-text: #2A1C10;
+  --ck-cream-text-2: #8A6C55;
+  --ck-chip-active-bg: #1B1D1C;
+  --ck-chip-active-text: #FFFFFF;
+
+  --ck-tabbar-bg: rgba(255, 255, 255, 0.95);
+  --ck-tabbar-border: rgba(24, 28, 26, 0.07);
+  --ck-tabbar-text: #8A8F8C;
+  --ck-tabbar-active: #EE6A1B;
 }
 
+/* ---------- 深色（设置中选择，或跟随系统时系统为深色） ---------- */
+:root[data-theme='dark'],
+.ck-dark {
+  color-scheme: dark;
+  --ck-bg: #0D100F;
+  --ck-bg-raised: #171B19;
+  --ck-surface: #1A1E1C;
+  --ck-surface-strong: #1E2220;
+  --ck-glass: rgba(30, 34, 32, 0.62);
+  --ck-glass-strong: rgba(36, 40, 38, 0.86);
+  --ck-glass-border: rgba(255, 255, 255, 0.09);
+  --ck-fill: rgba(255, 255, 255, 0.07);
+  --ck-fill-strong: rgba(255, 255, 255, 0.12);
+  --ck-hairline: rgba(255, 255, 255, 0.08);
+  --ck-input-bg: rgba(255, 255, 255, 0.07);
+  --ck-input-border: rgba(255, 255, 255, 0.1);
+  --ck-shadow: none;
+  --ck-shadow-strong: 0 16px 40px rgba(0, 0, 0, 0.35);
+  --ck-nav-bg: rgba(13, 16, 15, 0.82);
+  --ck-overlay: rgba(6, 8, 7, 0.72);
+
+  --ck-text: #F6F3EE;
+  --ck-text-2: rgba(246, 243, 238, 0.68);
+  --ck-text-3: rgba(246, 243, 238, 0.44);
+
+  --ck-heat: #FF8A3D;
+  --ck-heat-deep: #E8641F;
+  --ck-heat-soft: rgba(255, 138, 61, 0.16);
+  --ck-heat-text: #FFB27F;
+  --ck-fresh: #3DD68C;
+  --ck-fresh-soft: rgba(61, 214, 140, 0.15);
+  --ck-fresh-text: #7EE6B4;
+  --ck-warn: #FFC15A;
+  --ck-warn-soft: rgba(255, 193, 90, 0.15);
+  --ck-warn-text: #FFD89A;
+  --ck-danger: #FF6B5B;
+  --ck-danger-soft: rgba(255, 107, 91, 0.15);
+  --ck-danger-text: #FFB0A6;
+  --ck-info-soft: rgba(127, 180, 255, 0.15);
+  --ck-info-text: #A9CBFF;
+
+  --ck-cream: #F5EFE6;
+  --ck-cream-text: #1F1B16;
+  --ck-cream-text-2: #6F665B;
+  --ck-chip-active-bg: #F5EFE6;
+  --ck-chip-active-text: #1F1B16;
+
+  --ck-tabbar-bg: rgba(24, 27, 26, 0.94);
+  --ck-tabbar-border: rgba(255, 255, 255, 0.07);
+  --ck-tabbar-text: rgba(246, 243, 238, 0.5);
+  --ck-tabbar-active: #FF8A3D;
+}
+
+/* 兼容旧变量与 Element Plus（随主题令牌变化） */
+:root,
+:root[data-theme='dark'],
+.ck-dark {
+  --cookx-primary: var(--ck-heat);
+  --cookx-primary-dark: var(--ck-heat-deep);
+  --cookx-accent: var(--ck-heat);
+  --cookx-gold: var(--ck-warn);
+  --cookx-bg: var(--ck-bg);
+  --cookx-surface: var(--ck-surface);
+  --cookx-text: var(--ck-text);
+  --cookx-text-secondary: var(--ck-text-2);
+  --cookx-success: var(--ck-fresh);
+  --cookx-danger: var(--ck-danger);
+  --cookx-border: 1px solid var(--ck-glass-border);
+  --cookx-shadow: var(--ck-shadow);
+
+  --el-color-primary: var(--ck-heat-deep);
+  --el-color-primary-light-3: #F39A5E;
+  --el-color-primary-light-5: #F6B488;
+  --el-color-primary-light-7: #FAD2B7;
+  --el-color-primary-light-8: #FBE1CF;
+  --el-color-primary-light-9: #FDF0E7;
+  --el-color-primary-dark-2: #C9560F;
+  --el-color-success: var(--ck-fresh);
+  --el-color-warning: var(--ck-warn);
+  --el-color-danger: var(--ck-danger);
+  --el-bg-color: var(--ck-surface);
+  --el-bg-color-overlay: var(--ck-surface-strong);
+  --el-bg-color-page: var(--ck-bg);
+  --el-fill-color-blank: var(--ck-input-bg);
+  --el-text-color-primary: var(--ck-text);
+  --el-text-color-regular: var(--ck-text-2);
+  --el-text-color-secondary: var(--ck-text-3);
+  --el-text-color-placeholder: var(--ck-text-3);
+  --el-border-color: var(--ck-input-border);
+  --el-border-color-light: var(--ck-hairline);
+  --el-border-color-lighter: var(--ck-hairline);
+  --el-border-radius-base: 12px;
+  --el-mask-color: var(--ck-overlay);
+  --el-font-family: var(--ck-font);
+}
+:root[data-theme='dark'] {
+  --el-color-primary-light-3: #C9713A;
+  --el-color-primary-light-5: #8F5431;
+  --el-color-primary-light-7: #5A3825;
+  --el-color-primary-light-8: #45301F;
+  --el-color-primary-light-9: #2E241C;
+  --el-color-primary-dark-2: #FFA366;
+}
+
+/* ---------- 基础 ---------- */
+*, *::before, *::after { box-sizing: border-box; }
+* { margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; background: var(--ck-bg); }
 body {
-  font-family: 'PingFang SC', 'Noto Sans SC', 'Roboto', 'Inter', sans-serif;
-  background-color: var(--cookx-bg);
-  color: var(--text-body);
+  min-height: 100%;
+  background: var(--ck-bg);
+  color: var(--ck-text);
+  font-family: var(--ck-font);
+  font-size: 15px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
   overflow-x: hidden;
+  overscroll-behavior-y: none;
+}
+#app { min-height: 100vh; min-height: 100dvh; background: transparent; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+img { max-width: 100%; }
+a { color: var(--ck-heat); }
+:focus-visible { outline: 2px solid var(--ck-heat); outline-offset: 2px; }
+::selection { background: rgba(255, 138, 61, 0.35); }
+.ck-dark { color: var(--ck-text); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
 
-#app {
-  min-height: 100vh;
-  background: var(--cookx-bg);
-}
-
-/* 字体大小规范 */
-.text-xs { font-size: 12px; }
-.text-sm { font-size: 14px; }
-.text-base { font-size: 16px; }
-.text-lg { font-size: 18px; }
-.text-xl { font-size: 20px; }
-.text-2xl { font-size: 24px; }
-
-/* 字重规范 */
-.font-normal { font-weight: 400; }
-.font-medium { font-weight: 500; }
-.font-semibold { font-weight: 600; }
-
-/* 通用卡片样式 */
-.card {
-  background: var(--bg-card);
-  border-radius: var(--radius-card);
-  padding: var(--spacing-md);
-  border: var(--cookx-border);
-  box-shadow: var(--cookx-shadow);
-  transition: all 0.3s ease;
-}
-
-.card:hover {
-  box-shadow: var(--shadow-medium);
-  transform: translateY(-2px);
-}
-
-/* 按钮点击动画 */
-.el-button:not(.el-button--small), .button {
-  min-height: 44px;
-  border-radius: var(--cookx-radius-button);
-  transition: all 0.2s ease;
-}
-
-.el-button:disabled, .button:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
-.el-button:active, .button:active {
-  transform: scale(0.96);
-}
-
-/* 输入框样式统一 */
-.el-input__wrapper {
-  border-radius: var(--radius-input) !important;
-  box-shadow: 0 0 0 1px var(--border-light) inset !important;
-  transition: all 0.3s ease;
-}
-
-.el-card {
-  border: var(--cookx-border);
-  border-radius: var(--cookx-radius-card);
-  box-shadow: var(--cookx-shadow);
-}
-
-.el-dialog {
-  border: var(--cookx-border);
-  border-radius: var(--cookx-radius-large);
-  box-shadow: var(--cookx-shadow-hover);
-}
-
-.el-input__wrapper:hover {
-  box-shadow: 0 0 0 1px var(--light-green) inset !important;
-}
-
-.el-input__wrapper.is-focus {
-  box-shadow: 0 0 0 1px var(--primary-green) inset !important;
-}
-
-/* 主题色按钮 */
-.el-button--primary {
-  --el-button-bg-color: var(--cookx-primary);
-  --el-button-border-color: var(--cookx-primary);
-  --el-button-hover-bg-color: var(--cookx-primary-dark);
-  --el-button-hover-border-color: var(--cookx-primary-dark);
-  --el-button-active-bg-color: var(--cookx-primary-dark);
-  --el-button-active-border-color: var(--cookx-primary-dark);
-}
-
-/* 加载动画 - 绿色旋转叶子 */
-@keyframes leaf-rotate {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-.loading-leaf {
-  width: 40px;
-  height: 40px;
+/* ---------- 通用构件 ---------- */
+.ck-page {
   position: relative;
-  animation: leaf-rotate 1.5s linear infinite;
+  z-index: 1;
+  width: min(100%, var(--ck-page-max));
+  margin: 0 auto;
+  padding: var(--sat) calc(var(--ck-gutter) + var(--sar)) 24px calc(var(--ck-gutter) + var(--sal));
+}
+.ck-card {
+  background: var(--ck-surface);
+  border: 1px solid var(--ck-glass-border);
+  border-radius: var(--ck-radius-lg);
+  box-shadow: var(--ck-shadow);
+}
+.ck-glass {
+  background: var(--ck-glass);
+  border: 1px solid var(--ck-glass-border);
+  border-radius: var(--ck-radius-lg);
+  box-shadow: var(--ck-shadow);
+  -webkit-backdrop-filter: var(--ck-blur);
+  backdrop-filter: var(--ck-blur);
+}
+.ck-cream { background: var(--ck-cream); color: var(--ck-cream-text); border-radius: var(--ck-radius-lg); }
+.ck-num { font-family: var(--ck-font-display); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.ck-wordmark { font-family: var(--ck-font-display); font-weight: 700; letter-spacing: -0.02em; color: var(--ck-text); }
+.ck-wordmark b { color: var(--ck-heat); font-weight: inherit; }
+
+.ck-head { display: flex; align-items: center; justify-content: space-between; height: 52px; }
+.ck-head .ck-wordmark { font-size: 28px; }
+.ck-title { margin-top: 6px; }
+.ck-title h1 { font-size: 34px; font-weight: 800; letter-spacing: -0.5px; line-height: 1.2; }
+.ck-title p { margin-top: 4px; color: var(--ck-text-2); font-size: 15px; }
+.ck-icon-btn {
+  position: relative; display: grid; place-items: center; width: 40px; height: 40px; padding: 0;
+  border: 0; border-radius: 50%; background: transparent; color: var(--ck-text);
+}
+.ck-icon-btn .dot { position: absolute; top: 7px; right: 8px; width: 8px; height: 8px; border: 2px solid var(--ck-bg); border-radius: 50%; background: var(--ck-heat); }
+
+.ck-section-title {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin: 0 0 12px; font-size: 17px; font-weight: 700; color: var(--ck-text);
+}
+.ck-section-title small, .ck-section-title .ck-link { font-size: 13px; font-weight: 400; color: var(--ck-text-3); }
+.ck-link { border: 0; background: none; color: var(--ck-text-3); font-size: 13px; display: inline-flex; align-items: center; gap: 2px; min-height: 32px; }
+.ck-pill {
+  display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 999px;
+  background: var(--ck-fill); border: 1px solid var(--ck-glass-border); color: var(--ck-text-2); font-size: 12px; white-space: nowrap;
+}
+.ck-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ck-text-3); flex: 0 0 auto; }
+.ck-dot.is-on { background: #34C759; box-shadow: 0 0 0 3px rgba(52, 199, 89, 0.2); }
+.ck-dot.is-warn { background: var(--ck-warn); }
+.ck-dot.is-alert { background: var(--ck-alert); box-shadow: 0 0 0 3px rgba(255, 68, 56, 0.25); }
+
+.ck-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 46px; padding: 0 18px; border: 0; border-radius: 999px;
+  background: var(--ck-fill-strong); color: var(--ck-text);
+  font-size: 15px; font-weight: 600; line-height: 1.2; white-space: nowrap;
+  transition: transform 0.15s ease, opacity 0.15s ease, background-color 0.15s ease;
+}
+.ck-btn:active { transform: scale(0.97); }
+.ck-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+.ck-btn--heat { background: var(--ck-heat-deep); color: var(--ck-on-accent); }
+.ck-btn--cream { background: var(--ck-cream); color: var(--ck-cream-text); }
+.ck-btn--ghost { background: transparent; border: 1px solid var(--ck-glass-border); }
+.ck-btn--block { width: 100%; }
+
+.ck-row {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  min-height: 58px; padding: 10px 16px; border: 0; background: none; color: var(--ck-text); text-align: left;
+}
+.ck-row + .ck-row { border-top: 1px solid var(--ck-hairline); }
+.ck-row__icon { display: grid; place-items: center; width: 36px; height: 36px; flex: 0 0 36px; border-radius: 11px; background: var(--ck-heat-soft); color: var(--ck-heat-text); }
+.ck-row__body { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+.ck-row__body b { font-size: 15px; font-weight: 500; }
+.ck-row__body small { color: var(--ck-text-3); font-size: 12px; line-height: 1.45; }
+.ck-row__chev { color: var(--ck-text-3); flex: 0 0 auto; }
+
+/* 折叠区：把次要表单收起来，需要时再展开 */
+.ck-disclosure { border: 1px solid var(--ck-glass-border); border-radius: var(--ck-radius-lg); background: var(--ck-surface); box-shadow: var(--ck-shadow); }
+.ck-disclosure > summary {
+  display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 0 16px;
+  color: var(--ck-text); font-size: 15px; font-weight: 600; list-style: none; cursor: pointer;
+}
+.ck-disclosure > summary::-webkit-details-marker { display: none; }
+.ck-disclosure > summary::after { content: ''; width: 8px; height: 8px; margin-left: auto; border-right: 1.8px solid var(--ck-text-3); border-bottom: 1.8px solid var(--ck-text-3); transform: rotate(45deg) translateY(-3px); transition: transform .2s ease; }
+.ck-disclosure[open] > summary::after { transform: rotate(-135deg) translateY(-2px); }
+.ck-disclosure > :not(summary) { padding: 0 16px; }
+.ck-disclosure[open] { padding-bottom: 14px; }
+
+/* ---------- Element Plus 覆盖 ---------- */
+.el-button { --el-button-border-radius: 999px; font-weight: 600; }
+.el-button:not(.el-button--small):not(.is-circle):not(.is-text):not(.is-link) { min-height: 44px; padding: 0 18px; border-radius: 999px; }
+.el-button:active { transform: scale(0.97); }
+.el-button--primary {
+  --el-button-bg-color: var(--ck-heat-deep);
+  --el-button-border-color: var(--ck-heat-deep);
+  --el-button-hover-bg-color: #F07230;
+  --el-button-hover-border-color: #F07230;
+  --el-button-active-bg-color: #CF5616;
+  --el-button-active-border-color: #CF5616;
+  --el-button-text-color: #fff;
+  --el-button-hover-text-color: #fff;
+}
+.el-button--default, .el-button:not([class*='el-button--']) {
+  --el-button-bg-color: var(--ck-fill-strong);
+  --el-button-border-color: transparent;
+  --el-button-hover-bg-color: var(--ck-fill-strong);
+  --el-button-hover-border-color: var(--ck-glass-border);
+  --el-button-text-color: var(--ck-text);
+  --el-button-hover-text-color: var(--ck-text);
+}
+.el-input__wrapper, .el-textarea__inner, .el-select__wrapper {
+  background: var(--ck-input-bg) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 0 0 1px var(--ck-input-border) inset !important;
+  min-height: 44px;
+}
+.el-input__wrapper.is-focus, .el-textarea__inner:focus, .el-select__wrapper.is-focused { box-shadow: 0 0 0 1.5px var(--ck-heat) inset !important; }
+.el-input__inner { color: var(--ck-text); }
+.el-dialog {
+  --el-dialog-bg-color: var(--ck-surface-strong);
+  --el-dialog-padding-primary: 20px;
+  width: min(92vw, 520px) !important;
+  border: 1px solid var(--ck-glass-border);
+  border-radius: 24px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.25);
+}
+.el-dialog__title { color: var(--ck-text); font-weight: 700; }
+.el-dialog__footer { display: flex; gap: 10px; justify-content: flex-end; }
+.el-overlay-dialog { padding-top: var(--sat); }
+.el-drawer { --el-drawer-bg-color: var(--ck-surface-strong); border-radius: 24px 24px 0 0; }
+.el-drawer__header { margin-bottom: 8px; color: var(--ck-text); font-weight: 700; }
+.el-drawer__body { padding-bottom: calc(20px + var(--sab)); }
+.el-message {
+  --el-message-bg-color: var(--ck-glass-strong);
+  --el-message-border-color: var(--ck-glass-border);
+  --el-message-text-color: var(--ck-text);
+  margin-top: var(--sat);
+  max-width: calc(100vw - 32px);
+  border-radius: 14px;
+  box-shadow: var(--ck-shadow-strong);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+}
+.el-message .el-message__content { color: var(--ck-text); line-height: 1.5; }
+.el-message-box {
+  --el-messagebox-border-radius: 22px;
+  --el-bg-color: var(--ck-surface-strong);
+  width: min(86vw, 420px);
+  padding: 20px;
+  border: 1px solid var(--ck-glass-border);
+}
+.el-message-box__btns { display: flex; gap: 10px; }
+.el-message-box__btns .el-button { flex: 1 1 0; margin: 0; }
+.el-notification { --el-notification-bg-color: var(--ck-surface-strong); --el-notification-border-color: var(--ck-glass-border); margin-top: var(--sat); border-radius: 18px; }
+.el-alert { border-radius: 14px; }
+.el-alert--error.is-light { background: var(--ck-danger-soft); color: var(--ck-danger-text); }
+.el-alert--warning.is-light { background: var(--ck-warn-soft); color: var(--ck-warn-text); }
+.el-card { --el-card-bg-color: var(--ck-surface); border: 1px solid var(--ck-glass-border); border-radius: var(--ck-radius-lg); }
+.el-loading-mask { background: color-mix(in srgb, var(--ck-bg) 60%, transparent); }
+.el-loading-spinner .path { stroke: var(--ck-heat); }
+.el-tabs__item { color: var(--ck-text-3); }
+.el-tabs__item.is-active { color: var(--ck-text); }
+.el-tabs__active-bar { background: var(--ck-heat); }
+.el-tabs__nav-wrap::after { background: var(--ck-hairline); }
+.el-progress-bar__outer { background: var(--ck-fill-strong) !important; }
+.el-tag { border-radius: 8px; }
+.el-empty__description p { color: var(--ck-text-3); }
+.el-form-item__label { color: var(--ck-text-2); }
+.el-select-dropdown, .el-popper.is-light { border-color: var(--ck-glass-border) !important; border-radius: 14px; }
+.el-upload { color: inherit; }
+
+/* ---------- 旧工具类（保留兼容） ---------- */
+.card { background: var(--ck-surface); border: 1px solid var(--ck-glass-border); border-radius: var(--ck-radius-lg); padding: 18px; }
+.status-tag { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; font-size: 12px; }
+.status-tag.fresh { background: var(--ck-fresh-soft); color: var(--ck-fresh-text); }
+.status-tag.warning { background: var(--ck-warn-soft); color: var(--ck-warn-text); }
+.status-tag.danger { background: var(--ck-danger-soft); color: var(--ck-danger-text); }
+.page-container { min-height: 100vh; }
+
+/* Photography screens retain a light navigation surface in both themes. */
+:root { --ck-live-nav-bg: #fffdf9; --ck-live-nav-text: #797b78; --ck-live-nav-active: #ed741b; --ck-live-nav-fill: #fff0df; --ck-chart-start: #ffc27a; --ck-chart-end: #ff7a2e; --ck-chart-prediction: rgba(246,243,238,.65); }
+
+/* Shared photography / appliance palette; fixed across light and dark pages. */
+:root {
+  --ck-photo-tone-01: rgba(255, 255, 255, 0.13);
+  --ck-photo-tone-02: rgba(40, 38, 35, 0.52);
+  --ck-photo-tone-03: rgba(22, 21, 20, 0.46);
+  --ck-photo-tone-04: rgba(255, 255, 255, 0.06);
+  --ck-photo-tone-05: #7EE6A4;
+  --ck-photo-tone-06: rgba(255, 255, 255, 0.82);
+  --ck-photo-tone-07: rgba(255, 255, 255, 0.18);
+  --ck-photo-tone-08: rgba(38, 38, 36, 0.4);
+  --ck-photo-tone-09: #34D160;
+  --ck-photo-tone-10: rgba(52, 209, 96, 0.22);
+  --ck-photo-tone-11: rgba(52, 209, 96, 0.7);
+  --ck-photo-tone-12: rgba(255, 255, 255, 0.72);
+  --ck-photo-tone-13: rgba(255, 255, 255, 0.88);
+  --ck-photo-tone-14: rgba(0, 0, 0, 0.5);
+  --ck-photo-tone-15: rgba(0, 0, 0, 0.45);
+  --ck-photo-tone-16: rgba(255, 255, 255, 0.6);
+  --ck-photo-tone-17: #FFC36B;
+  --ck-photo-tone-18: #FF4B3E;
+  --ck-photo-tone-19: rgba(255, 50, 30, 0.55);
+  --ck-photo-tone-20: rgba(255, 175, 115, 0.38);
+  --ck-photo-tone-21: rgba(112, 58, 28, 0.62);
+  --ck-photo-tone-22: rgba(70, 36, 18, 0.55);
+  --ck-photo-tone-23: rgba(0, 0, 0, 0.25);
+  --ck-photo-tone-24: #FF8F2E;
+  --ck-photo-tone-25: rgba(255, 255, 255, 0.86);
+  --ck-photo-tone-26: rgba(255, 120, 100, 0.6);
+  --ck-photo-tone-27: rgba(190, 30, 20, 0.72);
+  --ck-photo-tone-28: rgba(120, 16, 10, 0.66);
+  --ck-photo-tone-29: #FFD4CC;
+  --ck-photo-tone-30: #FF8A2A;
+  --ck-photo-tone-31: rgba(255, 255, 255, 0.35);
+  --ck-photo-tone-32: rgba(40, 38, 36, 0.9);
+  --ck-photo-tone-33: #FF9A3C;
+  --ck-photo-tone-34: #FFF4E8;
+  --ck-photo-tone-35: rgba(255, 138, 42, 0.28);
+  --ck-photo-tone-36: rgba(255, 138, 42, 0.8);
+  --ck-photo-tone-37: rgba(255, 255, 255, 0.45);
+  --ck-photo-tone-38: rgba(255, 255, 255, 0.8);
+  --ck-photo-tone-39: rgba(0, 0, 0, 0.35);
+  --ck-photo-tone-40: #FDE2C4;
+  --ck-photo-tone-41: #E8781E;
+  --ck-photo-tone-42: #FFE9E6;
+  --ck-photo-tone-43: #FFC9C2;
+  --ck-photo-tone-44: #D6281C;
+  --ck-photo-tone-45: rgba(255, 196, 150, 0.45);
+  --ck-photo-tone-46: rgba(120, 66, 30, 0.38);
+  --ck-photo-tone-47: #F6D5B8;
+  --ck-photo-tone-48: rgba(255, 255, 255, 0.65);
+  --ck-photo-tone-49: #E7E1D8;
+  --ck-photo-tone-50: #D07A33;
+  --ck-photo-tone-51: rgba(255, 170, 100, 0.55);
+  --ck-photo-tone-52: #C8561B;
+  --ck-photo-tone-53: #9E3E12;
+  --ck-photo-tone-54: rgba(200, 86, 27, 0.4);
+  --ck-photo-tone-55: rgba(255, 140, 120, 0.6);
+  --ck-photo-tone-56: #E0281B;
+  --ck-photo-tone-57: #A5160D;
+  --ck-photo-tone-58: rgba(255, 255, 255, 0.85);
+  --ck-photo-tone-59: rgba(255, 255, 255, 0.7);
+  --ck-photo-tone-60: rgba(255, 255, 255, 0.08);
+  --ck-photo-tone-61: rgba(255, 120, 40, 0.18);
+  --ck-photo-tone-62: #FF7A1F;
+  --ck-photo-tone-63: rgba(232, 120, 30, 0.6);
+  --ck-photo-tone-64: #B8520F;
+  --ck-photo-tone-65: #ECE5DC;
+  --ck-photo-tone-66: #E4DACD;
+  --ck-photo-tone-67: #4A3F35;
+  --ck-photo-tone-68: #F6C9A3;
+  --ck-photo-tone-69: #FFF0E2;
+  --ck-photo-tone-70: rgba(255, 255, 255, 0.25);
+  --ck-photo-tone-71: rgba(20, 20, 18, 0.35);
+  --ck-photo-tone-72: rgba(255, 255, 255, 0.55);
+  --ck-photo-tone-73: rgba(255, 255, 255, 0.12);
+  --ck-photo-tone-74: #242220;
+  --ck-photo-tone-75: rgba(255, 138, 61, 0.2);
+  --ck-photo-tone-76: rgba(10, 10, 9, 0);
+  --ck-photo-tone-77: rgba(10, 10, 9, 0.9);
+  --ck-photo-tone-78: rgba(255, 255, 255, 0.14);
+  --ck-photo-tone-79: rgba(40, 38, 36, 0.82);
+  --ck-photo-tone-80: #F07A2A;
+  --ck-photo-tone-81: #E0561A;
+  --ck-photo-tone-82: rgba(232, 100, 31, 0.4);
+  --ck-photo-tone-83: rgba(30, 20, 10, 0.18);
+  --ck-photo-tone-84: rgba(46, 139, 87, 0.12);
+  --ck-photo-tone-85: rgba(160, 220, 180, 0.35);
+  --ck-photo-tone-86: #2D6848;
+  --ck-photo-tone-87: #3F7D5A;
+  --ck-photo-tone-88: #4F8F69;
+  --ck-photo-tone-89: rgba(34, 90, 60, 0.25);
+  --ck-photo-tone-90: #9BE3B4;
+  --ck-photo-tone-91: #FFD36B;
+  --ck-photo-tone-92: rgba(255, 255, 255, 0.78);
+  --ck-photo-tone-93: rgba(255, 255, 255, 0.22);
+  --ck-photo-tone-94: rgba(255, 255, 255, 0.24);
+  --ck-photo-tone-95: #F4F2EE;
+  --ck-photo-tone-96: #4D8B69;
+  --ck-photo-tone-97: #EEF5EE;
+  --ck-photo-tone-98: #FBEDEC;
+  --ck-photo-tone-99: #FCF3E6;
+  --ck-photo-tone-100: #F6F1E6;
+  --ck-photo-tone-101: #FDEEE8;
+  --ck-photo-tone-102: #F3F1EA;
+  --ck-photo-tone-103: #F1F3F5;
+  --ck-photo-tone-104: rgba(255, 138, 61, 0.5);
+  --ck-photo-tone-105: #0E0F0E;
+  --ck-photo-tone-106: #F6F3EE;
+  --ck-photo-tone-107: rgba(14, 15, 14, 0.2);
+  --ck-photo-tone-108: rgba(14, 15, 14, 0);
+  --ck-photo-tone-109: rgba(40, 22, 10, 0.92);
+  --ck-photo-tone-110: #1A0B09;
+  --ck-photo-tone-111: rgba(26, 11, 9, 0.2);
+  --ck-photo-tone-112: rgba(26, 11, 9, 0);
+  --ck-photo-tone-113: rgba(120, 18, 12, 0.92);
+  --ck-photo-tone-114: rgba(246, 243, 238, 0.6);
+  --ck-photo-tone-115: rgba(246, 243, 238, 0.72);
+  --ck-photo-tone-116: #FF6152;
+  --ck-photo-tone-117: rgba(255, 255, 255, 0.16);
+  --ck-photo-tone-118: #FF3B30;
+  --ck-photo-tone-119: rgba(255, 255, 255, 0.1);
+  --ck-photo-tone-120: rgba(246, 243, 238, 0.7);
+  --ck-photo-tone-121: rgba(255, 170, 110, 0.28);
+  --ck-photo-tone-122: rgba(150, 72, 24, 0.62);
+  --ck-photo-tone-123: rgba(110, 52, 20, 0.5);
+  --ck-photo-tone-124: rgba(255, 110, 90, 0.4);
+  --ck-photo-tone-125: rgba(170, 30, 20, 0.7);
+  --ck-photo-tone-126: rgba(120, 20, 14, 0.6);
+  --ck-photo-tone-127: rgba(255, 230, 210, 0.75);
+  --ck-photo-tone-128: rgba(255, 230, 210, 0.72);
+  --ck-photo-tone-129: #FF8A1F;
+  --ck-photo-tone-130: rgba(255, 120, 30, 0.4);
+  --ck-photo-tone-131: rgba(14, 15, 14, 0.92);
+  --ck-photo-tone-132: rgba(14, 15, 14, 0.45);
+  --ck-photo-tone-133: rgba(90, 14, 10, 0.94);
+  --ck-photo-tone-134: rgba(90, 14, 10, 0.6);
+  --ck-photo-tone-135: rgba(246, 243, 238, 0.78);
+  --ck-photo-tone-136: rgba(255, 138, 46, 0.55);
+  --ck-photo-tone-137: rgba(255, 50, 30, 0.75);
+  --ck-photo-tone-138: rgba(0, 0, 0, 0.4);
+  --ck-photo-tone-139: #FF5446;
+  --ck-photo-tone-140: #FF7A5C;
+  --ck-photo-tone-141: #FFB25C;
+  --ck-photo-tone-142: #FF8A2E;
+  --ck-photo-tone-143: #D1170C;
+  --ck-photo-tone-144: #F06418;
+  --ck-photo-tone-145: #0B0C0B;
+  --ck-photo-tone-146: rgba(8, 9, 8, 0.35);
+  --ck-photo-tone-147: rgba(8, 9, 8, 0.1);
+  --ck-photo-tone-148: rgba(8, 9, 8, 0.55);
+  --ck-photo-tone-149: rgba(8, 9, 8, 0.85);
+  --ck-photo-tone-150: rgba(255, 40, 30, 0.55);
+  --ck-photo-tone-151: rgba(255, 138, 61, 0.1);
+  --ck-photo-tone-152: rgba(255, 138, 61, 0.35);
+  --ck-photo-tone-153: rgba(255, 138, 61, 0.22);
+  --ck-photo-tone-154: #FF9A4A;
 }
 
-.loading-leaf::before {
-  content: '🌿';
-  font-size: 40px;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-}
+/* Reserve a compact, persistent edition label without displacing the viewport layout. */
+:root[data-cookx-mode="local-test"] { --sat: calc(var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) + 32px); }
 
-/* 状态标签样式 */
-.status-tag {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.status-tag.fresh {
-  background: var(--super-light-green);
-  color: var(--primary-green);
-}
-
-.status-tag.warning {
-  background: #FFF3E0;
-  color: var(--warning-orange);
-}
-
-.status-tag.danger {
-  background: #FFEBEE;
-  color: var(--danger-red);
-}
-
-/* 渐变背景 */
-.gradient-green {
-  background: linear-gradient(135deg, var(--super-light-green) 0%, var(--bg-page) 100%);
-}
-
-.gradient-green-header {
-  background: linear-gradient(135deg, var(--primary-green) 0%, var(--light-green) 100%);
-}
-
-/* 安全边距 */
-.safe-area {
-  padding-left: var(--spacing-sm);
-  padding-right: var(--spacing-sm);
-}
-
-/* 页面容器 */
-.page-container {
-  min-height: 100vh;
-  background: var(--bg-page);
-  padding-bottom: env(safe-area-inset-bottom);
+@media (max-height: 850px) {
+ :root[data-cookx-mode="local-test"] .home { gap: 8px; }
+ :root[data-cookx-mode="local-test"] .home .sense__advice { margin: 8px; }
+ :root[data-cookx-mode="local-test"] .home .sense__body { padding-top: 8px; }
+ :root[data-cookx-mode="local-test"] .home .today { padding: 10px 14px; }
+ :root[data-cookx-mode="local-test"] .home .expiry { min-height: 66px; padding-block: 9px; }
+ :root[data-cookx-mode="local-test"] .ai-chef-container.is-live { grid-template-rows: 40px 64px minmax(170px, 1.8fr) minmax(50px, 1fr) 76px 96px 80px; }
+ :root[data-cookx-mode="local-test"] .is-live .k-hero { padding-top: 0; }
+ :root[data-cookx-mode="local-test"] .is-live .k-hero__temp { font-size: 88px; min-height: 92px; }
+ :root[data-cookx-mode="local-test"] .is-live .k-pill { padding-block: 6px; }
+ :root[data-cookx-mode="local-test"] .is-live .k-trend .ck-chart { height: 54px !important; }
+ :root[data-cookx-mode="local-test"] .ai-chef-container.is-cooking { gap: 6px; }
+ :root[data-cookx-mode="local-test"] .is-cooking .c-gauge { min-height: 242px; }
 }

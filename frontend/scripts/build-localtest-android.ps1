@@ -1,4 +1,4 @@
-param([string]$OutputDirectory = '', [switch]$SkipWebBuild)
+param([string]$OutputDirectory = '', [switch]$SkipWebBuild, [string]$PreviousApk = '')
 $ErrorActionPreference = 'Stop'
 $frontendRoot = Split-Path $PSScriptRoot -Parent
 $repoRoot = Split-Path $frontendRoot -Parent
@@ -53,6 +53,7 @@ try {
  $apkName = "CookX-localtest-$($commit.Substring(0,7))-debug.apk"
  $destination = Join-Path $OutputDirectory $apkName
  Copy-Item -LiteralPath (Join-Path $stage 'android/app/build/outputs/apk/debug/app-debug.apk') -Destination $destination
+ & (Join-Path $PSScriptRoot 'verify-localtest-apk.ps1') -Apk $destination -PreviousApk $PreviousApk -Output (Join-Path $OutputDirectory 'apk-verification.json')
  $record = [ordered]@{edition='local-test';applicationId='com.smartcooking.app.localtest';sourceCommit=$commit;sourceDirty=$dirty;apk=$apkName;sha256=(Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash;stage=$stage;builtAt=(Get-Date).ToString('o');validation='Build and JVM tests only; no Android device claim'}
  [IO.File]::WriteAllText((Join-Path $OutputDirectory 'build-manifest.json'),($record | ConvertTo-Json),$utf8)
  Write-Output "APK: $destination"

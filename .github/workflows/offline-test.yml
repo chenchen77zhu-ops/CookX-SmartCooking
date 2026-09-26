@@ -52,6 +52,7 @@ jobs:
           for i in $(seq 1 30); do curl -fsS "$COOKX_BASE_URL" >/dev/null && break || sleep 1; done
           node frontend/scripts/browser-localtest.cjs
           node frontend/scripts/browser-offline-deferred.cjs
+          node frontend/scripts/browser-offline-ui.cjs
       - uses: actions/upload-artifact@v4
         with:
           name: CookX-offline-test-${{ github.sha }}

@@ -43,5 +43,9 @@ onMounted(()=>{tick();checkInventory();reconcileTimer(props.store);interval=setI
 onBeforeUnmount(()=>{active=false;request++;clearInterval(interval);document.removeEventListener('visibilitychange',foreground);window.removeEventListener('cookx:foreground',foreground)})
 </script>
 <style scoped>
-.reminders{padding:14px;margin-top:12px;border-radius:12px;background:#f1f6f2;font-size:13px;line-height:1.6;overflow-wrap:anywhere}article{padding:8px;border-top:1px solid #d6e1d8}small{color:#636e65}button{margin:4px;padding:5px;border:1px solid #c7d5cb;border-radius:6px;background:white;color:#315340}
+.reminders{padding:14px;margin-top:12px;border-radius:16px;background:var(--ck-fill);color:var(--ck-text-2);font-size:13px;line-height:1.6;overflow-wrap:anywhere}
+.reminders>label{display:flex;align-items:center;gap:10px;min-height:36px;color:var(--ck-text);font-size:14px}
+input[type=checkbox]{width:20px;height:20px;accent-color:var(--ck-heat-deep)}
+article{padding:10px 0;border-top:1px solid var(--ck-hairline)}small{color:var(--ck-text-3)}
+button{border:1px solid var(--ck-glass-border);border-radius:999px;background:var(--ck-fill-strong);color:var(--ck-text);font:inherit;font-size:13px;font-weight:600;min-height:38px;padding:0 14px;margin:4px 6px 4px 0}
 </style>

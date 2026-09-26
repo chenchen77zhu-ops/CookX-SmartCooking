@@ -8,4 +8,4 @@ const {pending,busy,error,send,retry}=usePendingCommand('like-'+props.postId,loa
 async function load(){loaded.value=false;try{value.value=await businessApi(root.value);loaded.value=true;error.value=''}catch(e){error.value=apiError(e)}}
 onMounted(load)
 </script>
-<style scoped>.likes{margin-top:14px}.likes button[aria-pressed=true]{background:#f9e9df;color:#944724}</style>
+<style scoped>.likes{margin-top:12px}.likes button[aria-pressed=true]{border-color:rgba(255,138,61,.45);background:var(--ck-heat-soft);color:var(--ck-heat-text)}</style>
