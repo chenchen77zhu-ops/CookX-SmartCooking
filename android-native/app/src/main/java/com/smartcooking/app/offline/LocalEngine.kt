@@ -140,7 +140,7 @@ class LocalEngine(val recipes: List<JsonObject>, saved: String?, private val per
         val kind=b.str("source_type").orEmpty();val sourceId=b.str("source_id").orEmpty()
         val source=when(kind){
             "community" -> find("posts",sourceId).let{if(it.bool("hidden"))fail(404,"内容已隐藏");it.with("source_version" to it.str("version"))}
-            "menu" -> { val bits=sourceId.split('|');val menu=find("menus",bits[0]);own(menu,u); val dish=menu.obj("result")!!.objects("meals").first{it.str("day")==bits[1]&&it.str("meal")==bits[2]}.objects("dishes").first{it.str("role")==bits[3]};dish.with("source_version" to menu.str("version")) }
+            "menu" -> { val bits=sourceId.split('|');val menu=find("menus",bits[0]);own(menu,u); val dish=menu.obj("result")!!.objects("meals").first{it.str("day")==bits[1]&&it.str("meal")==bits[2]}.objects("dishes").first{it.str("role")==bits[3]};val factor=dish.num("factor")?:1.0;val recipe=dish.obj("recipe")!!.with("inventory_scope" to jsonOf("family_id" to menu.obj("config")?.str("family_id")),"planning_factor" to factor,"ingredients_list" to dish.obj("recipe")!!.objects("ingredients_list").map{it.with("amount" to (it.num("amount")?:0.0)*factor)});dish.with("recipe" to recipe,"source_version" to menu.str("version")) }
             else -> sources(kind,u).firstOrNull{it.str("id")==sourceId}?:fail(404,"菜谱来源不存在") }
         if(source.str("source_version")!=b.str("expected_source_version"))fail(409,"菜谱版本已变化")
         val recipe=source.obj("recipe")?:fail(422,"内容没有有效菜谱")
@@ -148,10 +148,11 @@ class LocalEngine(val recipes: List<JsonObject>, saved: String?, private val per
         add(table,row);return ok(table to row)
     }
     private fun recommendations(u:String,b:JsonObject):JsonObject {
-        val avoid=b.strings("avoid_ingredients")+b.obj("preferences")?.strings("avoid_ingredients").orEmpty()
-        val available=stock(u).filter{!fresh(it).bool("expired")}.mapNotNull{it.str("name")}.toSet()
+        val avoid=b.strings("avoid_ingredients")+b.obj("preferences")?.strings("avoid_ingredients").orEmpty()+b.obj("preferences")?.strings("disliked_ingredients").orEmpty()
+        val unsafe=stock(u).filter{fresh(it).bool("expired")||"storage_unsuitable" in fresh(it).strings("risk_flags")}.mapNotNull{it.str("name")}.toSet()
+        val available=stock(u).filter{!fresh(it).bool("expired") && it.str("name") !in unsafe}.mapNotNull{it.str("name")}.toSet()
         val model=rows("models").lastOrNull{it.str("id")==u&&it.bool("accepted")}?.takeIf{rows("learning").any{r->r.str("id")==u&&r.bool("enabled")}}
-        val candidates=recipes.filter{r->r.objects("ingredients").none{it.str("name") in avoid}}.sortedByDescending{r->if(model!=null)prediction(model,r)else r.objects("ingredients").count{it.str("name") in available}.toDouble()}
+        val candidates=recipes.filter{r->r.objects("ingredients").none{it.str("name") in avoid || it.str("name") in unsafe}}.sortedByDescending{r->if(model!=null)prediction(model,r)else r.objects("ingredients").count{it.str("name") in available}.toDouble()}
         return ok("recommendations" to candidates.take((b.num("top_k")?:8.0).toInt()).mapIndexed { index,r-> val names=r.objects("ingredients").mapNotNull{it.str("name")}
             jsonOf("recipe_id" to r.str("id"),"recipe_name" to r.str("name"),"rank" to index+1,"cooking_time" to r.num("cooking_time"),"recipe_difficulty" to r.str("difficulty"),"total_score" to null,"matched_ingredients" to names.filter{it in available},"missing_required_ingredients" to names.filter{it !in available},"component_scores" to EmptyObject,"reasons" to listOf("依据已记录食材匹配，开工前请核对实际用量")) },"eligible_recipe_count" to candidates.size,"filtered_recipe_count" to recipes.size-candidates.size)
     }

@@ -10,7 +10,7 @@ internal fun LocalEngine.planning(m:String,s:List<String>,b:JsonObject,u:String)
         "preview" -> {
             b.str("family_id")?.let{member(it,u)}
             val slots=b.objects("meals");if(slots.isEmpty())fail(422,"请选择餐次")
-            val issues=mutableListOf<String>();val avoided=b.strings("avoid_ingredients");val diet=b.strings("dietary_restrictions")
+            val issues=mutableListOf<String>();val scope=b.str("family_id")?:u;val unsafe=stock(scope).filter{fresh(it).bool("expired")||"storage_unsuitable" in fresh(it).strings("risk_flags")}.mapNotNull{it.str("name")};val avoided=b.strings("avoid_ingredients")+unsafe;val diet=b.strings("dietary_restrictions")
             val factor=(b.num("people")?:1.0)*(b.num("portion_factor")?:1.0)/2
             val uses=mutableMapOf<String,Int>();val meals=mutableListOf<JsonObject>();var total=0.0;var knownCost=true
             if(b.obj("nutrition")?.isNotEmpty()==true)issues.add("营养数据不足，无法核验所选营养硬约束")

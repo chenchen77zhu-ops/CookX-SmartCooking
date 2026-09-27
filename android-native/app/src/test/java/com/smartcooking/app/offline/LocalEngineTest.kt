@@ -47,4 +47,9 @@ class LocalEngineTest {
         for(value in cases){val c=value.asObject()!!;val actual=localFreshness(c.obj("item")!!,rules,java.time.Instant.parse("2026-09-27T00:00:00Z").toEpochMilli());val expected=c.obj("expected")!!
             for(key in listOf("fresh_score","component_scores","effective_weights","confidence_score","expired","critical","expiring_soon"))assertEquals("$key ${c.obj("item")}",canonical(expected[key]),canonical(actual[key]))}
     }
+    @Test fun dislikedIngredientsAndExpiredBatchesNeverReenterRecommendations() {
+        val row=engine.stock("lin").first{it.str("name")=="番茄"};engine.replace("stock",row.with("expiry_date" to "2020-01-01T00:00:00Z","purchase_time" to "2019-01-01T00:00:00Z"))
+        val output=call("POST","/recommendations",jsonOf("top_k" to 100,"preferences" to jsonOf("disliked_ingredients" to listOf("土豆"))))
+        val ids=output.objects("recommendations").map{it.str("recipe_id")};assertFalse("recipe_001" in ids);assertFalse("recipe_002" in ids)
+    }
 }
