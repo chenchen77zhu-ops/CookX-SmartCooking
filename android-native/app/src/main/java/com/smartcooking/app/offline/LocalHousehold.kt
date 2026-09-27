@@ -10,7 +10,7 @@ internal fun LocalEngine.household(m:String,s:List<String>,b:JsonObject,u:String
         if(b.str("name").isNullOrBlank())fail(422,"请输入家庭名称")
         val f=jsonOf("id" to id(),"name" to b.str("name"),"version" to 1);add("families",f);add("members",jsonOf("id" to id(),"family" to f.str("id"),"user_id" to u,"display_name" to find("users",u).str("nickname"),"role" to "admin","version" to 1));return ok("household" to f)
     }
-    if(s[1]=="join") {val invite=rows("invitations").firstOrNull{it.str("code")==b.str("code")&&it.bool("active")}?:fail(422,"邀请码无效")
+    if(s[1]=="join") {val invite=rows("invitations").firstOrNull{it.str("code")==b.str("code")&&it.bool("active")&&(it.num("expires_at")?:0.0)>clock()/1000}?:fail(422,"邀请码无效")
         val f=invite.str("family")!!;if(rows("members").none{it.str("family")==f&&it.str("user_id")==u})add("members",jsonOf("id" to id(),"family" to f,"user_id" to u,"display_name" to find("users",u).str("nickname"),"role" to "member","version" to 1));return ok("household" to find("families",f)) }
     val f=s[1];val membership=member(f,u)
     if(s.size==2)return jsonOf("household" to find("families",f),"membership" to membership,"members" to rows("members").filter{it.str("family")==f},"inventory" to stock(f).map{it.with("freshness" to fresh(it))},"invitations" to rows("invitations").filter{it.str("family")==f})
@@ -33,7 +33,7 @@ internal fun LocalEngine.shopping(m:String,s:List<String>,b:JsonObject,u:String,
     fun list()=items(rows("shopping").filter{it.str("family")==f})
     if(s.size==3){if(m=="GET")return list();validateStock(b);add("shopping",b.with("id" to id(),"family" to f,"version" to 1,"state" to "open","history" to emptyList<String>()));return ok()}
     if(s[3]=="sources")return jsonOf("recipes" to recipes.map{jsonOf("id" to it.str("id"),"name" to it.str("name"))},"menus" to rows("menus").filter{it.str("owner")==u})
-    if(s[3]=="generate") {val source=b.str("source_id").orEmpty();val ingredients=if(b.str("source_type")=="menu")find("menus",source).obj("result")!!.objects("meals").flatMap{it.objects("dishes")}.flatMap{it.obj("recipe")!!.objects("ingredients")}else recipes.firstOrNull{it.str("id")==source}?.objects("ingredients")?:fail(404,"菜谱不存在")
+    if(s[3]=="generate") {val source=b.str("source_id").orEmpty();val ingredients=if(b.str("source_type")=="menu")find("menus",source).also{own(it,u)}.obj("result")!!.objects("meals").flatMap{it.objects("dishes")}.flatMap{dish->dish.obj("recipe")!!.objects("ingredients").map{it.with("amount" to (it.num("amount")?:0.0)*(dish.num("factor")?:1.0))}}else recipes.firstOrNull{it.str("id")==source}?.objects("ingredients")?:fail(404,"菜谱不存在")
         ingredients.forEach{i->val amount=(i.num("amount")?:1.0)*(b.num("multiplier")?:1.0);val old=rows("shopping").firstOrNull{it.str("family")==f&&it.str("name")==i.str("name")&&it.str("unit")==i.str("unit")&&it.str("state")=="open"};if(old!=null)replace("shopping",updated(old,jsonOf("quantity" to old.num("quantity")!!+amount)))else add("shopping",jsonOf("id" to id(),"family" to f,"version" to 1,"name" to i.str("name"),"unit" to i.str("unit"),"quantity" to amount,"state" to "open","history" to emptyList<String>()))};return ok()}
     val r=find("shopping",s[3]);if(r.str("family")!=f)fail(403,"没有权限");version(r,b)
     if(s.getOrNull(4)=="stock-in") {if(r.str("state")!="bought")fail(409,"请先确认购买");add("stock",newStock(b,f));replace("shopping",updated(r,jsonOf("state" to "stocked")));return ok()}
