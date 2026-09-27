@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Monochrome status-bar icon: chef hat from the CookX mark. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="256"
+    android:viewportHeight="256">
+    <path android:pathData="M67,150V110c-19,-4 -30,-20 -27,-39 3,-18 19,-31 38,-30 8,-10 25,-15 45,-15 23,0 42,8 48,22 20,-3 39,11 42,31 3,21 -12,40 -33,43v28"
+        android:strokeColor="#FFFFFFFF" android:strokeWidth="18" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000" />
+    <path android:pathData="M67,190h113" android:strokeColor="#FFFFFFFF" android:strokeWidth="18" android:strokeLineCap="round" android:fillColor="#00000000" />
+    <path android:pathData="M100,100v60M128,90v70M156,100v60" android:strokeColor="#FFFFFFFF" android:strokeWidth="12" android:strokeLineCap="round" android:fillColor="#00000000" />
+</vector>

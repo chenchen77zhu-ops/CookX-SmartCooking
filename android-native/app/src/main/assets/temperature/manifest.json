@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "featureVersion": 1,
+  "modelVersion": "thermal-transformer-v1",
+  "file": "thermal-transformer.onnx",
+  "sha256": "46e444706ca8c37f6c3b91f7be9a43d84ee54d6f0cedcc2b41cdad145fd59d57",
+  "bytes": 329948,
+  "inputShape": [
+    1,
+    120,
+    8
+  ],
+  "phases": [
+    "preheat",
+    "drop",
+    "recovery",
+    "steady",
+    "cooling",
+    "unknown"
+  ],
+  "horizonsSeconds": [
+    5,
+    15,
+    30
+  ],
+  "defaultMode": "rules",
+  "validationDomain": "physics_simulation_only",
+  "experimental": true
+}
