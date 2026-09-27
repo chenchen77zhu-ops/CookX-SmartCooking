@@ -1,5 +1,7 @@
 # CookX
 
+[下载原生离线内容 APK](https://github.com/chenchen77zhu-ops/CookX-SmartCooking/releases/tag/native-showcase-20260927) · [验收记录](docs/NATIVE-OFFLINE-ACCEPTANCE.md)
+
 当前分支提供独立的原生离线内容安装包，界面与正式版一致。使用、初始账号、功能边界及构建方法见 [原生离线分支说明](docs/NATIVE-OFFLINE-SHOWCASE.md)。此分支禁止合入 main。
 
 # CookX 鲜厨智享
