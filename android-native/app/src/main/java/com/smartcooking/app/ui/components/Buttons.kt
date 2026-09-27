@@ -60,15 +60,16 @@ fun PrimaryButton(
     enabled: Boolean = true,
     loading: Boolean = false,
     container: Color = CookX.Primary,
+    content: Color = if (CookX.isDark) Color(0xFF07140D) else Color.White,
 ) {
     Button(
         onClick = onClick,
         enabled = enabled && !loading,
         modifier = modifier.defaultMinSize(minHeight = 48.dp),
         shape = CookXShapes.Button,
-        colors = ButtonDefaults.buttonColors(containerColor = container, contentColor = Color.White, disabledContainerColor = container.copy(alpha = 0.4f), disabledContentColor = Color.White.copy(alpha = 0.85f)),
+        colors = ButtonDefaults.buttonColors(containerColor = container, contentColor = content, disabledContainerColor = container.copy(alpha = 0.4f), disabledContentColor = content.copy(alpha = 0.85f)),
         contentPadding = PaddingValues(horizontal = 18.dp, vertical = 12.dp),
-    ) { ButtonContent(text, icon, loading, trailingIcon, Color.White) }
+    ) { ButtonContent(text, icon, loading, trailingIcon, content) }
 }
 
 /** Warm orange call to action with gradient, used for the single most important action on a screen. */
@@ -84,7 +85,7 @@ fun AccentButton(
 ) {
     Box(
         modifier
-            .shadow(if (enabled) 10.dp else 0.dp, CookXShapes.Button, spotColor = Color(0x66D86B35), ambientColor = Color(0x33D86B35))
+            .shadow(if (enabled) 10.dp else 0.dp, CookXShapes.Button, spotColor = Color(0x66F0701E), ambientColor = Color(0x33F0701E))
             .clip(CookXShapes.Button)
             .background(if (enabled) CookX.accentBrush else androidx.compose.ui.graphics.SolidColor(CookX.Accent.copy(alpha = 0.45f))),
     ) {
@@ -155,19 +156,19 @@ fun LinkButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier,
     }
 }
 
-/** Glassy icon button on dark hero backgrounds (back, notifications). */
+/** Round icon button used in page headers (back, notifications): a white disc with a soft shadow. */
 @Composable
 fun HeroIconButton(icon: ImageVector, contentDescription: String, onClick: () -> Unit, modifier: Modifier = Modifier, badge: Boolean = false) {
     Box(
         modifier
-            .size(42.dp)
-            .clip(CookXShapes.Input)
-            .background(CookX.OnDarkFaint)
-            .pressable(onClick)
-            .then(Modifier),
+            .size(40.dp)
+            .shadow(6.dp, CookXShapes.Pill, spotColor = CookX.Shadow, ambientColor = CookX.Shadow)
+            .clip(CookXShapes.Pill)
+            .background(CookX.Surface)
+            .pressable(onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription, tint = Color.White, modifier = Modifier.size(21.dp))
+        Icon(icon, contentDescription, tint = CookX.Text, modifier = Modifier.size(21.dp))
         if (badge) Box(Modifier.align(Alignment.TopEnd).padding(9.dp).size(8.dp).clip(CookXShapes.Pill).background(CookX.Accent))
     }
 }

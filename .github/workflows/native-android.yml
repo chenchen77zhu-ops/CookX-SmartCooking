@@ -1,0 +1,36 @@
+name: Native Android
+on:
+  pull_request:
+    paths: ['android-native/**', '.github/workflows/native-android.yml']
+  push:
+    branches: [main, feat/native-ui-redesign, feat/p2-local-test-apk, feat/native-offline-showcase]
+    paths: ['android-native/**', '.github/workflows/native-android.yml']
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Build and test native app
+        working-directory: android-native
+        run: |
+          sdkmanager "platforms;android-36" "build-tools;35.0.0"
+          chmod +x gradlew
+          ./gradlew :app:assembleDebug :app:testDebugUnitTest --no-daemon
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: CookX-native-${{ github.sha }}
+          path: |
+            android-native/app/build/outputs/apk/debug/*.apk
+            android-native/app/build/reports/tests/
+            android-native/screenshots/

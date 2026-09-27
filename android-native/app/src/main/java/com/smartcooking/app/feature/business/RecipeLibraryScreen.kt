@@ -152,7 +152,7 @@ fun RecipeLibraryScreen(navigator: Navigator, initialCopy: String?, onlyFavorite
                     badge = { StatusChip(if (status == "missing") "缺少" else "需核查", if (status == "missing") Tone.Danger else Tone.Gold) })
             }
             Spacer(Modifier.height(12.dp))
-            PrimaryButton("已核对，送到烹饪页", { if (vm.prepare()) { vm.checked.value = null; navigator.tab(Routes.KITCHEN) } }, Modifier.fillMaxWidth())
+            PrimaryButton("已核对，送到烹饪页", { if (vm.prepare()) { vm.checked.value = null; navigator.tab(Routes.CHEF) } }, Modifier.fillMaxWidth())
         }
     }
 }

@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -14,34 +15,43 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.outlined.Bluetooth
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.DeliveryDining
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.PlayCircle
 import androidx.compose.material.icons.outlined.Restaurant
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Storefront
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -52,28 +62,36 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.smartcooking.app.core.Time
+import coil3.compose.rememberAsyncImagePainter
+import com.smartcooking.app.core.LocalAppContainer
 import com.smartcooking.app.data.ChatMessage
 import com.smartcooking.app.data.Recipe
 import com.smartcooking.app.feature.cooking.CookingState
+import com.smartcooking.app.feature.live.CookingActions
+import com.smartcooking.app.feature.live.CookingContent
+import com.smartcooking.app.feature.live.LiveKitchenActions
+import com.smartcooking.app.feature.live.LiveKitchenContent
+import com.smartcooking.app.feature.live.OverheatGuide
+import com.smartcooking.app.feature.live.TempChart
 import com.smartcooking.app.ui.components.AccentButton
 import com.smartcooking.app.ui.components.ActionRow
 import com.smartcooking.app.ui.components.Banner
 import com.smartcooking.app.ui.components.BannerKind
 import com.smartcooking.app.ui.components.ConfirmDialog
 import com.smartcooking.app.ui.components.CookXCard
+import com.smartcooking.app.ui.components.CookXSheet
 import com.smartcooking.app.ui.components.EmptyState
-import com.smartcooking.app.ui.components.GradientIcon
-import com.smartcooking.app.ui.components.HeroHeader
+import com.smartcooking.app.ui.components.HeroIconButton
 import com.smartcooking.app.ui.components.IconBadge
 import com.smartcooking.app.ui.components.Kicker
-import com.smartcooking.app.ui.components.LinkButton
+import com.smartcooking.app.ui.components.LargeTitle
 import com.smartcooking.app.ui.components.LocalMessenger
 import com.smartcooking.app.ui.components.OutlineButton
 import com.smartcooking.app.ui.components.PrimaryButton
@@ -81,24 +99,40 @@ import com.smartcooking.app.ui.components.SectionHeader
 import com.smartcooking.app.ui.components.StatusChip
 import com.smartcooking.app.ui.components.TonalButton
 import com.smartcooking.app.ui.components.Tone
+import com.smartcooking.app.ui.components.Wordmark
 import com.smartcooking.app.ui.components.fieldColors
 import com.smartcooking.app.ui.components.pressable
+import com.smartcooking.app.ui.components.topInset
 import com.smartcooking.app.ui.nav.Navigator
-import com.smartcooking.app.ui.nav.cookxViewModel
+import com.smartcooking.app.ui.nav.Routes
+import com.smartcooking.app.ui.nav.cookxSharedViewModel
 import com.smartcooking.app.ui.theme.CookX
 import com.smartcooking.app.ui.theme.CookXShapes
+import com.smartcooking.app.ui.theme.KitchenColors
 
+// ---------------------------------------------------------------------------- kitchen tab
+
+/**
+ * 厨房 tab: the live kitchen (Apple Weather–style) and, while cooking, the full-screen cooking
+ * dashboard. Detailed tools (steps, timer, voice, reminders, adjustments, device diagnostics)
+ * live in sheets so the pages stay calm.
+ */
 @Composable
 fun KitchenScreen(navigator: Navigator) {
-    val vm = cookxViewModel { KitchenViewModel(it) }
+    val vm = cookxSharedViewModel { KitchenViewModel(it) }
+    val container = LocalAppContainer.current
     val messenger = LocalMessenger.current
     val context = LocalContext.current
-    val chat by vm.chat.collectAsStateWithLifecycle()
+    val live by container.live.state.collectAsStateWithLifecycle()
     val cooking by vm.cooking.collectAsStateWithLifecycle()
     val session by vm.engine.state.collectAsStateWithLifecycle()
     val connection by vm.bluetooth.connection.collectAsStateWithLifecycle()
     val replaceTarget by vm.confirmReplace.collectAsStateWithLifecycle()
+    val openCooking by container.events.openCooking.collectAsStateWithLifecycle()
     var showDevice by remember { mutableStateOf(false) }
+    var showSense by remember { mutableStateOf(false) }
+    var showTools by remember { mutableStateOf(false) }
+    var showAlert by remember { mutableStateOf(false) }
 
     val btPermissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
         if (result.values.all { it }) { showDevice = true; vm.scan()?.let(messenger::show) } else messenger.show("请允许 CookX 使用附近设备权限")
@@ -125,14 +159,46 @@ fun KitchenScreen(navigator: Navigator) {
         exporter.launch(if (kind == "device") "cookx-device-diagnostics-${System.currentTimeMillis()}.json" else "cookx-temperature-${System.currentTimeMillis()}.json")
     }
 
-    if (cooking && session != null) CookingView(vm, session!!, onDevice = ::openDevice, onExport = export)
-    else ChatView(vm, chat, session, onDevice = ::openDevice)
+    val active = session?.active == true
+    val inCooking = cooking && session != null
+    LaunchedEffect(openCooking) {
+        if (openCooking) { container.events.openCooking.value = false; if (active && !cooking) vm.restore() }
+    }
+    LaunchedEffect(inCooking) { container.events.immersive.value = inCooking }
+    DisposableEffect(Unit) { onDispose { container.events.immersive.value = false } }
+    BackHandler(inCooking) { vm.exitCooking() }
+
+    if (inCooking) {
+        val image = session?.recipeModel?.imageUrl
+        CookingContent(
+            live,
+            dishImage = if (image != null) rememberAsyncImagePainter(image) else null,
+            actions = CookingActions(
+                onBack = vm::exitCooking, onTools = { showTools = true }, onPrevious = vm::previous, onNext = vm::next,
+                onAdvice = { showTools = true }, onAlert = { showAlert = true }, onTrend = { showSense = true },
+            ),
+        )
+    } else {
+        LiveKitchenContent(
+            live,
+            unread = false,
+            actions = LiveKitchenActions(
+                onBell = { container.events.openNotices.value = true; navigator.tab(Routes.PROFILE) },
+                onDevice = { if (live.online) showSense = true else openDevice() },
+                onTrend = { showSense = true },
+                onAdvice = { if (active) vm.restore() else navigator.tab(Routes.CHEF) },
+                onAlert = { showAlert = true },
+            ),
+        )
+    }
 
     val showCompletion by vm.showCompletion.collectAsStateWithLifecycle()
     session?.let { s ->
         if (showCompletion) CompletionSheet(s.id, s.completed, onComplete = vm::completed, onClose = vm::closeCompletion, onContinue = { vm.showCompletion.value = false })
     }
-
+    if (showTools && session != null) CookingToolsSheet(vm, session!!, onDevice = ::openDevice, onExport = export, onDismiss = { showTools = false })
+    if (showSense) SenseSheet(vm, onConnect = { showSense = false; openDevice() }, onExport = export, onDismiss = { showSense = false })
+    if (showAlert) AlertSheet(onDismiss = { showAlert = false })
     if (showDevice) {
         val devices by vm.bluetooth.devices.collectAsStateWithLifecycle()
         val scanning by vm.bluetooth.scanning.collectAsStateWithLifecycle()
@@ -147,52 +213,152 @@ fun KitchenScreen(navigator: Navigator) {
     LaunchedEffect(connection.state) { if (connection.errorCode.isNotEmpty() && connection.state.id == "error") messenger.show(connection.message) }
 }
 
+/** Red over-temperature guidance with mute and voice actions. */
 @Composable
-private fun KitchenHero(vm: KitchenViewModel, session: CookingState?, cooking: Boolean, remaining: Long, overall: Int) {
+private fun AlertSheet(onDismiss: () -> Unit) {
+    val container = LocalAppContainer.current
+    val live by container.live.state.collectAsStateWithLifecycle()
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = Color(0xFF171514),
+        contentColor = KitchenColors.Text,
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
+    ) {
+        OverheatGuide(
+            live, muted = live.muted,
+            onMute = container.live::acknowledge,
+            onSpeak = container.live::speakNow,
+            onClose = { container.live.acknowledge(); onDismiss() },
+            modifier = Modifier.navigationBarsPadding().padding(bottom = 16.dp),
+        )
+    }
+}
+
+/** Temperature details: the full chart, the rules/experimental engine panel and replay. */
+@Composable
+private fun SenseSheet(vm: KitchenViewModel, onConnect: () -> Unit, onExport: (String, Boolean) -> Unit, onDismiss: () -> Unit) {
+    val container = LocalAppContainer.current
+    val live by container.live.state.collectAsStateWithLifecycle()
     val connection by vm.bluetooth.connection.collectAsStateWithLifecycle()
-    val playback by vm.voice.playback.collectAsStateWithLifecycle()
-    HeroHeader(section = "AI 厨房", bottomOverlap = 26) {
-        Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StatusChip("CookX Sense ${connection.label}", if (connection.connected) Tone.Fresh else Tone.OnDark, icon = Icons.Outlined.Bluetooth)
-            StatusChip(if (cooking) "语音 · ${playback.name.lowercase().let { mapOf("idle" to "待播放", "loading" to "准备中", "playing" to "播报中", "paused" to "已暂停")[it] }}" else "语音待命", Tone.OnDark, icon = Icons.Outlined.Mic)
+    val latest by vm.bluetooth.latest.collectAsStateWithLifecycle()
+    val assessment by vm.temperature.assessment.collectAsStateWithLifecycle()
+    val history by vm.temperature.history.collectAsStateWithLifecycle()
+    val prediction by vm.temperature.prediction.collectAsStateWithLifecycle()
+    val modelState by vm.temperature.modelState.collectAsStateWithLifecycle()
+    val experimental by vm.temperature.experimental.collectAsStateWithLifecycle()
+    val replaying by vm.temperature.replaying.collectAsStateWithLifecycle()
+    val storageMessage by vm.temperature.storageMessage.collectAsStateWithLifecycle()
+    val connecting by vm.connecting.collectAsStateWithLifecycle()
+    val deviceMessage by vm.deviceMessage.collectAsStateWithLifecycle()
+    CookXSheet("温度趋势与设备", onDismiss, subtitle = "最近 6 分钟的锅温；阶段与建议仅作参考，请以实际情况为准。") {
+        Box(Modifier.fillMaxWidth().clip(CookXShapes.Card).background(Color(0xFF1B1A18)).padding(14.dp)) {
+            TempChart(live.history, live.now, height = 150.dp, alert = live.alert != null)
         }
-        Spacer(Modifier.height(16.dp))
-        if (cooking && session != null) {
-            val recipe = session.recipeModel
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                GradientIcon(Icons.Outlined.Restaurant, CookX.accentBrush, size = 52.dp)
-                Spacer(Modifier.width(14.dp))
-                Column(Modifier.weight(1f)) {
-                    Kicker("COOKX COOKING")
-                    Text(recipe.dishName, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text("${if (session.timer.deadline == null) "已暂停" else "烹饪中"}${if (recipe.totalSeconds > 0) " · 总时长约 ${maxOf(1, Math.round(recipe.totalSeconds / 60))} 分钟" else ""}", color = CookX.OnDarkMuted, fontSize = 12.sp)
+        Spacer(Modifier.height(12.dp))
+        SensePanel(connection, latest, assessment, history, prediction, modelState, experimental, replaying, storageMessage, connecting,
+            onConnect = onConnect, onDisconnect = vm::disconnect, onEvent = vm.temperature::confirm, onExperimental = vm.temperature::setExperimental,
+            onReplay = vm.temperature::startReplay, onStopReplay = vm.temperature::stopReplay, onExport = { onExport("temperature", it) })
+        Spacer(Modifier.height(12.dp))
+        ActionRow {
+            TonalButton("重新核对设备状态", vm::refreshDevice, icon = Icons.Outlined.Settings)
+            OutlineButton("导出设备诊断", { onExport("device", false) })
+        }
+        if (deviceMessage.isNotBlank()) Text(deviceMessage, style = MaterialTheme.typography.bodySmall, color = CookX.TextSecondary, modifier = Modifier.padding(top = 8.dp))
+    }
+}
+
+/** Everything the cooking dashboard leaves out: step text, timer, voice, steps, reminders, adjustments. */
+@Composable
+private fun CookingToolsSheet(vm: KitchenViewModel, session: CookingState, onDevice: () -> Unit, onExport: (String, Boolean) -> Unit, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val now by vm.now.collectAsStateWithLifecycle()
+    val playback by vm.voice.playback.collectAsStateWithLifecycle()
+    val progress by vm.voice.progress.collectAsStateWithLifecycle()
+    val voiceUi by vm.voiceUi.collectAsStateWithLifecycle()
+    val sessionMessage by vm.sessionMessage.collectAsStateWithLifecycle()
+    val remindersOn by vm.remindersOn.collectAsStateWithLifecycle()
+    val notificationMessage by vm.notificationMessage.collectAsStateWithLifecycle()
+    val checkError by vm.checkError.collectAsStateWithLifecycle()
+    val preview by vm.adjustmentPreview.collectAsStateWithLifecycle()
+    val adjustmentError by vm.adjustmentError.collectAsStateWithLifecycle()
+    val remaining = remember(now, session) { (vm.engine.remaining() + 999) / 1000 }
+    val steps = session.recipeModel.steps
+    val duration = steps[session.stepIndex].durationSeconds?.coerceAtLeast(1.0) ?: 1.0
+    val stepPct = ((duration - remaining) / duration).coerceIn(0.0, 1.0)
+    val overall = minOf(100, Math.round((session.stepIndex + stepPct) / steps.size * 100).toInt())
+
+    val mic = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok -> if (ok) vm.listen() else vm.voiceUi.value = vm.voiceUi.value.copy(commandStatus = "麦克风权限未授予，请使用文字或按钮") }
+    val notify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok -> vm.setReminders(true, ok) }
+    val exact = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { vm.onExactSettingsReturned() }
+
+    CookXSheet("烹饪工具", onDismiss, subtitle = "${session.recipeModel.dishName} · 第 ${session.stepIndex + 1}/${steps.size} 步") {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (sessionMessage.isNotBlank()) Banner(sessionMessage, BannerKind.Warning)
+            CurrentStepCard(session, remaining, playback, progress, voiceUi.message, vm::toggleVoice, vm::runStep, vm::runCloudStep, vm::previous, vm::next, vm::pauseTimer, vm::resumeTimer, vm::setManualTimer)
+            VoiceCommandCard(voiceUi,
+                onListen = { if (androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED) vm.listen() else mic.launch(Manifest.permission.RECORD_AUDIO) },
+                onCancel = vm::cancelListening, onText = vm::setCommandText, onRun = { vm.interpret(voiceUi.commandText, 1f) }, onExecute = vm::execute,
+                onDismiss = { vm.voiceUi.value = voiceUi.copy(pendingCommands = emptyList()) })
+            StepsTrack(session, overall)
+            RemindersCard(session, remindersOn, notificationMessage, checkError,
+                onToggle = { on ->
+                    val granted = Build.VERSION.SDK_INT < 33 || androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                    if (on && !granted) notify.launch(Manifest.permission.POST_NOTIFICATIONS) else vm.setReminders(on, true)
+                },
+                onExact = { vm.exactSettingsIntent()?.let { runCatching { exact.launch(it) } } ?: vm.onExactSettingsReturned() },
+                onRetryCheck = vm::checkInventory, onDismiss = vm::dismissReminder)
+            AdjustmentsCard(session, preview, adjustmentError, vm.engine::canUndo, vm::previewAdjustment, vm::applyAdjustment, { vm.adjustmentPreview.value = null }, vm::undoAdjustment)
+            SupportCards(session)
+            CookXCard(Modifier.fillMaxWidth()) {
+                SectionHeader("CookX Sense", icon = Icons.Outlined.Bluetooth, subtitle = "连接后实时显示锅温；退到后台时在通知栏继续显示。")
+                Spacer(Modifier.height(10.dp))
+                ActionRow {
+                    TonalButton("扫描与连接设备", onDevice)
+                    OutlineButton("重新核对设备状态", vm::refreshDevice)
+                    OutlineButton("导出设备诊断", { onExport("device", false) })
                 }
             }
-            Spacer(Modifier.height(14.dp))
-            Column(Modifier.fillMaxWidth().clip(CookXShapes.Tile).background(Color.White.copy(alpha = 0.08f)).padding(14.dp)) {
-                Row {
-                    Text("整体进度", color = CookX.OnDarkMuted, fontSize = 12.sp, modifier = Modifier.weight(1f))
-                    Text("${session.stepIndex + 1} / ${recipe.steps.size} 步", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                }
-                Spacer(Modifier.height(8.dp))
-                LinearProgressIndicator(progress = { overall / 100f }, Modifier.fillMaxWidth().height(8.dp).clip(CookXShapes.Pill), color = CookX.Accent, trackColor = Color.White.copy(alpha = 0.14f), drawStopIndicator = {})
-                Spacer(Modifier.height(8.dp))
-                val future = recipe.steps.drop(session.stepIndex + 1).sumOf { it.durationSeconds?.takeIf { d -> d > 0 } ?: 0.0 }
-                val left = remaining + future.toLong()
-                Text("预计完成 ${if (left > 0) Time.clock(System.currentTimeMillis() + left * 1000) else "--:--"}", color = CookX.OnDarkMuted, fontSize = 12.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlineButton("收起烹饪导航", { onDismiss(); vm.exitCooking() }, Modifier.weight(1f), color = CookX.TextSecondary)
+                PrimaryButton("完成与库存核对", { onDismiss(); vm.showCompletion.value = true }, Modifier.weight(1f))
             }
-        } else {
-            Kicker("COOKX INTELLIGENCE")
-            Text("CookX AI 厨房", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
-            Text("从菜谱推荐到语音步骤指导，让每一步都更从容。", color = CookX.OnDarkMuted, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
         }
     }
 }
 
-// ---------------------------------------------------------------------------- chat mode
+// ---------------------------------------------------------------------------- AI recipe tab
+
+/** AI 菜谱 tab: the recipe conversation. Starting a recipe switches to the kitchen tab. */
+@Composable
+fun ChefScreen(navigator: Navigator) {
+    val vm = cookxSharedViewModel { KitchenViewModel(it) }
+    val container = LocalAppContainer.current
+    val messenger = LocalMessenger.current
+    val chat by vm.chat.collectAsStateWithLifecycle()
+    val session by vm.engine.state.collectAsStateWithLifecycle()
+    val replaceTarget by vm.confirmReplace.collectAsStateWithLifecycle()
+    val prompt by container.events.chefPrompt.collectAsStateWithLifecycle()
+    var confirmClear by remember { mutableStateOf(false) }
+    LaunchedEffect(vm) { vm.started.collect { navigator.tab(Routes.KITCHEN) } }
+    LaunchedEffect(prompt) { prompt?.let { container.events.chefPrompt.value = null; vm.send(it) } }
+
+    ChatView(vm, chat, session, navigator, onClear = { confirmClear = true }, onResume = { container.events.openCooking.value = true; navigator.tab(Routes.KITCHEN) })
+
+    val showCompletion by vm.showCompletion.collectAsStateWithLifecycle()
+    session?.let { s ->
+        if (showCompletion) CompletionSheet(s.id, s.completed, onComplete = vm::completed, onClose = vm::closeCompletion, onContinue = { vm.showCompletion.value = false })
+    }
+    replaceTarget?.let { r ->
+        ConfirmDialog("替换烹饪", "开始新的菜谱将替换当前烹饪记录，是否继续？", { vm.start(r) }, { vm.confirmReplace.value = null }, confirmText = "替换", dismissText = "保留当前")
+    }
+    if (confirmClear) ConfirmDialog("清空对话", "将删除服务器上保存的菜谱对话记录，已收藏的菜谱不受影响。", {
+        confirmClear = false; vm.clearChat(messenger::show)
+    }, { confirmClear = false }, confirmText = "清空")
+}
 
 @Composable
-private fun ChatView(vm: KitchenViewModel, chat: ChatState, session: CookingState?, onDevice: () -> Unit) {
+private fun ChatView(vm: KitchenViewModel, chat: ChatState, session: CookingState?, navigator: Navigator, onClear: () -> Unit, onResume: () -> Unit) {
     val context = LocalContext.current
     val messenger = LocalMessenger.current
     var input by rememberSaveable { mutableStateOf("") }
@@ -203,10 +369,24 @@ private fun ChatView(vm: KitchenViewModel, chat: ChatState, session: CookingStat
 
     Column(Modifier.fillMaxSize().background(CookX.Bg)) {
         LazyColumn(Modifier.weight(1f), state = listState, contentPadding = PaddingValues(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            item { KitchenHero(vm, session, false, 0, 0) }
+            item {
+                Column(Modifier.topInset().padding(horizontal = 20.dp)) {
+                    Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Wordmark(26.sp, color = CookX.Text)
+                        Spacer(Modifier.weight(1f))
+                        HeroIconButton(Icons.Outlined.DeleteSweep, "清空对话", onClear)
+                    }
+                    LargeTitle("AI 菜谱", "说出想吃的，CookX 结合冰箱与口味生成菜谱", Modifier.padding(top = 6.dp))
+                    Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        QuickLink("菜谱库", Icons.AutoMirrored.Outlined.MenuBook) { navigator.open(Routes.recipes()) }
+                        QuickLink("我的收藏", Icons.Outlined.FavoriteBorder) { navigator.open(Routes.recipes(favorites = true)) }
+                        QuickLink("七日菜单", Icons.Outlined.CalendarMonth) { navigator.open(Routes.MENUS) }
+                    }
+                }
+            }
             if (session?.active == true) item {
-                Banner("发现未完成的烹饪「${session.recipeModel.dishName}」，计时按实际经过时间核对。", BannerKind.Pending, Modifier.padding(horizontal = 16.dp), title = "可恢复烹饪") {
-                    TonalButton("恢复烹饪", vm::restore, tone = Tone.Warm)
+                Banner("「${session.recipeModel.dishName}」还没做完，计时按实际经过时间核对。", BannerKind.Pending, Modifier.padding(horizontal = 16.dp), title = "可恢复烹饪") {
+                    TonalButton("回到厨房继续", onResume, tone = Tone.Warm)
                 }
             }
             if (session?.completed == true && session.consumption != "confirmed") item {
@@ -217,22 +397,17 @@ private fun ChatView(vm: KitchenViewModel, chat: ChatState, session: CookingStat
             chat.error?.let { e -> item {
                 Banner(e, BannerKind.Error, Modifier.padding(horizontal = 16.dp)) { OutlineButton("重新生成菜谱", { vm.send(chat.lastPrompt) }, enabled = chat.lastPrompt.isNotBlank()) }
             } }
-            item {
-                if (latest != null) ReadyCard(latest) { vm.requestStart(latest) }
-                else CookXCard(Modifier.padding(horizontal = 16.dp)) {
-                    EmptyState(Icons.Outlined.Restaurant, "还没有开始烹饪", "告诉 CookX 你想做什么，生成菜谱后可一步步语音指导。", tone = Tone.Warm)
+            if (latest != null) item { ReadyCard(latest) { vm.requestStart(latest) } }
+            else item {
+                Column(Modifier.padding(horizontal = 20.dp)) {
                     Text("试试这样问", style = MaterialTheme.typography.labelLarge, color = CookX.TextSecondary)
                     ActionRow(Modifier.padding(top = 8.dp)) {
-                        listOf("用冰箱里的食材推荐一道菜", "30 分钟内的快手晚餐", "清淡少油的家常菜").forEach { prompt ->
-                            TonalButton(prompt, { vm.send(prompt) }, enabled = !chat.loading)
+                        listOf("用冰箱里的食材做晚餐", "30 分钟内的快手菜", "清淡少油的家常菜").forEach { p ->
+                            Box(
+                                Modifier.clip(RoundedCornerShape(50)).background(CookX.AccentBg).pressable({ if (!chat.loading) vm.send(p) }).padding(horizontal = 14.dp, vertical = 8.dp),
+                            ) { Text(p, color = CookX.AccentText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold) }
                         }
                     }
-                }
-            }
-            item {
-                Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    SectionHeader("AI 菜谱对话", Modifier.weight(1f))
-                    LinkButton("连接测温设备", onDevice, icon = Icons.Outlined.Bluetooth, color = CookX.Primary)
                 }
             }
             items(chat.messages.size) { i -> MessageBubble(chat.messages[i], onStart = { r -> vm.requestStart(r) }, onMarket = { openMarket(context) }, onDelivery = { deliveryDish = it }) }
@@ -246,7 +421,7 @@ private fun ChatView(vm: KitchenViewModel, chat: ChatState, session: CookingStat
                 }
             }
         }
-        Row(Modifier.fillMaxWidth().background(CookX.Surface).border(1.dp, CookX.Border).imePadding().padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().background(CookX.Surface).imePadding().padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(
                 input, { input = it }, Modifier.weight(1f), placeholder = { Text("告诉 CookX 你想做什么…", color = CookX.TextTertiary) },
                 shape = RoundedCornerShape(24.dp), colors = fieldColors(), maxLines = 3,
@@ -268,15 +443,23 @@ private fun ChatView(vm: KitchenViewModel, chat: ChatState, session: CookingStat
 }
 
 @Composable
+private fun QuickLink(text: String, icon: ImageVector, onClick: () -> Unit) {
+    Row(
+        Modifier.clip(RoundedCornerShape(50)).background(CookX.Surface).border(1.dp, CookX.Border, RoundedCornerShape(50)).pressable(onClick).padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, null, tint = CookX.Accent, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(5.dp))
+        Text(text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = CookX.Text)
+    }
+}
+
+@Composable
 private fun ReadyCard(recipe: Recipe, onStart: () -> Unit) {
     CookXCard(Modifier.padding(horizontal = 16.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Kicker("READY TO COOK", color = CookX.Accent)
-                Text(recipe.dishName, style = MaterialTheme.typography.titleLarge)
-                Text("${recipe.steps.size} 个步骤 · 菜谱已准备好，可以开启语音步骤指导", style = MaterialTheme.typography.bodySmall, color = CookX.TextSecondary)
-            }
-        }
+        Kicker("READY TO COOK", color = CookX.Accent)
+        Text(recipe.dishName, style = MaterialTheme.typography.titleLarge, color = CookX.Text)
+        Text("${recipe.steps.size} 个步骤 · 开始后在厨房页跟随锅温一步步进行", style = MaterialTheme.typography.bodySmall, color = CookX.TextSecondary)
         Spacer(Modifier.height(12.dp))
         AccentButton("开始烹饪", onStart, Modifier.fillMaxWidth(), icon = Icons.Outlined.PlayCircle)
     }
@@ -290,8 +473,7 @@ private fun MessageBubble(message: ChatMessage, onStart: (Recipe) -> Unit, onMar
         Column(Modifier.widthIn(max = 320.dp), horizontalAlignment = if (mine) Alignment.End else Alignment.Start) {
             if (message.content.isNotBlank()) Box(
                 Modifier.clip(RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = if (mine) 18.dp else 4.dp, bottomEnd = if (mine) 4.dp else 18.dp))
-                    .background(if (mine) CookX.Primary else CookX.Surface)
-                    .then(if (mine) Modifier else Modifier.border(1.dp, CookX.Border, RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = 4.dp, bottomEnd = 18.dp)))
+                    .background(if (mine) CookX.Accent else CookX.Surface)
                     .padding(horizontal = 14.dp, vertical = 10.dp),
             ) { Text(message.content, color = if (mine) Color.White else CookX.Text, style = MaterialTheme.typography.bodyMedium) }
             message.recipe?.let { r -> RecipeCard(r, { onStart(r) }, onMarket, { onDelivery(r.dishName) }) }
@@ -302,10 +484,10 @@ private fun MessageBubble(message: ChatMessage, onStart: (Recipe) -> Unit, onMar
 @Composable
 private fun RecipeCard(recipe: Recipe, onStart: () -> Unit, onMarket: () -> Unit, onDelivery: () -> Unit) {
     Column(Modifier.padding(top = 8.dp).fillMaxWidth().clip(CookXShapes.Card).background(CookX.Surface).border(1.dp, CookX.Border, CookXShapes.Card)) {
-        Row(Modifier.fillMaxWidth().background(CookX.heroBrush).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 10.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Kicker("COOKX RECIPE")
-                Text(recipe.dishName, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                Kicker("COOKX RECIPE", color = CookX.Accent)
+                Text(recipe.dishName, color = CookX.Text, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
             AccentButton("开始指导", onStart, icon = Icons.Outlined.Mic)
         }
@@ -344,94 +526,3 @@ private fun openDelivery(context: android.content.Context, dish: String, toast: 
         runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://h5.waimai.meituan.com/waimai/mindex/home"))) }
     }
 }
-
-// ---------------------------------------------------------------------------- cooking mode
-
-@Composable
-private fun CookingView(vm: KitchenViewModel, session: CookingState, onDevice: () -> Unit, onExport: (String, Boolean) -> Unit) {
-    val context = LocalContext.current
-    val now by vm.now.collectAsStateWithLifecycle()
-    val playback by vm.voice.playback.collectAsStateWithLifecycle()
-    val progress by vm.voice.progress.collectAsStateWithLifecycle()
-    val voiceUi by vm.voiceUi.collectAsStateWithLifecycle()
-    val sessionMessage by vm.sessionMessage.collectAsStateWithLifecycle()
-    val remindersOn by vm.remindersOn.collectAsStateWithLifecycle()
-    val notificationMessage by vm.notificationMessage.collectAsStateWithLifecycle()
-    val checkError by vm.checkError.collectAsStateWithLifecycle()
-    val preview by vm.adjustmentPreview.collectAsStateWithLifecycle()
-    val adjustmentError by vm.adjustmentError.collectAsStateWithLifecycle()
-    val connection by vm.bluetooth.connection.collectAsStateWithLifecycle()
-    val latest by vm.bluetooth.latest.collectAsStateWithLifecycle()
-    val assessment by vm.temperature.assessment.collectAsStateWithLifecycle()
-    val history by vm.temperature.history.collectAsStateWithLifecycle()
-    val prediction by vm.temperature.prediction.collectAsStateWithLifecycle()
-    val modelState by vm.temperature.modelState.collectAsStateWithLifecycle()
-    val experimental by vm.temperature.experimental.collectAsStateWithLifecycle()
-    val replaying by vm.temperature.replaying.collectAsStateWithLifecycle()
-    val storageMessage by vm.temperature.storageMessage.collectAsStateWithLifecycle()
-    val connecting by vm.connecting.collectAsStateWithLifecycle()
-    val deviceMessage by vm.deviceMessage.collectAsStateWithLifecycle()
-    val remaining = remember(now, session) { (vm.engine.remaining() + 999) / 1000 }
-    val steps = session.recipeModel.steps
-    val duration = steps[session.stepIndex].durationSeconds?.coerceAtLeast(1.0) ?: 1.0
-    val stepPct = ((duration - remaining) / duration).coerceIn(0.0, 1.0)
-    val overall = minOf(100, Math.round((session.stepIndex + stepPct) / steps.size * 100).toInt())
-
-    val mic = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok -> if (ok) vm.listen() else vm.voiceUi.value = vm.voiceUi.value.copy(commandStatus = "麦克风权限未授予，请使用文字或按钮") }
-    val notify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok -> vm.setReminders(true, ok) }
-    val exact = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { vm.onExactSettingsReturned() }
-
-    LazyColumn(Modifier.fillMaxSize().background(CookX.Bg), contentPadding = PaddingValues(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item { KitchenHero(vm, session, true, remaining, overall) }
-        if (sessionMessage.isNotBlank()) section { Banner(sessionMessage, BannerKind.Warning) }
-        section {
-            CurrentStepCard(session, remaining, playback, progress, voiceUi.message, vm::toggleVoice, vm::runStep, vm::runCloudStep, vm::previous, vm::next, vm::pauseTimer, vm::resumeTimer, vm::setManualTimer)
-        }
-        section {
-            VoiceCommandCard(voiceUi,
-                onListen = { if (androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED) vm.listen() else mic.launch(Manifest.permission.RECORD_AUDIO) },
-                onCancel = vm::cancelListening, onText = vm::setCommandText, onRun = { vm.interpret(voiceUi.commandText, 1f) }, onExecute = vm::execute,
-                onDismiss = { vm.voiceUi.value = voiceUi.copy(pendingCommands = emptyList()) })
-        }
-        section {
-            SensePanel(connection, latest, assessment, history, prediction, modelState, experimental, replaying, storageMessage, connecting,
-                onConnect = onDevice, onDisconnect = vm::disconnect, onEvent = vm.temperature::confirm, onExperimental = vm.temperature::setExperimental,
-                onReplay = vm.temperature::startReplay, onStopReplay = vm.temperature::stopReplay, onExport = { onExport("temperature", it) })
-        }
-        section { StepsTrack(session, overall) }
-        section { SupportCards(session) }
-        section {
-            RemindersCard(session, remindersOn, notificationMessage, checkError,
-                onToggle = { on ->
-                    val granted = Build.VERSION.SDK_INT < 33 || androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED
-                    if (on && !granted) notify.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    else vm.setReminders(on, true)
-                },
-                onExact = { vm.exactSettingsIntent()?.let { runCatching { exact.launch(it) } } ?: vm.onExactSettingsReturned() },
-                onRetryCheck = vm::checkInventory, onDismiss = vm::dismissReminder)
-        }
-        section {
-            AdjustmentsCard(session, preview, adjustmentError, vm.engine::canUndo, vm::previewAdjustment, vm::applyAdjustment, { vm.adjustmentPreview.value = null }, vm::undoAdjustment)
-        }
-        section {
-            CookXCard(Modifier.fillMaxWidth()) {
-                SectionHeader("设备状态与诊断", icon = Icons.Outlined.Settings, subtitle = "恢复页面后等待新测量；后台连续采集能力待真机验证。")
-                Spacer(Modifier.height(10.dp))
-                ActionRow {
-                    TonalButton("扫描与连接设备", onDevice)
-                    OutlineButton("重新核对设备状态", vm::refreshDevice)
-                    OutlineButton("导出设备诊断", { onExport("device", false) })
-                }
-                if (deviceMessage.isNotBlank()) Text(deviceMessage, style = MaterialTheme.typography.bodySmall, color = CookX.TextSecondary, modifier = Modifier.padding(top = 8.dp))
-            }
-        }
-        section {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlineButton("返回对话", vm::exitCooking, Modifier.weight(1f), color = CookX.TextSecondary)
-                PrimaryButton("完成与库存核对", { vm.showCompletion.value = true }, Modifier.weight(1f))
-            }
-        }
-    }
-}
-
-private fun LazyListScope.section(content: @Composable () -> Unit) = item { Box(Modifier.padding(horizontal = 16.dp)) { content() } }

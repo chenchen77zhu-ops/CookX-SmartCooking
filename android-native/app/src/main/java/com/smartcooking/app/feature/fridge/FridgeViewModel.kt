@@ -97,7 +97,6 @@ class FridgeViewModel(private val c: AppContainer) : ViewModel() {
             try {
                 val rows = c.inventory.read(user)
                 _state.update { it.copy(inventory = rows, loading = false, lastUpdated = System.currentTimeMillis(), freshness = FreshnessState.Loading) }
-                if (rows.isNotEmpty()) fetchQuickRecipes()
                 val fresh = try { c.inventory.freshness(user) } catch (e: CancellationException) { throw e } catch (e: Exception) { FreshnessState.Failed(e.userMessage()) }
                 _state.update { it.copy(freshness = fresh) }
             } catch (e: CancellationException) { throw e } catch (e: Exception) {
@@ -106,8 +105,10 @@ class FridgeViewModel(private val c: AppContainer) : ViewModel() {
         }
     }
 
-    private fun fetchQuickRecipes() {
+    /** Asks the model for one dish idea; only when the inspiration card is shown (it is an AI call). */
+    fun loadInspiration() {
         val user = user ?: return
+        if (_state.value.inventory.isEmpty() || _state.value.quickLoading || _state.value.quickDishes.isNotEmpty()) return
         quickJob?.cancel()
         quickJob = viewModelScope.launch {
             _state.update { it.copy(quickLoading = true) }

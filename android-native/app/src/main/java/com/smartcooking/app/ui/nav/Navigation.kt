@@ -59,7 +59,11 @@ import com.smartcooking.app.feature.business.ShoppingScreen
 import com.smartcooking.app.feature.fridge.CaptureConfirmScreen
 import com.smartcooking.app.feature.fridge.FridgeScreen
 import com.smartcooking.app.feature.home.HomeScreen
+import com.smartcooking.app.feature.kitchen.ChefScreen
 import com.smartcooking.app.feature.kitchen.KitchenScreen
+import com.smartcooking.app.feature.fridge.FreshnessCheckScreen
+import com.smartcooking.app.feature.fridge.FridgeItemsScreen
+import com.smartcooking.app.feature.profile.InvitesScreen
 import com.smartcooking.app.feature.profile.AboutScreen
 import com.smartcooking.app.feature.profile.AccountSecurityScreen
 import com.smartcooking.app.feature.profile.CookingHistoryScreen
@@ -74,6 +78,10 @@ object Routes {
     const val HOME = "home"
     const val FRIDGE = "fridge"
     const val KITCHEN = "kitchen"
+    const val CHEF = "chef"
+    const val FRIDGE_ITEMS = "fridge-items?filter={filter}"
+    const val FRESHNESS_CHECK = "freshness-check"
+    const val INVITES = "invites"
     const val PROFILE = "profile"
     const val CAPTURE_CONFIRM = "capture-confirm"
     const val HOUSEHOLD = "household"
@@ -89,8 +97,10 @@ object Routes {
     const val HISTORY = "cooking-history"
     const val ABOUT = "about"
 
-    val tabs = setOf(HOME, FRIDGE, KITCHEN, PROFILE)
+    val tabs = setOf(HOME, FRIDGE, KITCHEN, CHEF, PROFILE)
     val public = setOf(LOGIN, REGISTER)
+
+    fun fridgeItems(filter: String = "all") = "fridge-items?filter=$filter"
 
     fun recipes(copy: String? = null, favorites: Boolean = false) =
         "recipes?copy=${copy.orEmpty()}&favorites=$favorites"
@@ -140,6 +150,12 @@ fun CookXNavHost(nav: NavHostController, startDestination: String) {
         composable(Routes.HOME) { HomeScreen(navigator) }
         composable(Routes.FRIDGE) { FridgeScreen(navigator) }
         composable(Routes.KITCHEN) { KitchenScreen(navigator) }
+        composable(Routes.CHEF) { ChefScreen(navigator) }
+        composable(Routes.FRIDGE_ITEMS, arguments = listOf(navArgument("filter") { type = NavType.StringType; defaultValue = "all" })) { entry ->
+            FridgeItemsScreen(navigator, entry.arguments?.getString("filter") ?: "all")
+        }
+        composable(Routes.FRESHNESS_CHECK) { FreshnessCheckScreen(navigator) }
+        composable(Routes.INVITES) { InvitesScreen(navigator) }
         composable(Routes.PROFILE) { ProfileScreen(navigator) }
         composable(Routes.CAPTURE_CONFIRM) { CaptureConfirmScreen(navigator) }
         composable(Routes.HOUSEHOLD) { HouseholdScreen(navigator) }
@@ -169,48 +185,12 @@ fun CookXNavHost(nav: NavHostController, startDestination: String) {
     }
 }
 
-private data class TabItem(val route: String, val label: String, val icon: ImageVector, val selectedIcon: ImageVector)
-
-private val tabItems = listOf(
-    TabItem(Routes.HOME, "首页", Icons.Outlined.Home, Icons.Filled.Home),
-    TabItem(Routes.FRIDGE, "冰箱", Icons.Outlined.Kitchen, Icons.Filled.Kitchen),
-    TabItem(Routes.KITCHEN, "AI 厨房", Icons.Outlined.SoupKitchen, Icons.Filled.SoupKitchen),
-    TabItem(Routes.PROFILE, "我的", Icons.Outlined.Person, Icons.Filled.Person),
-)
-
+/** Bottom tab bar (translucent, hairline edge) wired to the navigator. */
 @Composable
 fun CookXBottomBar(nav: NavHostController, current: String?) {
     val navigator = remember(nav) { Navigator(nav) }
-    Box(
-        Modifier.fillMaxWidth()
-            .shadow(18.dp, spotColor = Color(0x331C3028), ambientColor = Color(0x221C3028))
-            .background(Color.White)
-            .border(width = 1.dp, color = CookX.Border)
-            .navigationBarsPadding(),
-    ) {
-        Row(Modifier.fillMaxWidth().height(66.dp).padding(horizontal = 8.dp), horizontalArrangement = Arrangement.SpaceAround, verticalAlignment = Alignment.CenterVertically) {
-            tabItems.forEach { item ->
-                val active = current == item.route
-                Column(
-                    Modifier.weight(1f).clip(CookXShapes.Tile)
-                        .clickable(remember { MutableInteractionSource() }, indication = null) { if (!active) navigator.tab(item.route) }
-                        .padding(vertical = 6.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Box(
-                        Modifier.size(width = 52.dp, height = 30.dp).clip(CookXShapes.Input).background(if (active) CookX.Mint else Color.Transparent),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(if (active) item.selectedIcon else item.icon, item.label, tint = if (active) CookX.Primary else CookX.TextSecondary, modifier = Modifier.size(23.dp))
-                    }
-                    Text(
-                        item.label, fontSize = 11.5.sp,
-                        fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
-                        color = if (active) CookX.Primary else CookX.TextSecondary,
-                        modifier = Modifier.padding(top = 3.dp),
-                    )
-                }
-            }
-        }
+    Column(Modifier.fillMaxWidth().background(CookX.TabBar)) {
+        CookXTabBar(current, { navigator.tab(it) })
+        Box(Modifier.fillMaxWidth().navigationBarsPadding())
     }
 }

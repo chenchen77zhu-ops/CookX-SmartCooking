@@ -96,7 +96,7 @@ fun Banner(
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 if (title != null) Text(title, fontWeight = FontWeight.Bold, fontSize = 13.5.sp, color = kind.tone.fg)
-                Text(text, style = MaterialTheme.typography.bodyMedium, color = if (kind == BannerKind.Error) Color(0xFF8C2A1E) else CookX.TextBody)
+                Text(text, style = MaterialTheme.typography.bodyMedium, color = if (kind == BannerKind.Error) (if (CookX.isDark) CookX.Danger else Color(0xFF8C2A1E)) else CookX.TextBody)
             }
         }
         if (actions != null) {

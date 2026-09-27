@@ -21,6 +21,7 @@ import com.smartcooking.app.temperature.CookingContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -64,6 +65,8 @@ class KitchenViewModel(private val c: AppContainer) : ViewModel() {
     val notificationMessage = c.notifications.message
     val remindersOn = MutableStateFlow(c.notifications.enabled(user))
     val confirmReplace = MutableStateFlow<Recipe?>(null)
+    /** Emits when a cooking session starts, so the AI recipe tab can switch to the kitchen. */
+    val started = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
     private var recipeJob: Job? = null
     private var listenJob: Job? = null
@@ -156,7 +159,20 @@ class KitchenViewModel(private val c: AppContainer) : ViewModel() {
             _cooking.value = true
             startTicker()
             runStep()
+            started.tryEmit(Unit)
         } catch (e: Exception) { _chat.update { it.copy(error = e.userMessage()) } }
+    }
+
+    /** Clears the saved conversation on the server (菜谱对话记录), keeping any open recipe draft. */
+    fun clearChat(onDone: (String) -> Unit) {
+        if (user.isBlank()) return
+        viewModelScope.launch {
+            try {
+                c.api.post("/clear-chat", query = mapOf("user_id" to user))
+                _chat.update { ChatState(messages = listOf(ChatMessage("assistant", "对话已清空。告诉我你想做什么菜，或者说说冰箱里有什么。"))) }
+                onDone("已清空对话记录")
+            } catch (e: CancellationException) { throw e } catch (e: Exception) { onDone("清空失败：${e.userMessage()}") }
+        }
     }
 
     fun restore() {

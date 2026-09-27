@@ -70,7 +70,7 @@ fun CookXCard(
 ) {
     Column(
         modifier
-            .shadow(elevation, shape, ambientColor = Color(0x331C3028), spotColor = Color(0x1F1C3028))
+            .shadow(elevation, shape, ambientColor = CookX.Shadow, spotColor = CookX.Shadow)
             .clip(shape)
             .background(color)
             .border(1.dp, CookX.Border, shape)
@@ -120,14 +120,30 @@ fun Kicker(text: String, color: Color = CookX.Gold, modifier: Modifier = Modifie
     Text(text, style = KickerStyle, color = color, modifier = modifier)
 }
 
-enum class Tone(val fg: Color, val bg: Color) {
-    Green(CookX.Primary, CookX.Mint),
-    Fresh(CookX.SuccessBright, Color(0xFFE9F5E8)),
-    Warm(CookX.Accent, CookX.AccentBg),
-    Gold(Color(0xFFB7791F), CookX.WarningBg),
-    Danger(CookX.Danger, Color(0xFFFFF0ED)),
-    Neutral(CookX.TextSecondary, Color(0xFFF1F0EB)),
-    OnDark(Color.White, CookX.OnDarkFaint),
+/** Semantic colour pairs; resolved on every read so they follow the light/dark palette. */
+enum class Tone {
+    Green, Fresh, Warm, Gold, Danger, Neutral, OnDark;
+
+    val fg: Color
+        get() = when (this) {
+            Green -> CookX.Primary
+            Fresh -> CookX.SuccessBright
+            Warm -> CookX.AccentText
+            Gold -> CookX.WarningText
+            Danger -> CookX.Danger
+            Neutral -> CookX.TextSecondary
+            OnDark -> Color.White
+        }
+    val bg: Color
+        get() = when (this) {
+            Green -> CookX.Mint
+            Fresh -> CookX.FreshBg
+            Warm -> CookX.AccentBg
+            Gold -> CookX.WarningBg
+            Danger -> CookX.DangerBg
+            Neutral -> CookX.NeutralBg
+            OnDark -> CookX.OnDarkFaint
+        }
 }
 
 /** Rounded-square icon container, e.g. the section icons in cards. */
