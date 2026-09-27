@@ -20,10 +20,10 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.smartcooking.app.showcase"
+        applicationId = "com.smartcooking.app.localtest"
         minSdk = 24
         targetSdk = 36
-        versionCode = 8
+        versionCode = 9
         versionName = "2.1.0"
         buildConfigField("String", "DEFAULT_BACKEND_ORIGIN", "\"$backendOrigin\"")
         // Phones only: the x86 ONNX Runtime libraries would add ~43 MB for emulators nobody tests on.
