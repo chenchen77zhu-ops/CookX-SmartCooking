@@ -41,7 +41,7 @@ class ApiException(
     val detail: JsonElement? get() = body.asObject()?.get("detail")
 }
 
-class ApiClient(private val sessions: SessionManager) {
+class ApiClient(private val sessions: SessionManager, localTransport: Interceptor? = null) {
     private val _unauthorized = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     /** Emitted when the API rejects the current token; the app returns to login. */
     val unauthorized: SharedFlow<Unit> = _unauthorized
@@ -63,6 +63,7 @@ class ApiClient(private val sessions: SessionManager) {
         .readTimeout(60, TimeUnit.SECONDS)
         .callTimeout(30, TimeUnit.SECONDS)
         .addInterceptor(authInterceptor)
+        .apply { localTransport?.let { addInterceptor(it) } }
         .build()
 
     fun url(path: String, query: Map<String, Any?> = emptyMap()): String {

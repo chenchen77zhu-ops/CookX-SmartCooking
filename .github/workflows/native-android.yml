@@ -34,3 +34,4 @@ jobs:
             android-native/app/build/outputs/apk/debug/*.apk
             android-native/app/build/reports/tests/
             android-native/screenshots/
+            android-native/app/screenshots/

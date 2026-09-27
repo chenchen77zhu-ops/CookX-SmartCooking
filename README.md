@@ -1,3 +1,7 @@
+# CookX 本地测试
+
+已同步最新原生 Compose UI。本分支永久独立，不合入 main。新原生 APK 位于 android-native 构建产物，包名继续使用 com.smartcooking.app.localtest。原有 Web 离线工程保留。原生本机交互及内容边界见 [说明](docs/NATIVE-OFFLINE-SHOWCASE.md)；说明中的 showcase 包名对应另一个独立内容分支。
+
 # CookX 离线功能测试版
 
 **当前分支：`feat/p2-local-test-apk`。仅用于独立测试，禁止合入 main。**
