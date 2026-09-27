@@ -77,12 +77,28 @@ class LiveRulesTest {
     }
 
     @Test fun stateDerivesEverythingFromOneSnapshot() {
-        val state = LiveState(connected = true, temperature = 182.0, session = session, now = 10_000, mutedUntil = 20_000)
+        val state = LiveState(connected = true, temperature = 182.0, measurementUsable = true, session = session, now = 10_000, mutedUntil = 20_000)
         assertEquals(Backdrop.Sear, state.backdrop)
         assertEquals(2, state.stepperIndex)
         assertTrue(state.muted)
         assertEquals("已连接", state.statusText)
         assertEquals("01:05", LiveRules.clock(65.0))
         assertEquals("--:--", LiveRules.clock(null))
+    }
+    @Test fun measurementQualitySuppressesOperationalAdviceAndEta() {
+        val state = LiveState(connected = true, temperature = 280.0, risk = "danger", session = session)
+        assertNull(state.alert)
+        assertNull(state.eta)
+        assertNull(state.stage)
+        assertEquals("测量待确认", state.advice?.title)
+        assertEquals(AlertLevel.Danger, state.copy(measurementUsable = true).alert?.level)
+    }
+
+    @Test fun durationAndFahrenheitAreNeverCelsiusTargets() {
+        assertNull(LiveRules.parseTarget("加热 180 秒"))
+        assertNull(LiveRules.parseTarget("180°F"))
+        assertNull(LiveRules.parseTarget("180"))
+        assertNull(LiveRules.parseTarget("190–170℃"))
+        assertNull(LiveRules.parseTarget("加热 60 秒至 180℃"))
     }
 }

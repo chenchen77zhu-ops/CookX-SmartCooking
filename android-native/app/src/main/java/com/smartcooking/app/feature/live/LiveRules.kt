@@ -61,16 +61,18 @@ object LiveRules {
     const val DANGER_ABSOLUTE = 260.0
     const val WARN_ABSOLUTE = 235.0
 
-    private val number = Regex("\\d+(?:\\.\\d+)?")
 
     /** Reads a step's target zone, e.g. "160–180 ℃" or "约 160°C" (±10 °C). */
     fun parseTarget(value: String?): Pair<Double, Double>? {
-        val numbers = number.findAll(value.orEmpty()).map { it.value.toDouble() }.filter { it in 40.0..320.0 }.toList()
-        return when {
-            numbers.size >= 2 -> numbers.min() to numbers.max()
-            numbers.size == 1 -> (numbers[0] - 10) to (numbers[0] + 10)
-            else -> null
+        val text = value?.trim() ?: return null
+        val range = Regex("""^(\d+(?:\.\d+)?)\s*[-–~～至]\s*(\d+(?:\.\d+)?)\s*(?:℃|°C|摄氏度)$""", RegexOption.IGNORE_CASE).matchEntire(text)
+        if (range != null) {
+            val lo = range.groupValues[1].toDouble(); val hi = range.groupValues[2].toDouble()
+            return if (lo in 40.0..300.0 && hi in 40.0..300.0 && lo < hi) lo to hi else null
         }
+        val single = Regex("""^(?:约\s*)?(\d+(?:\.\d+)?)\s*(?:℃|°C|摄氏度)$""", RegexOption.IGNORE_CASE).matchEntire(text)
+        val t = single?.groupValues?.get(1)?.toDouble() ?: return null
+        return if (t in 50.0..290.0) (t - 10) to (t + 10) else null
     }
 
     /** Least-squares heating rate over the last 20 s, in °C per second; null with too few points. */
@@ -159,15 +161,16 @@ data class LiveState(
     val risk: String? = null,
     val suggestion: String? = null,
     val qualityLabel: String = "",
+    val measurementUsable: Boolean = false,
     val mutedUntil: Long = 0,
     val now: Long = 0,
 ) {
     val target: Pair<Double, Double>? get() = session?.target
-    val alert: LiveAlert? get() = LiveRules.alert(temperature, target, risk)
-    val stage: HeatStage? get() = HeatStage.of(temperature)
+    val alert: LiveAlert? get() = if (measurementUsable) LiveRules.alert(temperature, target, risk) else null
+    val stage: HeatStage? get() = if (measurementUsable) HeatStage.of(temperature) else null
     val backdrop: Backdrop get() = LiveRules.backdrop(temperature, alert)
-    val advice: LiveAdvice? get() = LiveRules.advice(temperature, session, alert, suggestion, history)
-    val eta: Double? get() = LiveRules.targetEta(temperature, target, history)
+    val advice: LiveAdvice? get() = if (measurementUsable) LiveRules.advice(temperature, session, alert, suggestion, history) else if (temperature != null) LiveAdvice("测量待确认", "请保持探头稳定，等待连续有效测量后再判断", LiveAdvice.Tone.Normal) else null
+    val eta: Double? get() = if (measurementUsable) LiveRules.targetEta(temperature, target, history) else null
     val muted: Boolean get() = now < mutedUntil
     val online: Boolean get() = connected || simulated
 

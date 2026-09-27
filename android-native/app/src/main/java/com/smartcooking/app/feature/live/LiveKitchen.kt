@@ -99,13 +99,14 @@ class LiveKitchen(private val c: AppContainer) {
         val t = sample?.temperature?.takeIf { sample.valid && it.isFinite() }
         val source = if (replay) "simulation" else "device"
         if (source != lastSource) { history.clear(); lastSource = source; lastSampleAt = Long.MIN_VALUE }
-        if (sample != null && t != null && sample.updatedAt != lastSampleAt) {
+        val assessment = c.temperature.assessment.value
+        val usable = assessment.quality == "usable" && t != null
+        if (!usable) history.clear()
+        if (usable && sample != null && t != null && sample.updatedAt != lastSampleAt) {
             lastSampleAt = sample.updatedAt
             history.addLast(LivePoint(now, t))
         }
         while (history.isNotEmpty() && now - history.first().at > LiveRules.HISTORY_MS) history.removeFirst()
-        val assessment = c.temperature.assessment.value
-        val usable = assessment.quality == "usable"
         val next = LiveState(
             connected = connection.connected,
             simulated = replay,
@@ -117,6 +118,7 @@ class LiveKitchen(private val c: AppContainer) {
             risk = if (usable) assessment.risk else null,
             suggestion = if (usable) assessment.suggestion else null,
             qualityLabel = assessment.qualityLabel,
+            measurementUsable = usable,
             mutedUntil = mutedUntil,
             now = now,
         )
