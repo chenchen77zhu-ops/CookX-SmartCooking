@@ -44,11 +44,15 @@ class RecognitionDrafts(private val store: KeyValueStore) {
 /** Decodes a picked/captured photo, applies EXIF rotation and re-encodes a bounded JPEG for upload. */
 fun loadUploadJpeg(context: Context, uri: Uri, maxDimension: Int = 1600, quality: Int = 88): ByteArray {
     val resolver = context.contentResolver
+    // A picked or captured photo may be unreadable (revoked grant, deleted file): report that plainly instead of a raw exception.
+    fun open() = runCatching { resolver.openInputStream(uri) }.getOrNull() ?: throw IllegalStateException("无法读取图片")
+    // inJustDecodeBounds always returns a null bitmap, so the size — not the return value — tells whether the bytes are an image.
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-    resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) } ?: throw IllegalStateException("无法读取图片")
+    open().use { BitmapFactory.decodeStream(it, null, bounds) }
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) throw IllegalStateException("图片格式不受支持")
     var sample = 1
     while (bounds.outWidth / (sample * 2) >= maxDimension || bounds.outHeight / (sample * 2) >= maxDimension) sample *= 2
-    val bitmap = resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample }) }
+    val bitmap = open().use { BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample }) }
         ?: throw IllegalStateException("图片格式不受支持")
     val rotation = runCatching {
         resolver.openInputStream(uri)?.use {
