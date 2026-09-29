@@ -23,8 +23,8 @@ android {
         applicationId = "com.smartcooking.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 7
-        versionName = "2.1.0"
+        versionCode = 10
+        versionName = "2.1.1"
         buildConfigField("String", "DEFAULT_BACKEND_ORIGIN", "\"$backendOrigin\"")
         // Phones only: the x86 ONNX Runtime libraries would add ~43 MB for emulators nobody tests on.
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
